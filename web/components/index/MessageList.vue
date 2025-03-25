@@ -16,9 +16,16 @@
                 {{ formatDate(msg.created_at) }}
               </div>
             </div>
-            <!-- 编辑按钮 -->
-            <div v-if="isLogin" class="w-5 h-5" @click="deleteMsg(msg.id)">
-              <UIcon name="i-mdi-paper-roll-outline" class="text-gray-400" />
+            <!-- 操作按钮 -->
+            <div class="flex justify-end items-center">
+              <!-- 显示是否为私密 -->
+              <div v-if="msg.private" class="w-5 h-5">
+                <UIcon name="i-mdi-lock-outline" class="text-gray-400" />
+              </div>
+              <!-- 删除按钮 -->
+              <div v-if="isLogin" class="w-5 h-5" @click="deleteMsg(msg.id)">
+                <UIcon name="i-mdi-paper-roll-outline" class="text-gray-400" />
+              </div>
             </div>
           </div>
 
@@ -56,7 +63,7 @@
           class="rounded-full border-gray-200"
           @click="message.getMessages({ page: message.page + 1, pageSize: 10 })"
         >
-         加载更多...
+          加载更多...
         </UButton>
       </div>
       <!-- 加载完毕提示~ -->
@@ -65,8 +72,8 @@
         加载完毕~
       </div>
     </div>
-        <!-- 来源信息 - 固定在底部 -->
-        <div class="text-center text-xs text-gray-400 py-4">
+    <!-- 来源信息 - 固定在底部 -->
+    <div class="text-center text-xs text-gray-400 py-4">
       来自<a href="https://www.noisework.cn" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Noise</a>
       使用<a href="https://github.com/lin-snow/Ech0" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Ech0</a>发布
     </div>

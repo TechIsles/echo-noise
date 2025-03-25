@@ -10,17 +10,25 @@ import (
 )
 
 // GetAllMessages 从数据库获取所有留言
-func GetAllMessages() ([]models.Message, error) {
+func GetAllMessages(showPrivate bool) ([]models.Message, error) {
 	var messages []models.Message
-	result := database.DB.Order("created_at DESC").Find(&messages)
-	if result.Error != nil {
-		return nil, result.Error
+
+	// 是否将私密内容也查询出来
+	if showPrivate {
+		if err := database.DB.Order("created_at DESC").Find(&messages).Error; err != nil {
+			return nil, err
+		}
+	} else {
+		if err := database.DB.Where("private = ?", false).Find(&messages).Error; err != nil {
+			return nil, err
+		}
 	}
+
 	return messages, nil
 }
 
 // GetMessageByID 根据 ID 获取留言
-func GetMessageByID(id uint) (*models.Message, error) {
+func GetMessageByID(id uint, showPrivate bool) (*models.Message, error) {
 	var message models.Message
 	result := database.DB.First(&message, id)
 	if result.Error != nil {
@@ -29,6 +37,11 @@ func GetMessageByID(id uint) (*models.Message, error) {
 		}
 		return nil, result.Error // 其他错误返回
 	}
+
+	if !showPrivate && message.Private {
+		return nil, nil
+	}
+
 	return &message, nil
 }
 

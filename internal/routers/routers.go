@@ -26,16 +26,17 @@ func SetupRouter() *gin.Engine {
 	publicRoutes.POST("/register", controllers.Register) // 注册
 	publicRoutes.GET("/status", controllers.GetStatus)   // 获取用户信息
 
-	publicRoutes.GET("/messages", controllers.GetMessages)             // 获取笔记列表
-	publicRoutes.GET("/messages/:id", controllers.GetMessage)          // 获取笔记详情
-	publicRoutes.POST("/messages/page", controllers.GetMessagesByPage) // 分页获取笔记列表
+	// publicRoutes.GET("/messages", controllers.GetMessages) // 获取留言列表
 
 	// 需要鉴权的路由
 	authRoutes := r.Group("/api")
 	authRoutes.Use(middleware.JWTAuthMiddleware()) // 使用 JWT 鉴权中间件
 
-	authRoutes.POST("/messages", controllers.PostMessage)         // 发布笔记
-	authRoutes.DELETE("/messages/:id", controllers.DeleteMessage) // 删除笔记
+	authRoutes.GET("/messages/:id", controllers.GetMessage)          // 获取留言详情
+	authRoutes.POST("/messages/page", controllers.GetMessagesByPage) // 分页获取留言列表
+
+	authRoutes.POST("/messages", controllers.PostMessage)         // 发布留言
+	authRoutes.DELETE("/messages/:id", controllers.DeleteMessage) // 删除留言
 
 	// 添加图片上传路由
 	authRoutes.POST("/images/upload", controllers.UploadImage) // 上传图片
