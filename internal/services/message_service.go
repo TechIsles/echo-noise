@@ -93,16 +93,16 @@ func GenerateRSS(c *gin.Context) (string, error) {
 	}
 	host := c.Request.Host
 	feed := &feeds.Feed{
-		Title: "Ech0s~",
+		Title: "Noise的说说笔记",
 		Link: &feeds.Link{
 			Href: fmt.Sprintf("%s://%s/", schema, host),
 		},
 		Image: &feeds.Image{
 			Url: fmt.Sprintf("%s://%s/favicon.ico", schema, host),
 		},
-		Description: "Ech0s~",
+		Description: "一个说说笔记~",
 		Author: &feeds.Author{
-			Name: "Ech0s~",
+			Name: "Noise",
 		},
 		Updated: time.Now(),
 	}
