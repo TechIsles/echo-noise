@@ -21,6 +21,8 @@ export default defineNuxtConfig({
           body: true 
         },
         { src: 'https://unpkg.com/medium-zoom/dist/medium-zoom.min.js', body: true },
+        { src: 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js', body: true },
+        { src: 'https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js', body: true },
       ],
       title: "Noise·说说·笔记~",
       meta: [

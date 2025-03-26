@@ -27,6 +27,10 @@
               <div class="w-5 h-5 cursor-pointer" @click="copyContent(msg.content)" :title="'复制内容'">
                 <UIcon name="i-mdi-content-copy" class="text-gray-400 hover:text-orange-500" />
               </div>
+              <!-- 下载按钮 -->
+              <div class="w-5 h-5 cursor-pointer" @click="downloadAsImage(msg.id)" :title="'下载为图片'">
+                <UIcon name="i-mdi-image-outline" class="text-gray-400 hover:text-orange-500" />
+              </div>
               <!-- 评论按钮 -->
               <div class="w-5 h-5 cursor-pointer" @click="toggleComment(msg.id)">
                 <UIcon name="i-mdi-comment-outline" class="text-gray-400 hover:text-orange-500" />
@@ -452,6 +456,208 @@ const saveEditedMessage = async () => {
     });
   } finally {
     isSaving.value = false;
+  }
+};
+const downloadAsImage = async (msgId: number) => {
+  try {
+    const element = document.querySelector(`.content-container[data-msg-id="${msgId}"]`);
+    if (!element) return;
+
+    // 检查内容类型
+    const hasText = element.querySelector('.markdown-preview')?.textContent?.trim();
+    const hasImage = element.querySelector('img');
+    const hasVideo = element.querySelector('video');
+    const hasAudio = element.querySelector('audio');
+
+    // 纯视频或纯音频内容不生成卡片
+    if ((!hasText && !hasImage && hasVideo) || (!hasText && !hasImage && hasAudio)) {
+      useToast().add({
+        title: '此内容不可生成卡片',
+        color: 'orange',
+        timeout: 2000
+      });
+      return;
+    }
+
+    // 设置超时检测
+    const timeout = setTimeout(() => {
+      useToast().add({
+        title: '生成超时',
+        description: '卡片生成时间过长，请稍后重试',
+        color: 'red',
+        timeout: 3000
+      });
+    }, 10000);
+
+    // 1. 临时展开内容
+    const originalExpanded = isExpanded.value[msgId];
+    isExpanded.value[msgId] = true;
+    await nextTick();
+
+    // 2. 创建临时容器
+const tempContainer = document.createElement('div');
+tempContainer.style.cssText = `
+  padding: 30px;
+  background: rgba(36, 43, 50, 0.95);
+  border-radius: 12px;
+  width: ${hasImage ? '800px' : '600px'};
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: -1;
+  overflow: visible;
+  min-height: fit-content;
+`;
+    document.body.appendChild(tempContainer);
+    
+    // 3. 复制并处理内容
+    const contentClone = element.cloneNode(true) as HTMLElement;
+    
+    // 移除所有控制元素和限制
+    contentClone.querySelectorAll('.text-center.mt-2, .bg-gradient-to-t').forEach(el => el.remove());
+    contentClone.style.cssText = `
+      max-height: none;
+      overflow: visible;
+      padding: 20px;
+      margin: 0;
+    `;
+    
+    // 处理内容区域
+const contentArea = contentClone.querySelector('.overflow-y-hidden');
+if (contentArea) {
+  contentArea.className = '';
+  contentArea.style.cssText = `
+    overflow: visible;
+    max-height: none !important;
+    height: auto !important;
+    padding: 20px;
+    line-height: 1.8;
+    margin-bottom: 20px;
+    white-space: pre-wrap;
+  `;
+}
+
+    // 处理媒体元素
+    const mediaElements = contentClone.querySelectorAll('video, audio, iframe');
+    mediaElements.forEach(media => {
+      const placeholder = document.createElement('div');
+      placeholder.style.cssText = `
+        padding: 15px;
+        background: rgba(251, 146, 60, 0.1);
+        border: 1px solid rgba(251, 146, 60, 0.3);
+        border-radius: 8px;
+        color: #fb923c;
+        margin: 15px 0;
+        word-break: break-all;
+      `;
+      
+      if (media instanceof HTMLVideoElement) {
+        placeholder.innerHTML = `🎬 视频链接：${media.src || '未知链接'}`;
+      } else if (media instanceof HTMLAudioElement) {
+        placeholder.innerHTML = `🎵 音频链接：${media.src || '未知链接'}`;
+      } else if (media instanceof HTMLIFrameElement) {
+        placeholder.innerHTML = `🔗 嵌入内容链接：${media.src || '未知链接'}`;
+      }
+      
+      media.parentNode?.replaceChild(placeholder, media);
+    });
+
+    // 处理图片
+    const images = contentClone.querySelectorAll('img');
+    await Promise.all(Array.from(images).map(async (img) => {
+      return new Promise<void>((resolve) => {
+        const originalSrc = img.src;
+        img.crossOrigin = 'anonymous';
+        img.style.maxHeight = '600px';
+        
+        if (originalSrc.startsWith('/')) {
+          img.src = `${BASE_API}${originalSrc}`;
+        }
+        
+        if (img.complete) {
+          resolve();
+        } else {
+          img.onload = () => resolve();
+          img.onerror = () => {
+            console.error('图片加载失败:', originalSrc);
+            img.parentElement?.removeChild(img);
+            resolve();
+          };
+        }
+      });
+    }));
+
+    tempContainer.appendChild(contentClone);
+
+    // 添加 footer
+    const footer = document.createElement('div');
+    footer.style.cssText = `
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid rgba(255, 255, 255, 0.2);
+      text-align: center;
+      font-family: system-ui, -apple-system, sans-serif;
+    `;
+    footer.innerHTML = `
+      <div style="color: #fb923c; font-size: 14px; margin-bottom: 10px;">
+       Noise·说说·笔记~
+      </div>
+      <div style="color: #666; font-size: 12px;">
+        www.noisework.cn
+      </div>
+    `;
+    tempContainer.appendChild(footer);
+
+    // 生成图片
+await nextTick();
+const canvas = await html2canvas(tempContainer, {
+  backgroundColor: 'rgba(36, 43, 50, 0.95)',
+  scale: 2,
+  useCORS: true,
+  allowTaint: true,
+  logging: false,
+  width: hasImage ? 800 : 600,
+  height: tempContainer.scrollHeight,
+  onclone: (clonedDoc) => {
+    const clonedElement = clonedDoc.querySelector('.content-container');
+    if (clonedElement) {
+      clonedElement.style.cssText = `
+        overflow: visible !important;
+        max-height: none !important;
+        height: auto !important;
+        padding: 30px;
+        min-height: ${contentArea?.scrollHeight || 0}px;
+      `;
+    }
+  }
+});
+
+    // 清除超时检测
+    clearTimeout(timeout);
+    // 7. 下载图片
+    const link = document.createElement('a');
+    link.download = `message-${msgId}.png`;
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+
+    // 8. 清理临时元素
+    document.body.removeChild(tempContainer);
+    
+    // 9. 恢复原始展开状态
+    isExpanded.value[msgId] = originalExpanded;
+
+    useToast().add({
+      title: '下载成功',
+      color: 'green',
+      timeout: 2000
+    });
+  } catch (error) {
+    console.error('下载失败:', error);
+    useToast().add({
+      title: '下载失败',
+      color: 'red',
+      timeout: 2000
+    });
   }
 };
 </script>
