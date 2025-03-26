@@ -77,3 +77,47 @@ func DeleteMessage(id uint) error {
 	}
 	return nil
 }
+// UpdateMessageContent 更新留言内容
+func UpdateMessageContent(id uint, content string) error {
+    // 开始事务
+    tx := database.DB.Begin()
+    
+    // 先查询原消息
+    var oldMessage models.Message
+    if err := tx.First(&oldMessage, id).Error; err != nil {
+        tx.Rollback()
+        return err
+    }
+    
+    // 验证和处理新内容
+    content = strings.TrimSpace(content)
+    if content == "" && oldMessage.ImageURL == "" {
+        tx.Rollback()
+        return errors.New(models.CannotBeEmptyMessage)
+    }
+    
+    // 创建新消息，保留原有信息
+    newMessage := models.Message{
+        ID:        oldMessage.ID, // 保持原有 ID
+        UserID:    oldMessage.UserID,
+        Username:  oldMessage.Username,
+        Content:   content,
+        ImageURL:  oldMessage.ImageURL,
+        Private:   oldMessage.Private,
+        CreatedAt: oldMessage.CreatedAt,
+    }
+    
+    // 删除旧消息
+    if err := tx.Unscoped().Delete(&oldMessage).Error; err != nil {
+        tx.Rollback()
+        return err
+    }
+    
+    // 创建新消息
+    if err := tx.Create(&newMessage).Error; err != nil {
+        tx.Rollback()
+        return err
+    }
+    
+    return tx.Commit().Error
+}

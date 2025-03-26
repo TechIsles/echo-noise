@@ -22,6 +22,18 @@
               <div v-if="msg.private" class="w-5 h-5">
                 <UIcon name="i-mdi-lock-outline" class="text-gray-400" />
               </div>
+              <!-- 编辑按钮 -->
+              <div
+                v-if="isLogin"
+                class="w-5 h-5 cursor-pointer"
+                @click="editMessage(msg)"
+                :title="'编辑内容'"
+              >
+                <UIcon
+                  name="i-mdi-pencil-outline"
+                  class="text-gray-400 hover:text-orange-500"
+                />
+              </div>
               <!-- 复制按钮 -->
               <div
                 class="w-5 h-5 cursor-pointer"
@@ -155,6 +167,55 @@
       >发布
     </div>
   </div>
+  <!-- 编辑对话框 -->
+  <UModal v-model="showEditModal" :ui="{ width: 'sm:max-w-2xl' }">
+    <UCard>
+      <template #header>
+        <div class="flex justify-between items-center">
+          <h3 class="text-lg font-medium">编辑内容</h3>
+          <UButton
+            color="gray"
+            variant="ghost"
+            icon="i-mdi-close"
+            class="-my-1"
+            @click="showEditModal = false"
+          />
+        </div>
+      </template>
+      <div class="flex flex-col space-y-4">
+        <UTextarea
+          v-model="editingContent"
+          placeholder="编辑内容..."
+          rows="10"
+          class="font-mono text-sm"
+        />
+        <div class="border-t border-gray-200 my-2 pt-2">
+          <div class="text-sm text-gray-500 mb-2">预览：</div>
+          <div class="p-4 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-auto max-h-[300px]">
+            <MarkdownRenderer :content="editingContent" />
+          </div>
+        </div>
+      </div>
+      <template #footer>
+        <div class="flex justify-end space-x-2">
+          <UButton
+            color="gray"
+            variant="outline"
+            @click="showEditModal = false"
+          >
+            取消
+          </UButton>
+          <UButton
+            color="orange"
+            @click="saveEditedMessage"
+            :loading="isSaving"
+          >
+            保存
+          </UButton>
+        </div>
+      </template>
+    </UCard>
+  </UModal>
 </template>
 
 <script setup lang="ts">
@@ -168,10 +229,29 @@ const message = useMessageStore();
 const isLogin = ref<boolean>(false);
 const activeCommentId = ref<number | null>(null);
 
-const deleteMsg = (id: number) => {
+const deleteMsg = async (id: number) => {
   const confirmDelete = confirm("确定要删除这条消息吗？");
   if (confirmDelete) {
-    deleteMessage(id);
+    try {
+      await deleteMessage(id);
+      // 删除成功后刷新消息列表
+      await message.getMessages({
+        page: message.page,
+        pageSize: 10
+      });
+      useToast().add({
+        title: '删除成功',
+        color: 'green',
+        timeout: 2000
+      });
+    } catch (error) {
+      console.error('删除失败:', error);
+      useToast().add({
+        title: '删除失败',
+        color: 'red',
+        timeout: 2000
+      });
+    }
   }
 };
 
@@ -392,6 +472,68 @@ const copyContent = async (content: string) => {
       color: 'red',
       timeout: 2000
     });
+  }
+};
+// 添加编辑功能
+const showEditModal = ref(false);
+const editingContent = ref('');
+const editingMessageId = ref<number | null>(null);
+const isSaving = ref(false);
+
+const editMessage = (msg: any) => {
+  editingMessageId.value = msg.id;
+  editingContent.value = msg.content;
+  showEditModal.value = true;
+};
+
+const saveEditedMessage = async () => {
+  if (!editingMessageId.value) return;
+  
+  isSaving.value = true;
+  try {
+    // 先删除原消息
+    await deleteMessage(editingMessageId.value);
+    
+    // 准备新消息数据
+    const oldMsg = message.messages.find(msg => msg.id === editingMessageId.value);
+    const newMessage: MessageToSave = {
+      content: editingContent.value,
+      private: oldMsg?.private || false,
+      username: oldMsg?.username || '',
+      image_url: oldMsg?.image_url || ''
+    };
+
+    // 使用与 AddForm 相同的 save 方法创建新消息
+    const { save } = useMessage();
+    const response = await save(newMessage);
+    
+    if (!response) {
+      throw new Error('创建新消息失败');
+    }
+
+    // 更新本地消息列表
+    await message.getMessages({
+      page: message.page,
+      pageSize: 10
+    });
+    
+    useToast().add({
+      title: '更新成功',
+      color: 'green',
+      timeout: 2000
+    });
+    
+    showEditModal.value = false;
+  } catch (error) {
+    console.error('更新消息失败:', error);
+    useToast().add({
+      title: '更新失败',
+      description: error.message || '请检查网络连接或权限',
+      color: 'red',
+      timeout: 3000
+    });
+  } finally {
+    isSaving.value = false;
   }
 };
 </script>

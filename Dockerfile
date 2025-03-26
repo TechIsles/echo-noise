@@ -10,10 +10,10 @@ RUN npm install --production
 
 # 复制前端源代码并构建项目
 COPY ./web/ .
-RUN npm run generate  # 生成静态文件
+RUN npm run generate
 
 # 复制构建后的文件到后端 public 目录
-RUN cp -r .output/public /app/public/
+RUN mkdir -p /app/public && cp -r .output/public/* /app/public/
 
 # 使用 Golang Alpine 镜像作为后端构建阶段
 FROM golang:1.22-alpine AS backend-build
@@ -24,24 +24,22 @@ WORKDIR /app
 # 添加阿里云的镜像源
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
-# 安装构建时所需的工具（仅限构建阶段）
-RUN apk add --no-cache --update gcc musl-dev
+# 安装构建时所需的工具
+RUN apk add --no-cache --update gcc musl-dev git
 
-# 设置环境变量启用 cgo
+# 设置环境变量
 ENV CGO_ENABLED=1
 ENV GOTOOLCHAIN=auto
+ENV GOPROXY=https://goproxy.cn,direct
 
 # 复制后端代码和必要文件
-COPY ./go.mod ./go.sum ./
-RUN go mod download
+COPY go.mod go.sum ./
+RUN go mod download && go mod verify
 
-COPY ./cmd ./cmd
-COPY ./internal ./internal
-COPY ./pkg ./pkg
-COPY ./config ./config
+COPY . .
 
-# 创建并设置权限
-RUN mkdir -p /app/data && chmod -R 777 /app/data
+# 创建必要的目录并设置权限
+RUN mkdir -p /app/data /app/public && chmod -R 777 /app/data
 
 # 构建 Go 后端应用
 RUN go build -o /app/noise ./cmd/server/main.go
@@ -50,6 +48,15 @@ RUN go build -o /app/noise ./cmd/server/main.go
 FROM alpine:3.18 AS final
 
 WORKDIR /app
+
+# 安装运行时依赖
+RUN apk add --no-cache ca-certificates tzdata
+
+# 设置时区
+ENV TZ=Asia/Shanghai
+
+# 创建必要的目录
+RUN mkdir -p /app/data /app/public && chmod -R 777 /app/data
 
 # 复制构建阶段的文件
 COPY --from=backend-build /app/config /app/config

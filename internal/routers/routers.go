@@ -1,6 +1,7 @@
 package routers
 
 import (
+	"github.com/gin-contrib/cors"
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
 	"github.com/lin-snow/ech0/internal/controllers"
@@ -8,49 +9,61 @@ import (
 )
 
 func SetupRouter() *gin.Engine {
-	r := gin.Default()
+    r := gin.Default()
 
-	// 设置 CORS 规则
-	r.Use(middleware.Cors())
+    // 配置 CORS
+    config := cors.DefaultConfig()
+    config.AllowHeaders = []string{"Origin", "Content-Type", "Authorization"}
+    config.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
+    config.AllowCredentials = true
+    config.AllowOrigins = []string{"*"}
+    r.Use(cors.New(config))
 
-	// 映射静态文件目录
-	r.Use(static.Serve("/", static.LocalFile("./public", true)))
-	r.Static("/api/images", "./data/images")
+    // 映射静态文件目录
+    r.Use(static.Serve("/", static.LocalFile("./public", true)))
+    r.Static("/images", "./data/images")
 
-	r.GET("/rss", controllers.GenerateRSS) // 生成 RSS 订阅链接
+    // RSS 订阅
+    r.GET("/rss", controllers.GenerateRSS)
 
-	// 公共的路由
-	publicRoutes := r.Group("/api")
+    // API 路由组
+    api := r.Group("/api")
+    
+    // 公共路由
+    api.POST("/login", controllers.Login)
+    api.POST("/register", controllers.Register)
+    api.GET("/status", controllers.GetStatus)
 
-	publicRoutes.POST("/login", controllers.Login)       // 登录
-	publicRoutes.POST("/register", controllers.Register) // 注册
-	publicRoutes.GET("/status", controllers.GetStatus)   // 获取用户信息
+    // 需要鉴权的路由
+    auth := api.Group("")
+    auth.Use(middleware.JWTAuthMiddleware())
 
-	// publicRoutes.GET("/messages", controllers.GetMessages) // 获取留言列表
+    // 消息相关路由
+    messages := auth.Group("/messages")
+    {
+        messages.GET("/:id", controllers.GetMessage)
+        messages.POST("/page", controllers.GetMessagesByPage)
+        messages.POST("", controllers.PostMessage)
+        messages.PUT("/:id", controllers.UpdateMessage)
+        messages.DELETE("/:id", controllers.DeleteMessage)
+    }
 
-	// 需要鉴权的路由
-	authRoutes := r.Group("/api")
-	authRoutes.Use(middleware.JWTAuthMiddleware()) // 使用 JWT 鉴权中间件
+    // 图片上传路由
+    auth.POST("/images/upload", controllers.UploadImage)
 
-	authRoutes.GET("/messages/:id", controllers.GetMessage)          // 获取留言详情
-	authRoutes.POST("/messages/page", controllers.GetMessagesByPage) // 分页获取留言列表
+    // 用户相关路由
+    user := auth.Group("/user")
+    {
+        user.GET("", controllers.GetUserInfo)
+        user.PUT("/change_password", controllers.ChangePassword)
+        user.PUT("/update", controllers.UpdateUser)
+        user.PUT("/admin", controllers.UpdateUserAdmin)
+    }
 
-	authRoutes.POST("/messages", controllers.PostMessage)         // 发布留言
-	authRoutes.DELETE("/messages/:id", controllers.DeleteMessage) // 删除留言
+    // 404 处理
+    r.NoRoute(func(c *gin.Context) {
+        c.File("./public/index.html")
+    })
 
-	// 添加图片上传路由
-	authRoutes.POST("/images/upload", controllers.UploadImage) // 上传图片
-
-	// 更新用户信息
-	authRoutes.PUT("/user/change_password", controllers.ChangePassword) // 修改密码
-	authRoutes.PUT("/user/update", controllers.UpdateUser)              // 更新用户信息
-	authRoutes.PUT("/user/admin", controllers.UpdateUserAdmin)          // 更新用户权限
-
-	// 获取当前登录的用户信息
-	authRoutes.GET("/user", controllers.GetUserInfo) // 获取当前登录的用户信息
-
-	// 更新系统设置
-	// authRoutes.PUT("/setting/update", controllers.UpdateSetting) // 更新系统设置
-
-	return r
+    return r
 }
