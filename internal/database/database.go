@@ -38,7 +38,7 @@ func InitDB() error {
 
 	var err error
 	if dbType == "sqlite" {
-		DB, err = gorm.Open(sqlite.Open(dbPath+"?_journal=WAL&_timeout=5000"), &gorm.Config{
+		DB, err = gorm.Open(sqlite.Open(dbPath+"?_timeout=5000"), &gorm.Config{
 			Logger:                 newLogger,
 			PrepareStmt:           true,
 			QueryFields:           true,
