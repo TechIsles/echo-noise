@@ -47,7 +47,9 @@
           </div>
 
           <div class="border-l-2 border-gray-300 p-6 ml-1">
-            <div class="content-container" v-if="msg.image_url || msg.content">
+            <div class="content-container" v-if="msg.image_url || msg.content"
+            :data-msg-id="msg.id"
+             >
               <!-- 图片内容 -->
               <a
                 v-if="msg.image_url"
@@ -66,10 +68,34 @@
                 v-if="msg.image_url && msg.content"
                 class="border-t border-gray-600 my-4"
               ></div>
-              <!-- 文本内容 -->
-              <div class="overflow-y-auto">
-                <MarkdownRenderer :content="msg.content" />
-              </div>
+              <!-- 文本内容区域 -->
+<div
+  class="overflow-y-hidden relative"
+  :class="{ 'max-h-[700px]': !isExpanded[msg.id] }"
+>
+  <MarkdownRenderer :content="msg.content" />
+  <div
+    v-if="shouldShowExpandButton[msg.id] && !isExpanded[msg.id]"
+    class="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[rgba(36,43,50,1)] via-[rgba(36,43,50,0.8)] to-transparent"
+  ></div>
+</div>
+<!-- 展开/折叠按钮 -->
+<div
+  v-if="shouldShowExpandButton[msg.id]"
+  class="text-center mt-2 relative"
+  style="z-index: 9999;"
+>
+  <button
+    @click="toggleExpand(msg.id)"
+    class="flex items-center justify-center space-x-1 mx-auto px-4 py-2 text-orange-500 hover:text-orange-600 focus:outline-none transition-colors duration-200"
+  >
+    <span>{{ isExpanded[msg.id] ? "收起内容" : "展开全文" }}</span>
+    <UIcon
+      :name="isExpanded[msg.id] ? 'i-mdi-chevron-up' : 'i-mdi-chevron-down'"
+      class="w-5 h-5"
+    />
+  </button>
+</div>
             </div>
             <!-- 评论区域 -->
             <div v-show="activeCommentId === msg.id" class="mt-4">
@@ -140,7 +166,7 @@ const deleteMsg = (id: number) => {
 
 const initFancybox = () => {
   if (window.Fancybox) {
-  // 先解绑之前的事件，避免冲突
+    // 先解绑之前的事件，避免冲突
     window.Fancybox.destroy();
     // 统一配置
     const fancyboxOptions = {
@@ -162,7 +188,7 @@ const initFancybox = () => {
         zoom: true,
         click: true,
         wheel: "slide",
-      }
+      },
     };
 
     // 处理 Markdown 中的图片
@@ -170,15 +196,15 @@ const initFancybox = () => {
     mdImages.forEach((img) => {
       // 移除已存在的包装器
       const parent = img.parentElement;
-      if (parent && parent.hasAttribute('data-fancybox')) {
+      if (parent && parent.hasAttribute("data-fancybox")) {
         parent.replaceWith(img);
       }
-      
+
       const src = img.getAttribute("src");
       const wrapper = document.createElement("a");
       wrapper.href = src;
       wrapper.setAttribute("data-fancybox", "uploaded-image");
-      wrapper.style.display = 'block';
+      wrapper.style.display = "block";
       img.parentNode.insertBefore(wrapper, img);
       wrapper.appendChild(img);
     });
@@ -248,11 +274,44 @@ const formatDate = (dateString: string) => {
     return date.toLocaleString();
   }
 };
+// 添加展开状态管理
+const isExpanded = ref<{ [key: number]: boolean }>({});
+const shouldShowExpandButton = ref<{ [key: number]: boolean }>({});
 
+// 添加展开/折叠切换函数
+const toggleExpand = (msgId: number) => {
+  isExpanded.value[msgId] = !isExpanded.value[msgId];
+};
+
+// 修改检查内容高度的函数
+const checkContentHeight = () => {
+  nextTick(() => {
+    message.messages.forEach((msg) => {
+      const contentEl = document.querySelector(
+        `.content-container[data-msg-id="${msg.id}"] .markdown-preview`
+      );
+      if (contentEl && contentEl.scrollHeight > 700) {
+        shouldShowExpandButton.value[msg.id] = true;
+        isExpanded.value[msg.id] = false;
+      }
+    });
+  });
+};
+
+// 确保在内容变化时重新检查高度
+watch(
+  () => message.messages,
+  () => {
+    nextTick(() => {
+      checkContentHeight();
+    });
+  },
+  { deep: true }
+);
 onMounted(() => {
   isLogin.value = useUserStore()?.isLogin;
-
- // 确保 Waline 脚本加载完成
+  checkContentHeight();
+  // 确保 Waline 脚本加载完成
   if (!window.Waline) {
     console.warn("Waline 未加载，尝试加载 Waline 脚本");
     const script = document.createElement("script");
@@ -267,7 +326,7 @@ onMounted(() => {
 
   // 添加定时器确保图片加载完成后初始化
   const initTimer = setInterval(() => {
-    const images = document.querySelectorAll('.markdown-preview img');
+    const images = document.querySelectorAll(".markdown-preview img");
     if (images.length > 0) {
       initFancybox();
       clearInterval(initTimer);
@@ -321,7 +380,36 @@ onBeforeUnmount(() => {
   width: 100%;
   box-sizing: border-box;
 }
+/* 添加展开/折叠按钮样式 */
+button {
+  background: rgba(36, 43, 50, 0.95);
+  border: 1px solid rgba(251, 146, 60, 0.3);
+  border-radius: 20px;
+  position: relative;
+  z-index: 9999;
+}
 
+button:hover {
+  background: rgba(46, 53, 60, 0.95);
+  border-color: rgba(251, 146, 60, 0.5);
+  cursor: pointer;
+}
+
+/* 确保内容区域的层级正确 */
+.overflow-y-hidden {
+  transition: max-height 0.3s ease-in-out;
+  position: relative;
+  z-index: 1;
+}
+/* 添加内容过渡动画 */
+.overflow-y-hidden {
+  transition: max-height 0.3s ease-in-out;
+}
+
+/* 修正展开状态下的最大高度限制 */
+.content-container .overflow-y-hidden:not(.max-h-\[700px\]) {
+  max-height: none;
+}
 .content-container img {
   width: 100%;
   height: auto;
