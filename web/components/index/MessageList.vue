@@ -22,6 +22,17 @@
               <div v-if="msg.private" class="w-5 h-5">
                 <UIcon name="i-mdi-lock-outline" class="text-gray-400" />
               </div>
+              <!-- 复制按钮 -->
+              <div
+                class="w-5 h-5 cursor-pointer"
+                @click="copyContent(msg.content)"
+                :title="'复制内容'"
+              >
+                <UIcon
+                  name="i-mdi-content-copy"
+                  class="text-gray-400 hover:text-orange-500"
+                />
+              </div>
               <!-- 评论按钮 -->
               <div
                 class="w-5 h-5 cursor-pointer"
@@ -364,6 +375,25 @@ onBeforeUnmount(() => {
     window.Fancybox.destroy();
   }
 });
+// 添加复制功能
+const copyContent = async (content: string) => {
+  try {
+    await navigator.clipboard.writeText(content);
+    // 可以使用 Nuxt 的 toast 提示复制成功
+    useToast().add({
+      title: '复制成功',
+      color: 'green',
+      timeout: 2000
+    });
+  } catch (err) {
+    console.error('复制失败:', err);
+    useToast().add({
+      title: '复制失败',
+      color: 'red',
+      timeout: 2000
+    });
+  }
+};
 </script>
 
 <style scoped>
