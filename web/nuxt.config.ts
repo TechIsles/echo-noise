@@ -5,6 +5,7 @@ export default defineNuxtConfig({
       link: [
         { rel: 'stylesheet', href: 'https://www.noisework.cn/css/APlayer.min.css' },
         { rel: 'stylesheet', href: 'https://unpkg.com/@waline/client@v3/dist/waline.css' },
+        { rel: 'stylesheet', href: 'https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.css' },
       ],
       script: [
         { src: 'https://cdn.jsdelivr.net/npm/jquery@3.2.1/dist/jquery.min.js', body: true },
@@ -15,6 +16,11 @@ export default defineNuxtConfig({
           body: true,
           defer: true
         },
+        { 
+          src: 'https://cdn.jsdelivr.net/npm/@fancyapps/ui@5.0/dist/fancybox/fancybox.umd.js',
+          body: true 
+        },
+        { src: 'https://unpkg.com/medium-zoom/dist/medium-zoom.min.js', body: true },
       ],
       title: "Noise·说说·笔记~",
       meta: [

@@ -16,6 +16,7 @@ const SPOTIFY_REG = /https:\/\/open\.spotify\.com\/(track|album|playlist)\/([a-z
 const YOUKU_REG = /https:\/\/v\.youku\.com\/v_show\/id_([a-zA-Z0-9]+)\.html/;
 
 const previewElement = ref<HTMLDivElement | null>(null);
+let zoom: any = null;
 
 const props = defineProps({
   content: {
@@ -23,6 +24,24 @@ const props = defineProps({
     required: true,
   },
 });
+
+const initializeZoom = () => {
+  if (window.mediumZoom) {
+    // 如果已存在zoom实例，先销毁
+    if (zoom) {
+      zoom.detach();
+    }
+    
+    const images = previewElement.value?.getElementsByTagName('img');
+    if (images && images.length > 0) {
+      zoom = window.mediumZoom(images, {
+        background: 'rgba(0, 0, 0, 0.9)',
+        margin: 24,
+        scrollOffset: 0,
+      });
+    }
+  }
+};
 
 const processMediaLinks = (content: string): string => {
   return content
@@ -65,6 +84,8 @@ const renderMarkdown = async (markdown: string) => {
             link.setAttribute('rel', 'noopener noreferrer');
           });
         }
+        // 初始化图片缩放
+        initializeZoom();
         console.log('Rendering complete.');
       }
     });
@@ -84,11 +105,19 @@ watch(
 
 onMounted(() => {
   renderMarkdown(props.content);
-// 确保 MetingJS 正确初始化
-if (window.APlayer && window.MetingJSElement) {
+  // 确保 MetingJS 正确初始化
+  if (window.APlayer && window.MetingJSElement) {
     console.log('MetingJS is ready');
   } else {
     console.error('MetingJS or APlayer is not loaded properly');
+  }
+});
+
+// 组件卸载时清理zoom实例
+onBeforeUnmount(() => {
+  if (zoom) {
+    zoom.detach();
+    zoom = null;
   }
 });
 </script>
@@ -271,5 +300,18 @@ if (window.APlayer && window.MetingJSElement) {
   box-shadow: 0 0 10px rgba(0,0,0,0.1);
   border-radius: 4px;
   margin: 1em 0 !important;
+}
+/* 添加 medium-zoom 相关样式 */
+.medium-zoom-overlay {
+  z-index: 999;
+}
+
+.medium-zoom-image {
+  cursor: pointer;
+  transition: transform 0.3s cubic-bezier(0.2, 0, 0.2, 1) !important;
+}
+
+.medium-zoom-image--opened {
+  z-index: 1000;
 }
 </style>
