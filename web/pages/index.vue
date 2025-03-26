@@ -9,6 +9,7 @@
         <div class="moments-header">
           <div class="header-image" :style="headerImageStyle">
             <h1 class="header-title">Noise的说说笔记</h1>
+            <div class="header-subtitle" ref="subtitleEl"></div>
             <div class="profile-info">
               <img class="avatar" 
                    @click="changeBackground" 
@@ -62,6 +63,51 @@ const changeBackground = () => {
   }
 }
 
+const subtitleText = "欢迎访问，点击头像可更换封面背景！"
+const subtitleEl = ref<HTMLElement | null>(null)
+
+const startTypeEffect = () => {
+  if (!subtitleEl.value) return
+  
+  let index = 0
+  let isDeleting = false
+  let isWaiting = false
+  
+  const typeInterval = setInterval(() => {
+    if (isWaiting) return
+
+    if (!isDeleting) {
+      // 打字过程
+      subtitleEl.value!.textContent = subtitleText.slice(0, index + 1)
+      index++
+      
+      if (index >= subtitleText.length) {
+        isWaiting = true
+        setTimeout(() => {
+          isDeleting = true
+          isWaiting = false
+        }, 2000)
+      }
+    } else {
+      // 删除过程
+      index--
+      subtitleEl.value!.textContent = subtitleText.slice(0, index)
+      
+      if (index <= 0) {
+        isWaiting = true
+        subtitleEl.value!.textContent = ''
+        setTimeout(() => {
+          isDeleting = false
+          isWaiting = false
+          index = 0
+        }, 1000)
+      }
+    }
+  }, 100)
+
+  return typeInterval
+}
+
 onMounted(() => {
   currentImage.value = backgroundImages[Math.floor(Math.random() * backgroundImages.length)]
   const img = new Image()
@@ -69,6 +115,14 @@ onMounted(() => {
   img.onload = () => {
     isLoaded.value = true
   }
+
+  const typeInterval = startTypeEffect()
+  
+  onUnmounted(() => {
+    if (typeInterval) {
+      clearInterval(typeInterval)
+    }
+  })
 })
 
 const backgroundStyle = computed(() => ({
@@ -89,7 +143,23 @@ html, body {
   min-height: 100vh;
   overflow-y: overlay;
 }
+.header-subtitle {
+  position: absolute;
+  top: calc(50% + 60px);  /* 增加间距 */
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 1rem;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+}
 
+@media screen and (max-width: 768px) {
+  .header-subtitle {
+    font-size: 0.9rem;
+    top: calc(50% + 45px);  /* 保持移动端的适配 */
+  }
+}
 .background-container {
   min-height: 100vh;
   width: 100vw;
