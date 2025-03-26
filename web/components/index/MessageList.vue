@@ -17,14 +17,18 @@
               </div>
             </div>
             <!-- 操作按钮 -->
-            <div class="flex justify-end items-center">
+            <div class="flex justify-end items-center space-x-2">
               <!-- 显示是否为私密 -->
               <div v-if="msg.private" class="w-5 h-5">
                 <UIcon name="i-mdi-lock-outline" class="text-gray-400" />
               </div>
+              <!-- 评论按钮 -->
+              <div class="w-5 h-5 cursor-pointer" @click="toggleComment(msg.id)">
+                <UIcon name="i-mdi-comment-outline" class="text-gray-400 hover:text-orange-500" />
+              </div>
               <!-- 删除按钮 -->
-              <div v-if="isLogin" class="w-5 h-5" @click="deleteMsg(msg.id)">
-                <UIcon name="i-mdi-paper-roll-outline" class="text-gray-400" />
+              <div v-if="isLogin" class="w-5 h-5 cursor-pointer" @click="deleteMsg(msg.id)">
+                <UIcon name="i-mdi-paper-roll-outline" class="text-gray-400 hover:text-orange-500" />
               </div>
             </div>
           </div>
@@ -49,6 +53,10 @@
               <div class="overflow-y-auto">
                 <MarkdownRenderer :content="msg.content" />
               </div>
+            </div>
+            <!-- 评论区域 -->
+            <div v-show="activeCommentId === msg.id" class="mt-4">
+              <div :id="`waline-${msg.id}`"></div>
             </div>
           </div>
         </div>
@@ -91,11 +99,51 @@ const BASE_API = useRuntimeConfig().public.baseApi;
 const { deleteMessage } = useMessage();
 const message = useMessageStore();
 const isLogin = ref<boolean>(false);
+const activeCommentId = ref<number | null>(null);
 
 const deleteMsg = (id: number) => {
   const confirmDelete = confirm("确定要删除这条消息吗？");
   if (confirmDelete) {
     deleteMessage(id);
+  }
+};
+
+const toggleComment = async (msgId: number) => {
+  if (activeCommentId.value === msgId) {
+    activeCommentId.value = null;
+  } else {
+    activeCommentId.value = msgId;
+    await nextTick();
+    // 确保 Waline 初始化
+    if (window.Waline) {
+      // 检查元素是否存在
+      const el = document.querySelector(`#waline-${msgId}`);
+      if (el) {
+        window.Waline.init({
+          el: `#waline-${msgId}`,
+          serverURL: 'https://app-production-80c1.up.railway.app',
+          path: `/message/${msgId}`,
+          reaction: false,
+          meta: ['nick', 'mail', 'link'],
+          requiredMeta: ['mail', 'nick'],
+          pageview: true,
+          search: false,
+          wordLimit: 200,
+          pageSize: 5,
+          avatar: 'monsterid',
+          emoji: [
+            'https://unpkg.com/@waline/emojis@1.2.0/tieba',
+          ],
+          imageUploader: false,
+          copyright: false,
+          dark: 'html[class="dark"]',
+        });
+      } else {
+        console.error(`评论容器 #waline-${msgId} 未找到`);
+      }
+    } else {
+      console.error('Waline 未加载');
+    }
   }
 };
 
@@ -124,11 +172,32 @@ const formatDate = (dateString: string) => {
 onMounted(() => {
   isLogin.value = useUserStore()?.isLogin;
 
-  message.getMessages({
-    page: 1,
-    pageSize: 10,
-  });
-  Fancybox.bind("[data-fancybox]", {});
+  // 确保 Waline 脚本加载完成
+  if (!window.Waline) {
+    console.warn('Waline 未加载，尝试加载 Waline 脚本');
+    const script = document.createElement('script');
+    script.src = 'https://unpkg.com/@waline/client@v2/dist/waline.js';
+    script.onload = () => {
+      console.log('Waline 脚本加载成功');
+    };
+    document.head.appendChild(script);
+  }
+
+  if (document.readyState === 'complete') {
+    message.getMessages({
+      page: 1,
+      pageSize: 10,
+    });
+    Fancybox.bind("[data-fancybox]", {});
+  } else {
+    window.addEventListener('load', () => {
+      message.getMessages({
+        page: 1,
+        pageSize: 10,
+      });
+      Fancybox.bind("[data-fancybox]", {});
+    });
+  }
 });
 
 onBeforeUnmount(() => {
@@ -146,7 +215,7 @@ onBeforeUnmount(() => {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   border: 1px solid rgba(14, 14, 14, 0.2);
-  margin: 6px 0;
+  margin: 4px 0;
   width: 100%;
   box-sizing: border-box;
 }
@@ -156,5 +225,61 @@ onBeforeUnmount(() => {
   height: auto;
   min-height: 200px;
   object-fit: cover;
+}
+/* 评论区文字颜色 */
+:deep(.wl-panel),
+:deep(.wl-card),
+:deep(.wl-editor),
+:deep(.wl-header) {
+  color: #fff !important;
+}
+
+:deep(.wl-meta > span) {
+  color: #fff !important;
+}
+
+:deep(.wl-card .wl-nick) {
+  color: #fff !important;
+}
+
+:deep(.wl-content) {
+  color: #fff !important;
+}
+
+:deep(.wl-input) {
+  color: #fff !important;
+}
+
+:deep(.wl-action) {
+  color: #fff !important;
+}
+:deep(.wl-panel) {
+  background: rgba(36, 43, 50, 0.95) !important;
+  border: 1px solid rgba(14, 14, 14, 0.2) !important;
+}
+
+:deep(.wl-editor) {
+  background: rgba(36, 43, 50, 0.95) !important;
+}
+
+:deep(.wl-header) {
+  border-bottom: 1px solid rgba(14, 14, 14, 0.2) !important;
+}
+
+:deep(.wl-card) {
+  background: rgba(36, 43, 50, 0.95) !important;
+  border: 1px solid rgba(14, 14, 14, 0.2) !important;
+}
+/* 添加评论框样式 */
+:deep(.wl-panel),
+:deep(.wl-card) {
+  position: relative;
+  z-index: 100;
+}
+
+/* 确保评论区域不会被遮挡 */
+.content-container {
+  position: relative;
+  z-index: 1;
 }
 </style>

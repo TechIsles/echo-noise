@@ -23,7 +23,8 @@
           </div>
         </div>
         <AddForm />
-        <MessageList />
+        <!-- 确保 MessageList 有足够的 z-index -->
+        <MessageList class="message-list-container" />
       </UContainer>
       <Notification />
     </div>
@@ -329,5 +330,28 @@ html, body {
 @keyframes spin {
   0% { transform: rotate(0deg); }
   100% { transform: rotate(360deg); }
+}
+/* 添加新的样式 */
+.message-list-container {
+  position: relative;
+  z-index: 10;
+}
+
+.container-fixed {
+  backdrop-filter: blur(4px);
+  border-radius: 8px;
+  margin: 0 auto;
+  max-width: 1200px;
+  width: 100%;
+  position: relative;
+  /* 降低 container 的 z-index，确保不会遮挡评论框 */
+  z-index: 1;
+  box-sizing: border-box;
+  overflow: visible; /* 修改为 visible，允许评论框溢出 */
+}
+
+/* 确保背景不会遮挡评论框 */
+.background-container::before {
+  z-index: -1;
 }
 </style>
