@@ -101,7 +101,7 @@ defineExpose({
   border-radius: 8px;
   margin-bottom: 12px;
   transition: all 0.3s ease;
-  border: 1px solid #e9ecef;
+  
   position: relative; /* 添加相对定位 */
 }
 .vditor-content {
@@ -180,15 +180,12 @@ defineExpose({
   color: #90a4ae !important;
 }
 
-.vditor-resize {
-  cursor: ns-resize;
-  user-select: none;
-  height: 3px;
-  background-color: #f1f3f5;
+.vditor-preview {
+  background-color: rgba(231, 223, 223, 0.222) !important;
 }
 
-.vditor-resize:hover {
-  background-color: #e9ecef;
+.vditor-reset {
+  color: #e9ecef !important;
 }
 
 @media screen and (max-width: 520px) {

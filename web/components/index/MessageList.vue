@@ -2,11 +2,8 @@
   <div class="min-h-screen flex flex-col">
     <div class="flex-grow mx-auto w-full sm:max-w-2xl px-2">
       <div class="my-4">
-        <div
-          v-for="msg in message.messages"
-          :key="msg.id"
-          class="w-full h-auto overflow-hidden flex flex-col justify-between"
-        >
+        <div v-for="msg in message.messages" :key="msg.id"
+          class="w-full h-auto overflow-hidden flex flex-col justify-between">
           <div class="flex justify-between items-center">
             <!-- 时间 -->
             <div class="flex justify-start items-center h-auto">
@@ -23,102 +20,48 @@
                 <UIcon name="i-mdi-lock-outline" class="text-gray-400" />
               </div>
               <!-- 编辑按钮 -->
-              <div
-                v-if="isLogin"
-                class="w-5 h-5 cursor-pointer"
-                @click="editMessage(msg)"
-                :title="'编辑内容'"
-              >
-                <UIcon
-                  name="i-mdi-pencil-outline"
-                  class="text-gray-400 hover:text-orange-500"
-                />
+              <div v-if="isLogin" class="w-5 h-5 cursor-pointer" @click="editMessage(msg)" :title="'编辑内容'">
+                <UIcon name="i-mdi-pencil-outline" class="text-gray-400 hover:text-orange-500" />
               </div>
               <!-- 复制按钮 -->
-              <div
-                class="w-5 h-5 cursor-pointer"
-                @click="copyContent(msg.content)"
-                :title="'复制内容'"
-              >
-                <UIcon
-                  name="i-mdi-content-copy"
-                  class="text-gray-400 hover:text-orange-500"
-                />
+              <div class="w-5 h-5 cursor-pointer" @click="copyContent(msg.content)" :title="'复制内容'">
+                <UIcon name="i-mdi-content-copy" class="text-gray-400 hover:text-orange-500" />
               </div>
               <!-- 评论按钮 -->
-              <div
-                class="w-5 h-5 cursor-pointer"
-                @click="toggleComment(msg.id)"
-              >
-                <UIcon
-                  name="i-mdi-comment-outline"
-                  class="text-gray-400 hover:text-orange-500"
-                />
+              <div class="w-5 h-5 cursor-pointer" @click="toggleComment(msg.id)">
+                <UIcon name="i-mdi-comment-outline" class="text-gray-400 hover:text-orange-500" />
               </div>
               <!-- 删除按钮 -->
-              <div
-                v-if="isLogin"
-                class="w-5 h-5 cursor-pointer"
-                @click="deleteMsg(msg.id)"
-              >
-                <UIcon
-                  name="i-mdi-paper-roll-outline"
-                  class="text-gray-400 hover:text-orange-500"
-                />
+              <div v-if="isLogin" class="w-5 h-5 cursor-pointer" @click="deleteMsg(msg.id)">
+                <UIcon name="i-mdi-paper-roll-outline" class="text-gray-400 hover:text-orange-500" />
               </div>
             </div>
           </div>
 
           <div class="border-l-2 border-gray-300 p-6 ml-1">
-            <div class="content-container" v-if="msg.image_url || msg.content"
-            :data-msg-id="msg.id"
-             >
+            <div class="content-container" v-if="msg.image_url || msg.content" :data-msg-id="msg.id">
               <!-- 图片内容 -->
-              <a
-                v-if="msg.image_url"
-                :href="`${BASE_API}${msg.image_url}`"
-                data-fancybox="uploaded-image"
-              >
-                <img
-                  :src="`${BASE_API}${msg.image_url}`"
-                  alt="Image"
-                  class="max-w-full object-cover rounded-lg mb-4"
-                  loading="lazy"
-                />
+              <a v-if="msg.image_url" :href="`${BASE_API}${msg.image_url}`" data-fancybox="uploaded-image">
+                <img :src="`${BASE_API}${msg.image_url}`" alt="Image" class="max-w-full object-cover rounded-lg mb-4"
+                  loading="lazy" />
               </a>
               <!-- 分隔线 -->
-              <div
-                v-if="msg.image_url && msg.content"
-                class="border-t border-gray-600 my-4"
-              ></div>
+              <div v-if="msg.image_url && msg.content" class="border-t border-gray-600 my-4"></div>
               <!-- 文本内容区域 -->
-<div
-  class="overflow-y-hidden relative"
-  :class="{ 'max-h-[700px]': !isExpanded[msg.id] }"
->
-  <MarkdownRenderer :content="msg.content" />
-  <div
-    v-if="shouldShowExpandButton[msg.id] && !isExpanded[msg.id]"
-    class="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[rgba(36,43,50,1)] via-[rgba(36,43,50,0.8)] to-transparent"
-  ></div>
-</div>
-<!-- 展开/折叠按钮 -->
-<div
-  v-if="shouldShowExpandButton[msg.id]"
-  class="text-center mt-2 relative"
-  style="z-index: 9999;"
->
-  <button
-    @click="toggleExpand(msg.id)"
-    class="flex items-center justify-center space-x-1 mx-auto px-4 py-2 text-orange-500 hover:text-orange-600 focus:outline-none transition-colors duration-200"
-  >
-    <span>{{ isExpanded[msg.id] ? "收起内容" : "展开全文" }}</span>
-    <UIcon
-      :name="isExpanded[msg.id] ? 'i-mdi-chevron-up' : 'i-mdi-chevron-down'"
-      class="w-5 h-5"
-    />
-  </button>
-</div>
+              <div class="overflow-y-hidden relative" :class="{ 'max-h-[700px]': !isExpanded[msg.id] }">
+                <MarkdownRenderer :content="msg.content" />
+                <div v-if="shouldShowExpandButton[msg.id] && !isExpanded[msg.id]"
+                  class="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[rgba(36,43,50,1)] via-[rgba(36,43,50,0.8)] to-transparent">
+                </div>
+              </div>
+              <!-- 展开/折叠按钮 -->
+              <div v-if="shouldShowExpandButton[msg.id]" class="text-center mt-2 relative" style="z-index: 9999;">
+                <button @click="toggleExpand(msg.id)"
+                  class="flex items-center justify-center space-x-1 mx-auto px-4 py-2 text-orange-500 hover:text-orange-600 focus:outline-none transition-colors duration-200">
+                  <span>{{ isExpanded[msg.id] ? "收起内容" : "展开全文" }}</span>
+                  <UIcon :name="isExpanded[msg.id] ? 'i-mdi-chevron-up' : 'i-mdi-chevron-down'" class="w-5 h-5" />
+                </button>
+              </div>
             </div>
             <!-- 评论区域 -->
             <div v-show="activeCommentId === msg.id" class="mt-4">
@@ -127,44 +70,30 @@
           </div>
         </div>
       </div>
-
-      <!-- 加载更多 -->
-      <div v-if="message.hasMore" class="flex justify-center w-full my-4">
-        <UButton
-          color="gray"
-          variant="outline"
-          size="sm"
-          class="rounded-full border-gray-200"
+        <!-- 加载更多 -->
+        <div v-if="message.hasMore" class="flex justify-center w-full my-4">
+        <UButton 
+          color="gray" 
+          variant="outline" 
+          size="sm" 
+          class="rounded-full px-6 py-2 bg-[rgba(36,43,50,0.95)] text-white hover:text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm"
           @click="message.getMessages({ page: message.page + 1, pageSize: 10 })"
         >
           加载更多...
         </UButton>
       </div>
       <!-- 加载完毕提示~ -->
-      <div
-        v-else-if="message.messages.length > 0"
-        class="text-center text-gray-500 mt-4"
-      >
+      <div v-else-if="message.messages.length > 0" class="text-center text-gray-500 mt-4">
         <UIcon name="i-fluent-emoji-flat-confetti-ball" size="lg" />
         加载完毕~
       </div>
     </div>
     <!-- 来源信息 - 固定在底部 -->
     <div class="text-center text-xs text-gray-400 py-4">
-      来自<a
-        href="https://www.noisework.cn"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="text-orange-400 hover:text-orange-500"
-        >Noise</a
-      >
-      使用<a
-        href="https://github.com/lin-snow/Ech0"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="text-orange-400 hover:text-orange-500"
-        >Ech0</a
-      >发布
+      来自<a href="https://www.noisework.cn" target="_blank" rel="noopener noreferrer"
+        class="text-orange-400 hover:text-orange-500">Noise</a>
+      使用<a href="https://github.com/lin-snow/Ech0" target="_blank" rel="noopener noreferrer"
+        class="text-orange-400 hover:text-orange-500">Ech0</a>发布
     </div>
   </div>
   <!-- 编辑对话框 -->
@@ -173,13 +102,7 @@
       <template #header>
         <div class="flex justify-between items-center">
           <h3 class="text-lg font-medium">编辑内容</h3>
-          <UButton
-            color="gray"
-            variant="ghost"
-            icon="i-mdi-close"
-            class="-my-1"
-            @click="showEditModal = false"
-          />
+          <UButton color="gray" variant="ghost" icon="i-mdi-close" class="-my-1" @click="showEditModal = false" />
         </div>
       </template>
       <div class="flex flex-col space-y-4">
@@ -191,25 +114,20 @@
         />
         <div class="border-t border-gray-200 my-2 pt-2">
           <div class="text-sm text-gray-500 mb-2">预览：</div>
-          <div class="p-4 bg-gray-100 dark:bg-gray-800 rounded-lg overflow-auto max-h-[300px]">
-            <MarkdownRenderer :content="editingContent" />
+          <!-- 修改预览区域样式 -->
+          <div class="p-4 rounded-lg overflow-auto max-h-[300px] bg-[rgba(36,43,50,0.95)]">
+            <div class="text-white">
+              <MarkdownRenderer :content="editingContent" />
+            </div>
           </div>
         </div>
       </div>
       <template #footer>
         <div class="flex justify-end space-x-2">
-          <UButton
-            color="gray"
-            variant="outline"
-            @click="showEditModal = false"
-          >
+          <UButton color="gray" variant="outline" @click="showEditModal = false">
             取消
           </UButton>
-          <UButton
-            color="orange"
-            @click="saveEditedMessage"
-            :loading="isSaving"
-          >
+          <UButton color="orange" @click="saveEditedMessage" :loading="isSaving">
             保存
           </UButton>
         </div>
