@@ -5,7 +5,7 @@
         <div v-for="msg in message.messages" :key="msg.id"
           class="w-full h-auto overflow-hidden flex flex-col justify-between">
            <!-- 修改头部布局 -->
-           <div class="flex justify-between items-end">
+           <div class="flex justify-between items-center">
             <!-- 时间部分保持不变 -->
             <div class="flex justify-start items-center h-auto">
               <div class="w-2 h-2 rounded-full bg-orange-600 mr-2"></div>
@@ -14,7 +14,7 @@
               </div>
             </div>
             <!-- 优化操作按钮组样式 -->
-          <div class="message-actions flex justify-end items-center space-x-2 flex-shrink-0 px-3 py-2.5 mr-[9px]">
+          <div class="message-actions flex justify-end items-center space-x-2 flex-shrink-0 px-3 py-1.5 mr-[9px] -mb-[1px]">
             <!-- ... 按钮内容 ... -->
               <div v-if="msg.private" class="w-5 h-5 flex-shrink-0 transition-transform duration-200 hover:scale-110">
                 <UIcon name="i-mdi-lock-outline" class="text-gray-400" />
