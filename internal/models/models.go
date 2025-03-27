@@ -39,5 +39,6 @@ type Status struct {
 type MyCliams struct {
 	Userid   uint   `json:"user_id"`
 	Username string `json:"username"`
+	IsAdmin  bool   `json:"is_admin"`
 	jwt.RegisteredClaims
 }

@@ -29,9 +29,13 @@ func SetupRouter() *gin.Engine {
     api := r.Group("/api")
     
     // 公共路由
+	api.GET("/frontend/config", controllers.GetFrontendConfig)
     api.POST("/login", controllers.Login)
     api.POST("/register", controllers.Register)
     api.GET("/status", controllers.GetStatus)
+	api.GET("/config", controllers.GetFrontendConfig)  // 获取前端配置
+    api.PUT("/settings", controllers.UpdateSetting)   // 更新设置
+
 
     // 需要鉴权的路由
     auth := api.Group("")

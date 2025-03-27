@@ -8,11 +8,13 @@
            <div class="flex justify-between items-center">
             <!-- 时间部分保持不变 -->
             <div class="flex justify-start items-center h-auto">
-              <div class="w-2 h-2 rounded-full bg-orange-600 mr-2"></div>
-              <div class="flex justify-start text-sm text-orange-500">
-                {{ formatDate(msg.created_at) }}
-              </div>
-            </div>
+  <div class="w-2 h-2 rounded-full bg-orange-600 mr-2"></div>
+  <div class="flex justify-start text-sm">
+    <span class="text-orange-500">{{ formatDate(msg.created_at) }}</span>
+    <span class="gradient-dot mx-2"> @</span>
+    <span class="text-orange-500">{{ msg.username || '匿名用户' }}</span>
+  </div>
+</div>
             <!-- 优化操作按钮组样式 -->
           <div class="message-actions flex justify-end items-center space-x-2 flex-shrink-0 px-3 py-1.5 mr-[9px] -mb-[1px]">
             <!-- ... 按钮内容 ... -->
@@ -836,5 +838,13 @@ button:hover {
 .message-actions > div:hover .text-gray-400 {
   color: #fb923c;
   filter: drop-shadow(0 0 2px rgba(251, 146, 60, 0.3));
+}
+/* 时间和发布者名称的间隔样式 */
+.gradient-dot {
+  background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  font-weight: bold;
 }
 </style>

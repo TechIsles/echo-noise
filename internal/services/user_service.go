@@ -2,7 +2,6 @@ package services
 
 import (
 	"errors"
-
 	"github.com/lin-snow/ech0/internal/dto"
 	"github.com/lin-snow/ech0/internal/models"
 	"github.com/lin-snow/ech0/internal/repository"
@@ -162,5 +161,11 @@ func UpdateUserAdmin(userID uint) error {
 		return err
 	}
 
+	return nil
+}
+
+func UpdateSetting(settingID uint, updates map[string]interface{}) error {
+	// 实现更新逻辑
+	// ...
 	return nil
 }

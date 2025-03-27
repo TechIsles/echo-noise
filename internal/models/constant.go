@@ -15,6 +15,7 @@ const (
 	LoginSuccessMessage          = "登录成功"
 	UpdateUserSuccessMessage     = "更新用户成功"
 	ChangePasswordSuccessMessage = "修改密码成功"
+	UpdateSettingSuccessMessage = "系统设置更新成功"
 )
 
 // 失败相关
@@ -45,6 +46,7 @@ const (
 	GetMessagesByPageFailMessage           = "分页获取留言失败"
 	TokenNotFoundMessage                   = "未找到令牌,请点击右上角登录"
 	TokenInvalidMessage                    = "令牌无效，请点击右上角登录"
+	TokenInvalidFormatMessage              = "令牌格式无效" 
 	UsernameOrPasswordCannotBeEmptyMessage = "用户名或密码不能为空"
 	UsernameCannotBeEmptyMessage           = "用户名不能为空"
 	PasswordCannotBeEmptyMessage           = "密码不能为空"

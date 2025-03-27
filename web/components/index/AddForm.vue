@@ -140,18 +140,31 @@ const addImage = async (event: Event) => {
   const file = input.files ? input.files[0] : null;
 
   if (!file) {
-    console.error("没有选择文件");
+    toast.add({
+      title: '错误',
+      description: '没有选择文件',
+      color: 'red'
+    })
     return;
   }
 
   const imageUrl = await uploadImage(file);
 
   if (!imageUrl) {
-    console.error("上传图片失败");
+    toast.add({
+      title: '错误',
+      description: '图片上传失败，请稍后重试',
+      color: 'red'
+    })
     return;
   }
 
   ImageUrl.value = imageUrl;
+  toast.add({
+    title: '成功',
+    description: '图片上传成功',
+    color: 'green'
+  })
 };
 
 onMounted(() => {

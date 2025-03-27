@@ -8,18 +8,19 @@
       <UContainer class="container-fixed py-2 pb-4 my-4">
         <div class="moments-header">
           <div class="header-image" :style="headerImageStyle">
-            <h1 class="header-title">Noise的说说笔记</h1>
-            <div class="header-subtitle" ref="subtitleEl"></div>
-            <div class="profile-info">
-              <img class="avatar" 
-                   @click="changeBackground" 
-                   src="https://s2.loli.net/2025/03/24/HnSXKvibAQlosIW.png" 
-                   alt="Noise">
-              <div class="profile-text">
-                <div class="title">Noise</div>
-                <div class="description">执迷不悟</div>
-              </div>
-            </div>
+    <h1 class="header-title">{{ frontendConfig.siteTitle }}</h1>
+    <div ref="subtitleEl" class="header-subtitle">{{ frontendConfig.subtitleText }}</div>
+    
+    <div class="profile-info">
+        <img class="avatar" 
+             @click="changeBackground" 
+             :src="frontendConfig.avatarURL" 
+             :alt="frontendConfig.username">
+        <div class="profile-text">
+            <div class="title">{{ frontendConfig.username }}</div>
+            <div class="description">{{ frontendConfig.description }}</div>
+        </div>
+    </div>
           </div>
         </div>
         <AddForm />
@@ -32,41 +33,131 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'  // 添加 onUnmounted
 import AddForm from '@/components/index/AddForm.vue'
 import MessageList from '@/components/index/MessageList.vue'
 import Notification from '~/components/widgets/Notification.vue';
 
-const backgroundImages = [
-  'https://files.catbox.moe/8lsc79.webp',
-  'https://files.catbox.moe/vql8zy.webp',
-  'https://files.catbox.moe/1n77zd.webp',
-  'https://files.catbox.moe/9539a2.webp',
-  'https://files.catbox.moe/dttmse.webp',
-  'https://files.catbox.moe/wkwh2y.webp',
-  'https://files.catbox.moe/1n77zd.webp',
-];
+// 添加前端配置的响应式对象
+const frontendConfig = ref({
+    siteTitle: '',
+    subtitleText: '',
+    avatarURL: '',
+    username: '',
+    description: '',
+    backgrounds: [] as string[]
+})
+
+const backgroundStyle = computed(() => ({
+    '--bg-image': `url(${currentImage.value || frontendConfig.value.backgrounds[0]})`
+}))
+// 添加 headerImageStyle 计算属性
+const headerImageStyle = computed(() => ({
+    'background-image': `url(${currentImage.value || frontendConfig.value.backgrounds[0]})`,
+    'background-size': 'cover',
+    'background-position': 'center'
+}))
+// 修改 fetchConfig 方法
+
+const fetchConfig = async () => {
+    try {
+        const response = await fetch('/api/frontend/config');
+        if (!response.ok) throw new Error('Network response was not ok');
+        
+        const data = await response.json();
+        console.log('获取到的配置数据:', data); // 添加调试日志
+        
+        if (data && data.frontendSettings) {
+            const settings = data.frontendSettings;
+            frontendConfig.value = {
+                siteTitle: settings.siteTitle || '默认标题',
+                subtitleText: settings.subtitleText || '默认副标题',
+                avatarURL: settings.avatarURL || 'https://s2.loli.net/2025/03/24/HnSXKvibAQlosIW.png',
+                username: settings.username || 'Noise',
+                description: settings.description || '执迷不悟',
+                backgrounds: settings.backgrounds || [
+                'https://s2.loli.net/2025/03/27/KJ1trnU2ksbFEYM.jpg',
+                'https://s2.loli.net/2025/03/27/MZqaLczCvwjSmW7.jpg',
+                'https://s2.loli.net/2025/03/27/UMijKXwJ9yTqSeE.jpg',
+                'https://s2.loli.net/2025/03/27/WJQIlkXvBg2afcR.jpg',
+                'https://s2.loli.net/2025/03/27/oHNQtf4spkq2iln.jpg',
+                'https://s2.loli.net/2025/03/27/PMRuX5loc6Uaimw.jpg',
+                'https://s2.loli.net/2025/03/27/U2WIslbNyTLt4rD.jpg',
+                'https://s2.loli.net/2025/03/27/xu1jZL5Og4pqT9d.jpg',
+                'https://s2.loli.net/2025/03/27/OXqwzZ6v3PVIns9.jpg',
+                'https://s2.loli.net/2025/03/27/HGuqlE6apgNywbh.jpg',
+                'https://s2.loli.net/2025/03/26/d7iyuPYA8cRqD1K.jpg',
+                'https://s2.loli.net/2025/03/27/wYy12qDMH6bGJOI.jpg',
+                'https://s2.loli.net/2025/03/27/y67m2k5xcSdTsHN.jpg',
+                ]
+            };
+            
+            // 设置初始背景图并标记为已加载
+            if (frontendConfig.value.backgrounds.length > 0) {
+                currentImage.value = frontendConfig.value.backgrounds[0];
+                const img = new Image();
+                img.src = currentImage.value;
+                img.onload = () => {
+                    isLoaded.value = true;
+                };
+            } else {
+                isLoaded.value = true; // 如果没有背景图也要设置为已加载
+            }
+        } else {
+            throw new Error('Invalid response format');
+        }
+    } catch (error) {
+        console.error('获取配置失败:', error);
+        // 设置默认值
+        frontendConfig.value = {
+            siteTitle: 'Noise的说说笔记',
+            subtitleText: '欢迎访问，点击头像可更换封面背景！',
+            avatarURL: 'https://s2.loli.net/2025/03/24/HnSXKvibAQlosIW.png',
+            username: 'Noise',
+            description: '执迷不悟',
+            backgrounds: [
+                'https://s2.loli.net/2025/03/27/KJ1trnU2ksbFEYM.jpg',
+                'https://s2.loli.net/2025/03/27/MZqaLczCvwjSmW7.jpg',
+                'https://s2.loli.net/2025/03/27/UMijKXwJ9yTqSeE.jpg',
+                'https://s2.loli.net/2025/03/27/WJQIlkXvBg2afcR.jpg',
+                'https://s2.loli.net/2025/03/27/oHNQtf4spkq2iln.jpg',
+                'https://s2.loli.net/2025/03/27/PMRuX5loc6Uaimw.jpg',
+                'https://s2.loli.net/2025/03/27/U2WIslbNyTLt4rD.jpg',
+                'https://s2.loli.net/2025/03/27/xu1jZL5Og4pqT9d.jpg',
+                'https://s2.loli.net/2025/03/27/OXqwzZ6v3PVIns9.jpg',
+                'https://s2.loli.net/2025/03/27/HGuqlE6apgNywbh.jpg',
+                'https://s2.loli.net/2025/03/26/d7iyuPYA8cRqD1K.jpg',
+                'https://s2.loli.net/2025/03/27/7Zck3y6XTzhYPs5.jpg',
+                'https://s2.loli.net/2025/03/27/y67m2k5xcSdTsHN.jpg',
+            ]
+        };
+        isLoaded.value = true; // 错误时也要设置为已加载
+    }
+};
+
 
 const currentImage = ref('')
 const isLoaded = ref(false)
 
+
 const changeBackground = () => {
-  const newIndex = Math.floor(Math.random() * backgroundImages.length)
-  const newImage = backgroundImages[newIndex]
-  if (newImage === currentImage.value) {
-    changeBackground()
-    return
-  }
-  const img = new Image()
-  img.src = newImage
-  img.onload = () => {
-    currentImage.value = newImage
-  }
+    const newIndex = Math.floor(Math.random() * frontendConfig.value.backgrounds.length)
+    const newImage = frontendConfig.value.backgrounds[newIndex]
+    if (newImage === currentImage.value) {
+        changeBackground()
+        return
+    }
+    const img = new Image()
+    img.src = newImage
+    img.onload = () => {
+        currentImage.value = newImage
+    }
 }
 
-const subtitleText = "欢迎访问，点击头像可更换封面背景！"
+
 const subtitleEl = ref<HTMLElement | null>(null)
 
+// 修改打字效果函数
 const startTypeEffect = () => {
   if (!subtitleEl.value) return
   
@@ -79,10 +170,10 @@ const startTypeEffect = () => {
 
     if (!isDeleting) {
       // 打字过程
-      subtitleEl.value!.textContent = subtitleText.slice(0, index + 1)
+      subtitleEl.value!.textContent = frontendConfig.value.subtitleText.slice(0, index + 1)
       index++
       
-      if (index >= subtitleText.length) {
+      if (index >= frontendConfig.value.subtitleText.length) {
         isWaiting = true
         setTimeout(() => {
           isDeleting = true
@@ -92,7 +183,7 @@ const startTypeEffect = () => {
     } else {
       // 删除过程
       index--
-      subtitleEl.value!.textContent = subtitleText.slice(0, index)
+      subtitleEl.value!.textContent = frontendConfig.value.subtitleText.slice(0, index)
       
       if (index <= 0) {
         isWaiting = true
@@ -109,30 +200,24 @@ const startTypeEffect = () => {
   return typeInterval
 }
 
-onMounted(() => {
-  currentImage.value = backgroundImages[Math.floor(Math.random() * backgroundImages.length)]
-  const img = new Image()
-  img.src = currentImage.value
-  img.onload = () => {
-    isLoaded.value = true
-  }
-
-  const typeInterval = startTypeEffect()
-  
-  onUnmounted(() => {
-    if (typeInterval) {
-      clearInterval(typeInterval)
+onMounted(async () => {
+    await fetchConfig();
+    
+    if (frontendConfig.value.backgrounds.length > 0) {
+        currentImage.value = frontendConfig.value.backgrounds[Math.floor(Math.random() * frontendConfig.value.backgrounds.length)]
+        const img = new Image()
+        img.src = currentImage.value
+        img.onload = () => {
+            isLoaded.value = true
+        }
     }
-  })
+    const typeInterval = startTypeEffect()
+    onUnmounted(() => {
+        if (typeInterval) {
+            clearInterval(typeInterval)
+        }
+    })
 })
-
-const backgroundStyle = computed(() => ({
-  '--bg-image': `url(${currentImage.value})`
-}))
-
-const headerImageStyle = computed(() => ({
-  backgroundImage: `url(${currentImage.value})`
-}))
 </script>
 
 <style>
@@ -219,7 +304,7 @@ html, body {
   height: 300px;
   background-size: cover;
   background-position: center;
-  border-radius: 8px;
+  border-radius: 18px;
   overflow: hidden;
   transition: background-image 0.5s ease;
 }
@@ -249,8 +334,10 @@ html, body {
   bottom: 20px;
   right: 20px;
   display: flex;
+  flex-direction: row-reverse;  /* 改变方向，头像在右侧 */
   align-items: center;
   gap: 10px;
+  max-width: 80%;  /* 限制最大宽度 */
 }
 
 .avatar {
@@ -268,11 +355,13 @@ html, body {
 }
 
 .profile-text {
-  text-align: right;
-  color: white;
-  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  text-align: left;  /* 改为左对齐 */
+  min-width: 0;  /* 允许内容收缩 */
+  overflow-x: auto;  /* 允许横向滚动 */
+  scrollbar-width: none;  /* 隐藏滚动条 (Firefox) */
+  -ms-overflow-style: none;  /* 隐藏滚动条 (IE/Edge) */
+  padding: 5px 0;
 }
-
 .profile-text .title {
   font-size: 1.2rem;
   font-weight: bold;
@@ -282,7 +371,26 @@ html, body {
   font-size: 0.9rem;
   opacity: 0.9;
 }
+.profile-text::-webkit-scrollbar {
+  display: none;
+}
 
+.profile-text .title {
+font-size: 1.2rem;
+font-weight: bold;
+color: #fcfafb;  
+text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+white-space: nowrap;  /* 防止换行 */
+
+}
+
+.profile-text .description {
+  font-size: 0.9rem;
+  color: #fcfafb; 
+  text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+  white-space: nowrap;
+  opacity: 0.95;
+}
 .u-container {
   backdrop-filter: blur(4px);
   border-radius: 8px;

@@ -1,4 +1,3 @@
-// https://nuxt.com/docs/api/configuration/nuxt-config
 export default defineNuxtConfig({
   app: {
     head: {
@@ -23,6 +22,7 @@ export default defineNuxtConfig({
         { src: 'https://unpkg.com/medium-zoom/dist/medium-zoom.min.js', body: true },
         { src: 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js', body: true },
         { src: 'https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js', body: true },
+        { src: 'https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js', body: true },
       ],
       title: "Noise·说说·笔记~",
       meta: [
@@ -48,5 +48,16 @@ export default defineNuxtConfig({
     public: {
       baseApi: process.env.BASE_API,
     }
-  }
+  },
+  // 添加以下配置
+  nitro: {
+    preset: 'node-server',
+  },
+  build: {
+    transpile: ['@heroicons/vue'],
+  },
+  experimental: {
+    payloadExtraction: false
+  },
+  ssr: false,
 })

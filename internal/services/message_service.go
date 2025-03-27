@@ -1,7 +1,6 @@
 package services
 
 import (
-	"errors"
 	"fmt"
 	"time"
 
@@ -59,23 +58,37 @@ func GetMessagesByPage(page, pageSize int, showPrivate bool) (dto.PageQueryResul
 }
 
 // CreateMessage 发布一条留言
+// 允许所有注册登陆用户发布信息
 func CreateMessage(message *models.Message) error {
-	user, err := GetUserByID(message.UserID)
-	if err != nil {
-		return err
-	}
+    user, err := GetUserByID(message.UserID)
+    if err != nil {
+        return err
+    }
 
-	if !user.IsAdmin {
-		return errors.New(models.NoPermissionMessage)
-	}
-
-	message.Username = user.Username // 获取用户名
-	return repository.CreateMessage(message)
+    // 删除管理员权限检查，允许所有登录用户发布信息
+    message.Username = user.Username // 获取用户名
+    return repository.CreateMessage(message)
 }
 
 // DeleteMessage 根据 ID 删除留言
-func DeleteMessage(id uint) error {
-	return repository.DeleteMessage(id)
+func DeleteMessage(id uint, userID uint) error {
+    // 获取留言信息
+    message, err := repository.GetMessageByID(id, true)
+    if err != nil {
+        return err
+    }
+
+    // 验证是否为留言作者
+    if message.UserID != userID {
+        return fmt.Errorf("无权删除他人的留言")
+    }
+
+    return repository.DeleteMessage(id)
+}
+
+// DeleteMessageByAdmin 管理员删除留言（无需验证作者）
+func DeleteMessageByAdmin(id uint) error {
+    return repository.DeleteMessage(id)
 }
 
 func GenerateRSS(c *gin.Context) (string, error) {

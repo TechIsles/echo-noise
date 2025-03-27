@@ -1,55 +1,79 @@
 package controllers
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
+	"errors"
 
 	"github.com/gin-gonic/gin"
 	"github.com/lin-snow/ech0/internal/dto"
 	"github.com/lin-snow/ech0/internal/models"
 	"github.com/lin-snow/ech0/internal/services"
-	"gorm.io/gorm"
 )
+// controllers.go
+func checkAdmin(c *gin.Context) (uint, error) {
+    // 从上下文中获取 userid
+    userID, exists := c.Get("userid")  // 确保你的JWT中间件设置了"userid"
+    if !exists {
+        return 0, errors.New("未授权访问")
+    }
+
+    // 检查用户是否为管理员
+    user, err := services.GetUserByID(userID.(uint))
+    if err != nil {
+        return 0, err
+    }
+
+    if !user.IsAdmin {
+        return 0, errors.New("需要管理员权限")
+    }
+
+    return userID.(uint), nil
+}
+
+
+// checkUser 获取当前用户信息，返回用户对象和错误信息
+func checkUser(c *gin.Context) (*models.User, error) {
+	user, err := services.GetUserByID(c.MustGet("userid").(uint))
+	if err != nil {
+		return nil, fmt.Errorf(models.UserNotFoundMessage)
+	}
+	return user, nil
+}
 
 // Login 处理 POST /login 请求，用户登录
 func Login(c *gin.Context) {
-	// 从请求体获取用户名和密码
 	var user dto.LoginDto
 	if err := c.ShouldBindJSON(&user); err != nil {
 		c.JSON(http.StatusOK, dto.Fail[string](models.InvalidRequestBodyMessage))
 		return
 	}
 
-	// 调用 Service 层登录验证
 	token, err := services.Login(user)
 	if err != nil {
 		c.JSON(http.StatusOK, dto.Fail[string](err.Error()))
 		return
 	}
 
-	// 返回成功响应，包含 JWT Token
 	c.JSON(http.StatusOK, dto.OK(token, models.LoginSuccessMessage))
 }
 
 func Register(c *gin.Context) {
-	// 从请求体获取用户名和密码
 	var user dto.RegisterDto
 	if err := c.ShouldBindJSON(&user); err != nil {
 		c.JSON(http.StatusOK, dto.Fail[string](models.InvalidRequestBodyMessage))
 		return
 	}
 
-	// 调用 Service 层注册用户
 	if err := services.Register(user); err != nil {
 		c.JSON(http.StatusOK, dto.Fail[string](err.Error()))
 		return
 	}
 
-	// 返回成功响应
 	c.JSON(http.StatusOK, dto.OK[any](nil, models.RegisterSuccessMessage))
 }
 
-// GetMessages 处理 GET /messages 请求，返回所有留言
 func GetMessages(c *gin.Context) {
 	messages, err := services.GetAllMessages(false)
 	if err != nil {
@@ -59,9 +83,7 @@ func GetMessages(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.OK(messages, models.GetAllMessagesSuccess))
 }
 
-// GetMessage 处理 GET /messages/:id 请求，获取留言详情
 func GetMessage(c *gin.Context) {
-	// 从 URL 参数获取留言 ID
 	idStr := c.Param("id")
 	id, err := strconv.ParseUint(idStr, 10, 64)
 	if err != nil {
@@ -69,23 +91,19 @@ func GetMessage(c *gin.Context) {
 		return
 	}
 
-	// 获取当前用户 ID (为0表示未登录，不返回隐私数据,不为零时则必须为管理员)
 	userID := c.MustGet("userid").(uint)
 	showPrivate := false
 	if userID != 0 {
-		// 获取当前用户信息
 		user, err := services.GetUserByID(userID)
 		if err != nil {
 			c.JSON(http.StatusOK, dto.Fail[string](models.UserNotFoundMessage))
 			return
 		}
-		// 如果是管理员，则可以查看所有留言
 		if user.IsAdmin {
 			showPrivate = true
 		}
 	}
 
-	// 调用 Service 层根据 ID 获取留言
 	message, err := services.GetMessageByID(uint(id), showPrivate)
 	if err != nil {
 		c.JSON(http.StatusOK, dto.Fail[string](models.GetMessageByIDFailMessage))
@@ -97,71 +115,57 @@ func GetMessage(c *gin.Context) {
 		return
 	}
 
-	// 返回成功响应
 	c.JSON(http.StatusOK, dto.OK(message, models.GetMessageByIDSuccess))
 }
 
-// GetMessagesByPage 处理 POST /messages/page 请求，分页获取留言
 func GetMessagesByPage(c *gin.Context) {
-	// 从请求体获取分页参数
 	var pageRequest dto.PageQueryDto
 	if err := c.ShouldBindJSON(&pageRequest); err != nil {
 		c.JSON(http.StatusOK, dto.Fail[string](models.InvalidRequestBodyMessage))
 		return
 	}
 
-	// 获取当前用户 ID (为0表示未登录，不返回隐私数据,不为零时则必须为管理员)
 	userID := c.MustGet("userid").(uint)
 	showPrivate := false
 
 	if userID != 0 {
-		// 获取当前用户信息
 		user, err := services.GetUserByID(userID)
 		if err != nil {
 			c.JSON(http.StatusOK, dto.Fail[string](models.UserNotFoundMessage))
 			return
 		}
-		// 如果是管理员，则可以查看所有留言
 		if user.IsAdmin {
 			showPrivate = true
 		}
 	}
 
-	// 调用 Service 层获取分页留言
 	pageQueryResult, err := services.GetMessagesByPage(pageRequest.Page, pageRequest.PageSize, showPrivate)
 	if err != nil {
 		c.JSON(http.StatusOK, dto.Fail[string](err.Error()))
 		return
 	}
 
-	// 返回成功响应
 	c.JSON(http.StatusOK, dto.OK(pageQueryResult, models.GetMessagesByPageSuccess))
 }
 
-// PostMessage 处理 POST /messages 请求，发布留言
 func PostMessage(c *gin.Context) {
 	var message models.Message
 
-	// 绑定请求体到 message 对象
 	if err := c.ShouldBindJSON(&message); err != nil {
 		c.JSON(http.StatusOK, dto.Fail[string](models.InvalidRequestBodyMessage))
 		return
 	}
 
-	// 调用 Service 层保存留言
 	message.UserID = c.MustGet("userid").(uint)
 	if err := services.CreateMessage(&message); err != nil {
 		c.JSON(http.StatusOK, dto.Fail[string](err.Error()))
 		return
 	}
 
-	// 返回成功响应
 	c.JSON(http.StatusOK, dto.OK(message, models.PostMessageSuccess))
 }
 
-// GetStatus 处理 GET /status 请求，获取服务器状态
 func GetStatus(c *gin.Context) {
-	// 调用 Service 层获取状态
 	status, err := services.GetStatus()
 	if err != nil {
 		c.JSON(http.StatusOK, dto.Fail[string](models.GetStatusFailMessage))
@@ -171,43 +175,45 @@ func GetStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.OK(status, models.GetStatusSuccessMessage))
 }
 
-// DeleteMessage 处理 DELETE /messages/:id 请求，删除留言
+// DeleteMessage 删除留言
 func DeleteMessage(c *gin.Context) {
-	// 检查用户是否为管理员
-	user, err := services.GetUserByID(c.MustGet("userid").(uint))
-	if err != nil {
-		c.JSON(http.StatusOK, dto.Fail[string](models.UserNotFoundMessage))
-		return
-	}
-	if !user.IsAdmin {
-		c.JSON(http.StatusOK, dto.Fail[string](models.NoPermissionMessage))
-		return
-	}
+    // 获取消息 ID
+    id := c.Param("id")
+    messageID, err := strconv.ParseUint(id, 10, 64)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"code": 0, "msg": "无效的消息ID"})
+        return
+    }
 
-	// 从 URL 参数获取留言 ID
-	idStr := c.Param("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
-	if err != nil {
-		c.JSON(http.StatusOK, dto.Fail[string]("models.InvalidIDMessage"))
-		return
-	}
+    // 获取当前用户ID
+    userID := c.GetUint("userid")
+    
+    // 检查是否为管理员
+    user, err := services.GetUserByID(userID)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": err.Error()})
+        return
+    }
 
-	// 调用 Service 层删除留言
-	if err := services.DeleteMessage(uint(id)); err != nil {
-		if err == gorm.ErrRecordNotFound {
-			c.JSON(http.StatusOK, dto.Fail[string](models.MessageNotFoundMessage))
-		} else {
-			c.JSON(http.StatusOK, dto.Fail[string](models.DeleteFailMessage))
-		}
-		return
-	}
+    // 如果是管理员，直接删除；如果不是，则验证是否为留言作者
+    if !user.IsAdmin {
+        // 调用服务层删除消息，传入消息ID和用户ID进行验证
+        if err := services.DeleteMessage(uint(messageID), userID); err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": err.Error()})
+            return
+        }
+    } else {
+        // 管理员可以直接删除任何留言
+        if err := services.DeleteMessageByAdmin(uint(messageID)); err != nil {
+            c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": err.Error()})
+            return
+        }
+    }
 
-	// 返回成功响应
-	c.JSON(http.StatusOK, dto.OK[interface{}](nil, models.DeleteSuccessMessage))
+    c.JSON(http.StatusOK, gin.H{"code": 1, "msg": "删除成功"})
 }
 
 func GenerateRSS(c *gin.Context) {
-
 	atom, err := services.GenerateRSS(c)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, dto.Fail[string](models.GenerateRSSFailMessage))
@@ -217,23 +223,19 @@ func GenerateRSS(c *gin.Context) {
 	c.Data(http.StatusOK, "application/rss+xml; charset=utf-8", []byte(atom))
 }
 
-// 更新用户信息 （用户名 、 密码）
 func UpdateUser(c *gin.Context) {
-	// 检查用户是否为管理员
-	user, err := services.GetUserByID(c.MustGet("userid").(uint))
+	user, err := checkUser(c)
 	if err != nil {
-		c.JSON(http.StatusOK, dto.Fail[string](models.UserNotFoundMessage))
+		c.JSON(http.StatusOK, dto.Fail[string](err.Error()))
 		return
 	}
 
-	// 解析请求体中的参数
 	var userdto dto.UserInfoDto
 	if err := c.ShouldBindJSON(&userdto); err != nil {
 		c.JSON(http.StatusOK, dto.Fail[string](models.InvalidRequestBodyMessage))
 		return
 	}
 
-	// 调用 Service 层更新用户信息
 	if err := services.UpdateUser(user, userdto); err != nil {
 		c.JSON(http.StatusOK, dto.Fail[string](err.Error()))
 		return
@@ -242,23 +244,19 @@ func UpdateUser(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.OK[any](nil, models.UpdateUserSuccessMessage))
 }
 
-// 更改密码
 func ChangePassword(c *gin.Context) {
-	// 解析用户请求体中的参数
 	var userdto dto.UserInfoDto
 	if err := c.ShouldBindJSON(&userdto); err != nil {
 		c.JSON(http.StatusOK, dto.Fail[string](models.InvalidRequestBodyMessage))
 		return
 	}
 
-	// 获取当前用户 ID
-	user, err := services.GetUserByID(c.MustGet("userid").(uint))
+	user, err := checkUser(c)
 	if err != nil {
-		c.JSON(http.StatusOK, dto.Fail[string](models.UserNotFoundMessage))
+		c.JSON(http.StatusOK, dto.Fail[string](err.Error()))
 		return
 	}
 
-	// 调用 Service 层更改密码
 	if err := services.ChangePassword(user, userdto); err != nil {
 		c.JSON(http.StatusOK, dto.Fail[string](err.Error()))
 		return
@@ -267,56 +265,87 @@ func ChangePassword(c *gin.Context) {
 	c.JSON(http.StatusOK, dto.OK[any](nil, models.ChangePasswordSuccessMessage))
 }
 
-// 更新用户权限
 func UpdateUserAdmin(c *gin.Context) {
-	// 检查用户是否为管理员
-	user, err := services.GetUserByID(c.MustGet("userid").(uint))
+    _, err := checkAdmin(c) // 获取的是 uint 类型的 userID
+    if err != nil {
+        c.JSON(http.StatusOK, dto.Fail[string](err.Error()))
+        return
+    }
+    idStr := c.Query("id")
+    id, err := strconv.ParseUint(idStr, 10, 64)
+    if err != nil || id == 1 { // 移除了 user.ID 的比较
+        c.JSON(http.StatusOK, dto.Fail[string](models.InvalidIDMessage))
+        return
+    }
+    if err := services.UpdateUserAdmin(uint(id)); err != nil {
+        c.JSON(http.StatusOK, dto.Fail[string](err.Error()))
+        return
+    }
+    c.JSON(http.StatusOK, dto.OK[any](nil, models.UpdateUserSuccessMessage))
+}
+
+func GetUserInfo(c *gin.Context) {
+	user, err := checkUser(c)
 	if err != nil {
-		c.JSON(http.StatusOK, dto.Fail[string](models.UserNotFoundMessage))
-		return
-	}
-	if !user.IsAdmin {
-		c.JSON(http.StatusOK, dto.Fail[string](models.NoPermissionMessage))
-		return
-	}
-
-	// 从Query参数获取用户 ID
-	idStr := c.Query("id")
-	id, err := strconv.ParseUint(idStr, 10, 64)
-	// 不能和当前用户 ID 一样，不能是系统管理员 ID 1，不能为空
-	if err != nil || id == uint64(user.ID) || id == 1 {
-		c.JSON(http.StatusOK, dto.Fail[string](models.InvalidIDMessage))
-		return
-	}
-
-	// 调用 Service 层更新用户权限
-	if err := services.UpdateUserAdmin(uint(id)); err != nil {
 		c.JSON(http.StatusOK, dto.Fail[string](err.Error()))
 		return
 	}
 
-	c.JSON(http.StatusOK, dto.OK[any](nil, models.UpdateUserSuccessMessage))
-}
-
-// 获取当前登录用户的信息
-func GetUserInfo(c *gin.Context) {
-	// 获取当前用户 ID
-	userID := c.MustGet("userid").(uint)
-
-	// 调用 Service 层获取用户信息
-	user, err := services.GetUserByID(userID)
-	user.Password = "" // 不返回密码
-	if err != nil {
-		c.JSON(http.StatusOK, dto.Fail[string](models.UserNotFoundMessage))
-		return
-	}
-
-	// 返回成功响应
+	user.Password = ""
 	c.JSON(http.StatusOK, dto.OK(user, models.QuerySuccessMessage))
 }
 
-// 更改系统设置 （是否允许注册）
-// func UpdateSetting(c *gin.Context) {
-// 	// 解析请求体中的设置参数
+func UpdateSetting(c *gin.Context) {
+	userID, err := checkAdmin(c)
+	if err != nil {
+		c.JSON(http.StatusOK, dto.Fail[string](err.Error()))
+		return
+	}
 
-// }
+	var setting dto.SettingDto
+	if err := c.ShouldBindJSON(&setting); err != nil {
+		c.JSON(http.StatusOK, dto.Fail[string](models.InvalidRequestBodyMessage))
+		return
+	}
+
+	// 将 SettingDto 转换为 map[string]interface{}
+	settingMap := map[string]interface{}{
+		"allow_registration": setting.AllowRegistration,
+		"frontend_settings": map[string]interface{}{
+			"site_title":    setting.FrontendSettings.SiteTitle,
+			"subtitle_text": setting.FrontendSettings.SubtitleText,
+			"avatar_url":    setting.FrontendSettings.AvatarURL,
+			"username":      setting.FrontendSettings.Username,
+			"description":   setting.FrontendSettings.Description,
+			"backgrounds":   setting.FrontendSettings.Backgrounds,
+		},
+	}
+
+	if err := services.UpdateSetting(userID, settingMap); err != nil {
+		c.JSON(http.StatusOK, dto.Fail[string](err.Error()))
+		return
+	}
+
+	c.JSON(http.StatusOK, dto.OK[any](nil, models.UpdateSettingSuccessMessage))
+}
+// ... existing code ...
+
+func GetFrontendConfig(c *gin.Context) {
+    config, err := services.GetFrontendConfig()
+    if err != nil {
+        c.JSON(http.StatusOK, dto.Fail[interface{}](models.QueryFailMessage))
+        return
+    }
+
+    // 确保返回的结构与前端期望的匹配
+    response := map[string]interface{}{
+        "code": 1,
+        "msg":  models.QuerySuccessMessage,
+        "data": map[string]interface{}{
+            "frontendSettings": config,
+        },
+    }
+
+    c.JSON(http.StatusOK, response)
+}
+
