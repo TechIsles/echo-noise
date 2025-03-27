@@ -1,42 +1,37 @@
 <template>
-  <div class="min-h-screen flex flex-col">
+   <div class="min-h-screen flex flex-col">
     <div class="flex-grow mx-auto w-full sm:max-w-2xl px-2">
       <div class="my-4">
         <div v-for="msg in message.messages" :key="msg.id"
           class="w-full h-auto overflow-hidden flex flex-col justify-between">
-          <div class="flex justify-between items-center">
-            <!-- 时间 -->
+           <!-- 修改头部布局 -->
+           <div class="flex justify-between items-end">
+            <!-- 时间部分保持不变 -->
             <div class="flex justify-start items-center h-auto">
               <div class="w-2 h-2 rounded-full bg-orange-600 mr-2"></div>
-              <!-- 保留年月日 -->
               <div class="flex justify-start text-sm text-orange-500">
                 {{ formatDate(msg.created_at) }}
               </div>
             </div>
-            <!-- 操作按钮 -->
-            <div class="flex justify-end items-center space-x-2">
-              <!-- 显示是否为私密 -->
-              <div v-if="msg.private" class="w-5 h-5">
+            <!-- 优化操作按钮组样式 -->
+          <div class="message-actions flex justify-end items-center space-x-2 flex-shrink-0 px-3 py-2.5 mr-[9px]">
+            <!-- ... 按钮内容 ... -->
+              <div v-if="msg.private" class="w-5 h-5 flex-shrink-0 transition-transform duration-200 hover:scale-110">
                 <UIcon name="i-mdi-lock-outline" class="text-gray-400" />
               </div>
-              <!-- 编辑按钮 -->
-              <div v-if="isLogin" class="w-5 h-5 cursor-pointer" @click="editMessage(msg)" :title="'编辑内容'">
+              <div v-if="isLogin" class="w-5 h-5 cursor-pointer flex-shrink-0 transition-all duration-200 hover:scale-110" @click="editMessage(msg)" :title="'编辑内容'">
                 <UIcon name="i-mdi-pencil-outline" class="text-gray-400 hover:text-orange-500" />
               </div>
-              <!-- 复制按钮 -->
-              <div class="w-5 h-5 cursor-pointer" @click="copyContent(msg.content)" :title="'复制内容'">
+              <div class="w-5 h-5 cursor-pointer flex-shrink-0 transition-all duration-200 hover:scale-110" @click="copyContent(msg.content)" :title="'复制内容'">
                 <UIcon name="i-mdi-content-copy" class="text-gray-400 hover:text-orange-500" />
               </div>
-              <!-- 下载按钮 -->
-              <div class="w-5 h-5 cursor-pointer" @click="downloadAsImage(msg.id)" :title="'下载为图片'">
+              <div class="w-5 h-5 cursor-pointer flex-shrink-0 transition-all duration-200 hover:scale-110" @click="downloadAsImage(msg.id)" :title="'下载为图片'">
                 <UIcon name="i-mdi-image-outline" class="text-gray-400 hover:text-orange-500" />
               </div>
-              <!-- 评论按钮 -->
-              <div class="w-5 h-5 cursor-pointer" @click="toggleComment(msg.id)">
+              <div class="w-5 h-5 cursor-pointer flex-shrink-0 transition-all duration-200 hover:scale-110" @click="toggleComment(msg.id)" :title="'评论'">
                 <UIcon name="i-mdi-comment-outline" class="text-gray-400 hover:text-orange-500" />
               </div>
-              <!-- 删除按钮 -->
-              <div v-if="isLogin" class="w-5 h-5 cursor-pointer" @click="deleteMsg(msg.id)">
+              <div v-if="isLogin" class="w-5 h-5 cursor-pointer flex-shrink-0 transition-all duration-200 hover:scale-110" @click="deleteMsg(msg.id)" :title="'删除'">
                 <UIcon name="i-mdi-paper-roll-outline" class="text-gray-400 hover:text-orange-500" />
               </div>
             </div>
@@ -821,5 +816,25 @@ button:hover {
 
 :deep(.fancybox__backdrop) {
   z-index: 9998 !important;
+}
+/* 按钮组样式 */
+.message-actions {
+  position: relative;
+  z-index: 1;
+}
+
+/* 按钮悬停效果 */
+.message-actions > div {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.message-actions > div:hover {
+  transform: translateY(-2px);
+}
+
+.message-actions > div:hover .text-gray-400 {
+  color: #fb923c;
+  filter: drop-shadow(0 0 2px rgba(251, 146, 60, 0.3));
 }
 </style>
