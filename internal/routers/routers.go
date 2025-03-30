@@ -13,9 +13,17 @@ func SetupRouter() *gin.Engine {
 
     // 配置 CORS
     config := cors.DefaultConfig()
-    config.AllowHeaders = []string{"Origin", "Content-Type", "Authorization"}
+    config.AllowHeaders = []string{
+        "Origin",
+        "Content-Type",
+        "Authorization",
+        "X-Requested-With",
+        "Accept",
+        "Device-Type",  // 添加设备类型头
+    }
     config.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
     config.AllowCredentials = true
+    config.MaxAge = 86400 
     config.AllowOrigins = []string{"*"}
     r.Use(cors.New(config))
 

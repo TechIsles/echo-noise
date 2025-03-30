@@ -1,11 +1,11 @@
 server:
   port: 1314
   host: "0.0.0.0"
-  mode: "debug" # "release" or "debug"
+  mode: "release" # "release" or "debug"
 
 database:
   type: "sqlite"
-  path: "data/noise.db"
+  path: "/app/data/noise.db"
 
 upload:
   maxsize: 5242880

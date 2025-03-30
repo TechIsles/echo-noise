@@ -321,49 +321,31 @@ watch(
 onMounted(() => {
   isLogin.value = useUserStore()?.isLogin;
   checkContentHeight();
-  // 确保 Waline 脚本加载完成
+  
+  // 合并消息获取逻辑
+  message.getMessages({
+    page: 1,
+    pageSize: 10,
+  });
+
+  // 简化 Waline 加载逻辑
   if (!window.Waline) {
-    console.warn("Waline 未加载，尝试加载 Waline 脚本");
     const script = document.createElement("script");
     script.src = "https://unpkg.com/@waline/client@v2/dist/waline.js";
-    script.onload = () => {
-      console.log("Waline 脚本加载成功");
-      // Waline 加载完成后初始化 Fancybox
-      initFancybox();
-    };
+    script.onload = initFancybox; // Waline 加载后直接初始化 Fancybox
     document.head.appendChild(script);
-  }
-
-  // 添加定时器确保图片加载完成后初始化
-  const initTimer = setInterval(() => {
-    const images = document.querySelectorAll(".markdown-preview img");
-    if (images.length > 0) {
-      initFancybox();
-      clearInterval(initTimer);
-    }
-  }, 1000);
-
-  if (document.readyState === "complete") {
-    message.getMessages({
-      page: 1,
-      pageSize: 10,
-    });
   } else {
-    window.addEventListener("load", () => {
-      message.getMessages({
-        page: 1,
-        pageSize: 10,
-      });
-    });
+    initFancybox();
   }
 });
 
-// 监听消息变化，确保新加载的内容也能正确绑定 Fancybox
+// 简化监听器 - 移除重复的 messages 监听
 watch(
   () => message.messages,
   () => {
     nextTick(() => {
-      initFancybox();
+      checkContentHeight();
+      initFancybox(); // 合并为一个调用
     });
   },
   { deep: true }
@@ -424,33 +406,14 @@ const saveEditedMessage = async () => {
 
     // 使用与 AddForm 相同的 save 方法创建新消息
     const { save } = useMessage();
-    const response = await save(newMessage);
-    
-    if (!response) {
-      throw new Error('创建新消息失败');
-    }
-
-    // 更新本地消息列表
+    await save(newMessage);
     await message.getMessages({
       page: message.page,
       pageSize: 10
     });
-    
-    useToast().add({
-      title: '更新成功',
-      color: 'green',
-      timeout: 2000
-    });
-    
     showEditModal.value = false;
   } catch (error) {
     console.error('更新消息失败:', error);
-    useToast().add({
-      title: '更新失败',
-      description: error.message || '请检查网络连接或权限',
-      color: 'red',
-      timeout: 3000
-    });
   } finally {
     isSaving.value = false;
   }
@@ -492,19 +455,22 @@ const downloadAsImage = async (msgId: number) => {
     await nextTick();
 
     // 2. 创建临时容器
-const tempContainer = document.createElement('div');
-tempContainer.style.cssText = `
-  padding: 30px;
-  background: rgba(36, 43, 50, 0.95);
-  border-radius: 12px;
-  width: ${hasImage ? '800px' : '600px'};
-  position: absolute;
-  left: -9999px;
-  top: 0;
-  z-index: -1;
-  overflow: visible;
-  min-height: fit-content;
-`;
+    const tempContainer = document.createElement('div');
+    tempContainer.style.cssText = `
+      padding: 30px;
+      background: rgba(36, 43, 50, 0.95);
+      border-radius: 16px;
+      width: ${hasImage ? '800px' : '600px'};
+      position: absolute;
+      left: -9999px;
+      top: 0;
+      z-index: -1;
+      overflow: visible;
+      min-height: fit-content;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(251, 146, 60, 0.1);
+    `;
     document.body.appendChild(tempContainer);
     
     // 3. 复制并处理内容
@@ -515,24 +481,27 @@ tempContainer.style.cssText = `
     contentClone.style.cssText = `
       max-height: none;
       overflow: visible;
-      padding: 20px;
+      padding: 0;
       margin: 0;
+      background: transparent;
     `;
     
     // 处理内容区域
-const contentArea = contentClone.querySelector('.overflow-y-hidden');
-if (contentArea) {
-  contentArea.className = '';
-  contentArea.style.cssText = `
-    overflow: visible;
-    max-height: none !important;
-    height: auto !important;
-    padding: 20px;
-    line-height: 1.8;
-    margin-bottom: 20px;
-    white-space: pre-wrap;
-  `;
-}
+    const contentArea = contentClone.querySelector('.overflow-y-hidden');
+    if (contentArea) {
+      contentArea.className = '';
+      contentArea.style.cssText = `
+        overflow: visible;
+        max-height: none !important;
+        height: auto !important;
+        padding: 16px;
+        line-height: 1.8;
+        margin-bottom: 0;
+        white-space: pre-wrap;
+        background: transparent;
+        border-radius: 12px;
+      `;
+    }
 
     // 处理媒体元素
     const mediaElements = contentClone.querySelectorAll('video, audio, iframe');
@@ -589,58 +558,61 @@ if (contentArea) {
     // 添加 footer
     const footer = document.createElement('div');
     footer.style.cssText = `
-      margin-top: 30px;
-      padding-top: 20px;
-      border-top: 1px solid rgba(255, 255, 255, 0.2);
+      margin-top: 20px;
+      padding-top: 16px;
+      border-top: 1px solid rgba(251, 146, 60, 0.2);
       text-align: center;
       font-family: system-ui, -apple-system, sans-serif;
+      background: transparent;
     `;
     footer.innerHTML = `
-      <div style="color: #fb923c; font-size: 14px; margin-bottom: 10px;">
+      <div style="color: #fb923c; font-size: 14px; margin-bottom: 8px;">
        Noise·说说·笔记~
       </div>
-      <div style="color: #666; font-size: 12px;">
-        www.noisework.cn
+      <div style="color: rgba(255,255,255,0.6); font-size: 12px;">
+        note.noisework.cn
       </div>
     `;
     tempContainer.appendChild(footer);
 
     // 生成图片
-await nextTick();
-const canvas = await html2canvas(tempContainer, {
-  backgroundColor: 'rgba(36, 43, 50, 0.95)',
-  scale: 2,
-  useCORS: true,
-  allowTaint: true,
-  logging: false,
-  width: hasImage ? 800 : 600,
-  height: tempContainer.scrollHeight,
-  onclone: (clonedDoc) => {
-    const clonedElement = clonedDoc.querySelector('.content-container');
-    if (clonedElement) {
-      clonedElement.style.cssText = `
-        overflow: visible !important;
-        max-height: none !important;
-        height: auto !important;
-        padding: 30px;
-        min-height: ${contentArea?.scrollHeight || 0}px;
-      `;
-    }
-  }
-});
+    await nextTick();
+    const canvas = await html2canvas(tempContainer, {
+      backgroundColor: null,
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      logging: false,
+      width: tempContainer.offsetWidth,
+      height: tempContainer.scrollHeight,
+      borderRadius: '16px',
+      onclone: (clonedDoc) => {
+        const clonedElement = clonedDoc.querySelector('.content-container');
+        if (clonedElement) {
+          clonedElement.style.cssText = `
+            overflow: visible !important;
+            max-height: none !important;
+            height: auto !important;
+            padding: 0;
+            min-height: ${contentArea?.scrollHeight || 0}px;
+            background: transparent;
+          `;
+        }
+      }
+    });
 
     // 清除超时检测
     clearTimeout(timeout);
-    // 7. 下载图片
+    // 下载图片
     const link = document.createElement('a');
     link.download = `message-${msgId}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
 
-    // 8. 清理临时元素
+    // 清理临时元素
     document.body.removeChild(tempContainer);
     
-    // 9. 恢复原始展开状态
+    // 恢复原始展开状态
     isExpanded.value[msgId] = originalExpanded;
 
     useToast().add({
@@ -841,7 +813,7 @@ button:hover {
 }
 /* 时间和发布者名称的间隔样式 */
 .gradient-dot {
-  background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+  background: linear-gradient(45deg, #ff6b6b, #de275b);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;

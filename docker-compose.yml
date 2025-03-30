@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   my-app:
     build:
@@ -9,7 +7,7 @@ services:
     ports:
       - "1314:1314"
     volumes:
-      - ./data:/app/data
+      - ./data/noise.db:/app/data/noise.db
     environment:
-      - CGO_ENABLED=1
-    restart: always
+      - LOG_LEVEL=info
+      - DATABASE_FILE=/app/data/noise.db

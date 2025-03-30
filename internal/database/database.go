@@ -26,7 +26,7 @@ func InitDB() error {
 	dbPath := config.Config.Database.Path
 
 	// 确保数据库目录存在
-	dir := fmt.Sprintf("%s", dbPath[:len(dbPath)-len("/ech0.db")]) // 提取目录部分
+	dir := fmt.Sprintf("%s", dbPath[:len(dbPath)-len("/noise.db")]) // 提取目录部分
 	if err := os.MkdirAll(dir, os.ModePerm); err != nil {
 		log.Fatalf("Failed to create database directory: %v", err)
 		return err

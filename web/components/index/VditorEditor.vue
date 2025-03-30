@@ -100,7 +100,8 @@ defineExpose({
 .vditor-container {
   border-radius: 8px;
   margin-bottom: 12px;
-  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden; /* 新增 */
   
   position: relative; /* 添加相对定位 */
 }
@@ -123,8 +124,9 @@ defineExpose({
   -ms-overflow-style: none;
   background-color: #f8f9fab7;
   border-bottom: 1px solid #e9ecef;
-  position: relative; /* 改为相对定位 */
-  z-index: 2; /* 调整层级 */
+  position: sticky; /* 修改为 sticky 定位 */
+  top: 0; /* 添加 top 值 */
+  z-index: 999;
 }
 
 .vditor-toolbar::-webkit-scrollbar {

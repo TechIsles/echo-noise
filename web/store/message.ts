@@ -8,17 +8,18 @@ export const useMessageStore = defineStore("messageStore", () => {
   const total = ref(0);
   const hasMore = ref(true);
   const page = ref<number>(0);
-  const pageSize = ref(10);
+  const pageSize = ref(5);
   const toast = useToast();
+  const loading = ref<boolean>(true); // 添加loading状态
 
-  // 获取留言列表
+  // 获取笔记列表
 //   const getAllMessages = async () => {
 //     try {
 //       const response = await getRequest<Message[]>("messages");
 //       if (!response) {
-//         console.error("获取留言列表失败");
+//         console.error("获取笔记列表失败");
 //         toast.add({
-//             title: "获取留言列表失败",
+//             title: "获取笔记列表失败",
 //             description: "请稍后重试",
 //             icon: "i-fluent-error-circle-16-filled",
 //             color: "red",
@@ -33,7 +34,7 @@ export const useMessageStore = defineStore("messageStore", () => {
 //     }
 //   };
 
-  // 分页获取留言列表
+  // 分页获取笔记列表
   const getMessages = async (query: PageQuery) => {
     try {
       if (query.page < page.value) return;
@@ -42,9 +43,9 @@ export const useMessageStore = defineStore("messageStore", () => {
         query
       );
       if (!response) {
-        console.error("获取留言列表失败");
+        console.error("获取笔记列表失败");
         toast.add({
-            title: "获取留言列表失败",
+            title: "获取笔记列表失败",
             description: "请稍后重试",
             icon: "i-fluent-error-circle-16-filled",
             color: "red",
@@ -53,7 +54,7 @@ export const useMessageStore = defineStore("messageStore", () => {
         return null;
       }
 
-      // 将返回的留言数据追加到 messages 数组中
+      // 将返回的笔记数据追加到 messages 数组中
       if (messages.value.length < response.data.total) {
         messages.value.push(...response.data.items);
       }
@@ -62,11 +63,10 @@ export const useMessageStore = defineStore("messageStore", () => {
 
       // 更新分页状态
       hasMore.value = messages.value.length < total.value;
-
-    //   console.log("PAGE" + page.value);
-    //   console.log("@@@@@@" + messages.value.length, total.value, hasMore.value);
     } catch (error) {
       console.error(error);
+    } finally {
+      loading.value = false; // 数据加载完成时设置为 false
     }
   };
 
@@ -74,9 +74,9 @@ export const useMessageStore = defineStore("messageStore", () => {
     try {
       const response = await deleteRequest<any>(`messages/${id}`);
       if (!response || response.code !== 1) {
-        console.error("删除留言失败");
+        console.error("删除笔记失败");
         toast.add({
-            title: "删除留言失败",
+            title: "删除笔记失败",
             description: response?.msg,
             icon: "i-fluent-error-circle-16-filled",
             color: "red",
@@ -85,7 +85,7 @@ export const useMessageStore = defineStore("messageStore", () => {
         return null;
       }
 
-      // 从 messages 中删除对应的留言
+      // 从 messages 中删除对应的笔记
       messages.value = messages.value.filter((message) => message.id !== id);
       return response;
     } catch (error) {
@@ -99,6 +99,7 @@ export const useMessageStore = defineStore("messageStore", () => {
     messages,
     total,
     hasMore,
+    loading,
     getMessages,
     deleteMessage,
   };

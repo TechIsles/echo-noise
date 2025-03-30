@@ -13,7 +13,5 @@ import Notification from '~/components/widgets/Notification.vue';
 </script>
 
 <style scoped>
-body {
-    background-color: #f4f1ec;
-}
+
 </style>

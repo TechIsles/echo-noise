@@ -15,9 +15,10 @@
                         <div class="flex justify-between items-center">
                             <span class="text-gray-300">当前用户</span>
                             <span class="text-white font-medium">
-                                {{ isLogin ? (userStore?.user?.username || userStore?.status?.username) : "未登录" }}
+                                {{ isLogin ? userStore.user?.username : "未登录" }}
                             </span>
                         </div>
+                     
                         <div class="flex justify-between items-center">
                             <span class="text-gray-300">笔记总数</span>
                             <span class="text-white font-medium">{{ userStore?.status?.total_messages }} 条</span>

@@ -1,70 +1,69 @@
-# 使用 Node.js Alpine 镜像作为前端构建阶段
-FROM node:18-alpine AS frontend-build
+# 前端构建阶段
+FROM node:22.14.0-alpine AS frontend-build
 
-# 设置前端工作目录
+# 设置工作目录
 WORKDIR /app/web
 
 # 复制前端依赖文件并安装依赖
 COPY ./web/package.json ./web/package-lock.json* ./
 RUN npm install --production
 
-# 复制前端源代码并构建项目
+# 复制前端源代码并构建
 COPY ./web/ .
 RUN npm run generate
 
-# 复制构建后的文件到后端 public 目录
-RUN mkdir -p /app/public && cp -r .output/public/* /app/public/
+# 将构建结果复制到公共目录
+RUN cp -r .output/public /app/public/
 
-# 使用 Golang Alpine 镜像作为后端构建阶段
-FROM golang:1.22-alpine AS backend-build
+# 后端构建阶段
+FROM golang:1.24.1-alpine AS backend-build
 
-# 设置后端工作目录
+# 设置工作目录
 WORKDIR /app
-
-# 添加阿里云的镜像源
-RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories
 
 # 安装构建时所需的工具
-RUN apk add --no-cache --update gcc musl-dev git
+RUN apk add --no-cache gcc musl-dev
 
-# 设置环境变量
-ENV CGO_ENABLED=1
-ENV GOTOOLCHAIN=auto
-ENV GOPROXY=https://goproxy.cn,direct
+# 禁用 CGO（如果不依赖 CGO，可以禁用以避免安装 gcc）
+# ENV CGO_ENABLED=0
 
-# 复制后端代码和必要文件
-COPY go.mod go.sum ./
-RUN go mod download && go mod verify
+# 复制 Go 模块文件并下载依赖
+COPY ./go.mod ./go.sum ./
+RUN go mod download
 
-COPY . .
+# 复制项目文件
+COPY ./cmd ./cmd
+COPY ./internal ./internal
+COPY ./pkg ./pkg
+COPY ./config ./config
 
 # 创建必要的目录并设置权限
-RUN mkdir -p /app/data /app/public && chmod -R 777 /app/data
+RUN mkdir -p /app/data /app/public && chmod -R 755 /app/data
 
-# 构建 Go 后端应用
+# 编译 Go 应用
 RUN go build -o /app/noise ./cmd/server/main.go
 
-# 使用更轻量的 Alpine 镜像作为运行时阶段
-FROM alpine:3.18 AS final
+# 运行时阶段
+FROM alpine:latest AS final
 
+# 设置工作目录
 WORKDIR /app
 
-# 安装运行时依赖
-RUN apk add --no-cache ca-certificates tzdata
-
-# 设置时区
-ENV TZ=Asia/Shanghai
-
-# 创建必要的目录
-RUN mkdir -p /app/data /app/public && chmod -R 777 /app/data
-
-# 复制构建阶段的文件
+# 从后端构建阶段复制配置文件和二进制文件
 COPY --from=backend-build /app/config /app/config
 COPY --from=backend-build /app/noise /app/noise
+
+# 从前端构建阶段复制静态文件
 COPY --from=frontend-build /app/public /app/public
 
-# 暴露端口
+# 安装运行时所需的工具（如 CA 证书）
+RUN apk add --no-cache ca-certificates
+
+# 复制数据库文件到运行时目录
+COPY ./data/noise.db /app/data/
+
+# 暴露应用端口
 EXPOSE 1314
 
-# 运行后端服务
+# 启动应用
 CMD ["/app/noise"]

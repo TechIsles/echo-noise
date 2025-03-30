@@ -13,17 +13,17 @@ import (
 	"github.com/lin-snow/ech0/pkg"
 )
 
-// GetAllMessages 封装业务逻辑，获取所有留言
+// GetAllMessages 封装业务逻辑，获取所有笔记
 func GetAllMessages(showPrivate bool) ([]models.Message, error) {
 	return repository.GetAllMessages(showPrivate)
 }
 
-// GetMessageByID 根据 ID 获取留言
+// GetMessageByID 根据 ID 获取笔记
 func GetMessageByID(id uint, showPrivate bool) (*models.Message, error) {
 	return repository.GetMessageByID(id, showPrivate)
 }
 
-// GetMessagesByPage 分页获取留言
+// GetMessagesByPage 分页获取笔记
 func GetMessagesByPage(page, pageSize int, showPrivate bool) (dto.PageQueryResult, error) {
 	// 参数校验
 	if page < 1 {
@@ -40,11 +40,11 @@ func GetMessagesByPage(page, pageSize int, showPrivate bool) (dto.PageQueryResul
 	var total int64
 
 	if showPrivate {
-		// 如果是管理员，则不需要过滤私密留言
+		// 如果是管理员，则不需要过滤私密笔记
 		database.DB.Model(&models.Message{}).Count(&total)
 		database.DB.Limit(pageSize).Offset(offset).Order("created_at DESC").Find(&messages)
 	} else {
-		// 如果不是管理员，则只查询公开的留言
+		// 如果不是管理员，则只查询公开的笔记
 		database.DB.Model(&models.Message{}).Where("private = ?", false).Count(&total)
 		database.DB.Limit(pageSize).Offset(offset).Where("private = ?", false).Order("created_at DESC").Find(&messages)
 	}
@@ -57,7 +57,7 @@ func GetMessagesByPage(page, pageSize int, showPrivate bool) (dto.PageQueryResul
 	return PageQueryResult, nil
 }
 
-// CreateMessage 发布一条留言
+// CreateMessage 发布一条笔记
 // 允许所有注册登陆用户发布信息
 func CreateMessage(message *models.Message) error {
     user, err := GetUserByID(message.UserID)
@@ -70,29 +70,29 @@ func CreateMessage(message *models.Message) error {
     return repository.CreateMessage(message)
 }
 
-// DeleteMessage 根据 ID 删除留言
+// DeleteMessage 根据 ID 删除笔记
 func DeleteMessage(id uint, userID uint) error {
-    // 获取留言信息
+    // 获取笔记信息
     message, err := repository.GetMessageByID(id, true)
     if err != nil {
         return err
     }
 
-    // 验证是否为留言作者
+    // 验证是否为笔记作者
     if message.UserID != userID {
-        return fmt.Errorf("无权删除他人的留言")
+        return fmt.Errorf("无权删除他人的笔记")
     }
 
     return repository.DeleteMessage(id)
 }
 
-// DeleteMessageByAdmin 管理员删除留言（无需验证作者）
+// DeleteMessageByAdmin 管理员删除笔记（无需验证作者）
 func DeleteMessageByAdmin(id uint) error {
     return repository.DeleteMessage(id)
 }
 
 func GenerateRSS(c *gin.Context) (string, error) {
-	// 获取所有留言
+	// 获取所有笔记
 	showPrivate := false
 	messages, err := GetAllMessages(showPrivate)
 	if err != nil {

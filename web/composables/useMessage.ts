@@ -1,4 +1,4 @@
-import type { MessageToSave, Message, Response } from "~/types/models"
+import type { MessageToSave, Message } from "~/types/models"
 import { useMessageStore } from "~/store/message"
 
 export const useMessage = () => {
@@ -21,14 +21,14 @@ export const useMessage = () => {
                 return null;
             }
 
-            // 更新留言列表
+            // 更新笔记列表
             const newMessage = response.data;
             message.messages.unshift(newMessage); // 将新消息添加到列表的开头
 
             // 提示成功
             toast.add({
                 title: "保存成功",
-                description: "信息已保存",
+                description: "消息已保存",
                 icon: "i-fluent-checkmark-starburst-16-filled",
                 color: "green",
                 timeout: 1000,
@@ -46,7 +46,7 @@ export const useMessage = () => {
             if (response && response.code === 1) {
                 toast.add({
                     title: "删除成功",
-                    description: "信息已删除",
+                    description: "笔记已删除",
                     icon: "i-fluent-checkmark-starburst-16-filled",
                     color: "green",
                     timeout: 1000,
@@ -58,7 +58,7 @@ export const useMessage = () => {
         }
     }
 
-    // 获取留言列表
+    // 获取笔记列表
     // const getAllMessages = async () => {
     //     try {
     //         const response = await getRequest<Message[]>('messages');
