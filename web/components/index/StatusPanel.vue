@@ -127,7 +127,35 @@
                         保存所有更改
                     </UButton>
                 </div>
-
+<!-- 数据库管理面板 -->
+<div v-if="isAdmin" class="bg-gray-700 rounded-lg p-4 mb-6">
+    <h2 class="text-xl font-semibold text-white mb-4">数据库管理</h2>
+    <div class="space-y-4">
+        <div class="flex gap-4">
+            <UButton
+                color="primary"
+                icon="i-heroicons-arrow-down-tray"
+                @click="downloadBackup"
+            >
+                下载备份
+            </UButton>
+            <UButton
+                color="warning"
+                icon="i-heroicons-arrow-up-tray"
+                @click="triggerDatabaseUpload"
+            >
+                恢复数据库
+            </UButton>
+        </div>
+        <input
+            type="file"
+            ref="databaseFileInput"
+            accept=".db"
+            class="hidden"
+            @change="handleDatabaseUpload"
+        />
+    </div>
+</div>
                 <!-- 底部操作栏 -->
                 <div class="flex justify-between items-center">
                     <UButton
@@ -215,7 +243,9 @@ const { login, register, logout } = useUser()
 
 // 状态变量
 const isLogin = computed(() => userStore?.isLogin ?? false)
-const isAdmin = computed(() => userStore?.user?.IsAdmin ?? false)
+const isAdmin = computed(() => {
+    return userStore.user?.is_admin ?? false
+})
 const authmode = ref(true)
 const showLoginModal = ref(false)
 const editMode = ref(false)
@@ -280,37 +310,46 @@ const defaultConfig = {
 // 添加单个配置项保存方法
 const saveConfigItem = async (key: string) => {
     try {
+        const token = userStore.token;
+        if (!token) {
+            throw new Error('无效的登录状态');
+        }
+
         const response = await fetch('/api/settings', {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
-                allowRegistration: true,
                 frontendSettings: frontendConfig
             })
-        })
+        });
         
-        const data = await response.json()
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.msg || '请求失败');
+        }
+        
+        const data = await response.json();
         if (data.code === 1) {
-            editItem[key] = false
+            editItem[key] = false;
             useToast().add({
                 title: '成功',
                 description: `${configLabels[key]}已更新`,
                 color: 'green'
-            })
+            });
         } else {
-            throw new Error(data.msg)
+            throw new Error(data.msg || '保存失败');
         }
-    } catch (error) {
+    } catch (error: any) {
         useToast().add({
             title: '错误',
             description: error.message || '配置更新失败',
             color: 'red'
-        })
+        });
     }
-}
+};
 
 // 添加单个配置项重置方法
 const resetConfigItem = (key: string) => {
@@ -346,37 +385,46 @@ const fetchConfig = async () => {
 
 const saveConfig = async () => {
     try {
+        const token = userStore.token;
+        if (!token) {
+            throw new Error('无效的登录状态');
+        }
+
         const response = await fetch('/api/settings', {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('token')}`
+                'Authorization': `Bearer ${token}`
             },
             body: JSON.stringify({
-                allowRegistration: true,
                 frontendSettings: frontendConfig
             })
-        })
-        
-        const data = await response.json()
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.msg || '请求失败');
+        }
+
+        const data = await response.json();
         if (data.code === 1) {
-            editMode.value = false
+            editMode.value = false;
             useToast().add({
                 title: '成功',
                 description: '配置已更新',
                 color: 'green'
-            })
+            });
         } else {
-            throw new Error(data.msg)
+            throw new Error(data.msg || '保存失败');
         }
-    } catch (error) {
+    } catch (error: any) {
         useToast().add({
             title: '错误',
             description: error.message || '配置更新失败',
             color: 'red'
-        })
+        });
     }
-}
+};
 
 const resetConfig = () => {
     fetchConfig()
@@ -441,10 +489,96 @@ watch(() => userStore.isLogin, (newVal) => {
 
 // 生命周期
 onMounted(async () => {
+    // 确保先加载状态信息
     await userStore.getStatus()
     await userStore.getUser()
     await fetchConfig()
 })
+const databaseFileInput = ref<HTMLInputElement | null>(null)
+
+const downloadBackup = async () => {
+    try {
+        const token = userStore.token || localStorage.getItem('token')
+        if (!token) {
+            throw new Error('令牌无效，请点击右上角登录')
+        }
+
+        const response = await fetch('/api/backup/download', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        })
+        
+        
+        if (!response.ok) {
+            throw new Error('下载失败')
+        }
+
+        const blob = await response.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `noise_backup_${new Date().toISOString().slice(0,10)}.db`
+        document.body.appendChild(a)
+        a.click()
+        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+    } catch (error) {
+        useToast().add({
+            title: '错误',
+            description: error.message || '备份下载失败',
+            color: 'red'
+        })
+    }
+}
+
+const triggerDatabaseUpload = () => {
+    databaseFileInput.value?.click()
+}
+
+const handleDatabaseUpload = async (event: Event) => {
+    const files = (event.target as HTMLInputElement).files
+    if (!files || !files[0]) return
+
+    try {
+        const token = userStore.token || localStorage.getItem('token')
+        if (!token) {
+            throw new Error('令牌无效，请点击右上角登录')
+        }
+
+        const formData = new FormData()
+        formData.append('database', files[0])
+
+        const response = await fetch('/api/backup/restore', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            },
+            body: formData
+        })
+
+        const data = await response.json()
+        if (data.code === 1) {
+            useToast().add({
+                title: '成功',
+                description: '数据库恢复成功',
+                color: 'green'
+            })
+        } else {
+            throw new Error(data.msg)
+        }
+    } catch (error) {
+        useToast().add({
+            title: '错误',
+            description: error.message || '数据库恢复失败',
+            color: 'red'
+        })
+    }
+
+    if (databaseFileInput.value) {
+        databaseFileInput.value.value = ''
+    }
+}
 </script>
 
 <style scoped>

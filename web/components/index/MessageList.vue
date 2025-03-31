@@ -7,11 +7,11 @@
            <!-- 修改头部布局 -->
            <div class="flex justify-between items-center">
             <!-- 时间部分保持不变 -->
-            <div class="flex justify-start items-center h-auto">
-  <div class="w-2 h-2 rounded-full bg-orange-600 mr-2"></div>
+            <div class="flex justify-start items-center h-auto overflow-x-auto whitespace-nowrap hide-scrollbar">
+  <div class="w-2 h-2 rounded-full bg-orange-600 mr-2 flex-shrink-0"></div>
   <div class="flex justify-start text-sm">
     <span class="text-orange-500">{{ formatDate(msg.created_at) }}</span>
-    <span class="gradient-dot mx-2"> @</span>
+    <span class="gradient-dot mx-2 flex-shrink-0">@</span>
     <span class="text-orange-500">{{ msg.username || '匿名用户' }}</span>
   </div>
 </div>
@@ -153,11 +153,8 @@ const deleteMsg = async (id: number) => {
   if (confirmDelete) {
     try {
       await deleteMessage(id);
-      // 删除成功后刷新消息列表
-      await message.getMessages({
-        page: message.page,
-        pageSize: 10
-      });
+      // 只在本地移除消息，不重新加载
+      message.messages = message.messages.filter(msg => msg.id !== id);
       useToast().add({
         title: '删除成功',
         color: 'green',
@@ -298,11 +295,13 @@ const checkContentHeight = () => {
   nextTick(() => {
     message.messages.forEach((msg) => {
       const contentEl = document.querySelector(
-        `.content-container[data-msg-id="${msg.id}"] .markdown-preview`
+        `.content-container[data-msg-id="${msg.id}"] .overflow-y-hidden`
       );
       if (contentEl && contentEl.scrollHeight > 700) {
         shouldShowExpandButton.value[msg.id] = true;
-        isExpanded.value[msg.id] = false;
+        if (isExpanded.value[msg.id] === undefined) {
+          isExpanded.value[msg.id] = false;
+        }
       }
     });
   });
@@ -312,27 +311,34 @@ const checkContentHeight = () => {
 watch(
   () => message.messages,
   () => {
-    nextTick(() => {
+    nextTick(async () => {
+      await new Promise(resolve => setTimeout(resolve, 100)); // 添加短暂延迟
       checkContentHeight();
+      initFancybox();
     });
   },
-  { deep: true }
+  { deep: true, immediate: true }
 );
-onMounted(() => {
+
+onMounted(async () => {
   isLogin.value = useUserStore()?.isLogin;
-  checkContentHeight();
   
-  // 合并消息获取逻辑
-  message.getMessages({
+  // 获取消息列表
+  await message.getMessages({
     page: 1,
     pageSize: 10,
   });
 
-  // 简化 Waline 加载逻辑
+  // 确保内容加载后检查高度
+  await nextTick();
+  await new Promise(resolve => setTimeout(resolve, 100));
+  checkContentHeight();
+
+  // Waline 加载逻辑
   if (!window.Waline) {
     const script = document.createElement("script");
     script.src = "https://unpkg.com/@waline/client@v2/dist/waline.js";
-    script.onload = initFancybox; // Waline 加载后直接初始化 Fancybox
+    script.onload = initFancybox;
     document.head.appendChild(script);
   } else {
     initFancybox();
@@ -351,6 +357,7 @@ watch(
   { deep: true }
 );
 
+// 移除组件卸载时的状态重置
 onBeforeUnmount(() => {
   if (window.Fancybox) {
     window.Fancybox.destroy();
@@ -392,10 +399,8 @@ const saveEditedMessage = async () => {
   
   isSaving.value = true;
   try {
-    // 先删除原消息
     await deleteMessage(editingMessageId.value);
     
-    // 准备新消息数据
     const oldMsg = message.messages.find(msg => msg.id === editingMessageId.value);
     const newMessage: MessageToSave = {
       content: editingContent.value,
@@ -404,13 +409,15 @@ const saveEditedMessage = async () => {
       image_url: oldMsg?.image_url || ''
     };
 
-    // 使用与 AddForm 相同的 save 方法创建新消息
     const { save } = useMessage();
-    await save(newMessage);
-    await message.getMessages({
-      page: message.page,
-      pageSize: 10
-    });
+    const savedMessage = await save(newMessage);
+    
+    // 在本地更新消息列表
+    const index = message.messages.findIndex(msg => msg.id === editingMessageId.value);
+    if (index !== -1) {
+      message.messages[index] = savedMessage;
+    }
+    
     showEditModal.value = false;
   } catch (error) {
     console.error('更新消息失败:', error);
@@ -456,21 +463,20 @@ const downloadAsImage = async (msgId: number) => {
 
     // 2. 创建临时容器
     const tempContainer = document.createElement('div');
-    tempContainer.style.cssText = `
-      padding: 30px;
-      background: rgba(36, 43, 50, 0.95);
-      border-radius: 16px;
-      width: ${hasImage ? '800px' : '600px'};
-      position: absolute;
-      left: -9999px;
-      top: 0;
-      z-index: -1;
-      overflow: visible;
-      min-height: fit-content;
-      backdrop-filter: blur(8px);
-      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(251, 146, 60, 0.1);
-    `;
+   tempContainer.style.cssText = `
+  padding: 16px;
+  background: transparent;
+  border-radius: 12px;
+  width: ${hasImage ? '640px' : '480px'};
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: -1;
+  overflow: visible;
+  min-height: fit-content;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+  border: none;
+`;
     document.body.appendChild(tempContainer);
     
     // 3. 复制并处理内容
@@ -488,20 +494,22 @@ const downloadAsImage = async (msgId: number) => {
     
     // 处理内容区域
     const contentArea = contentClone.querySelector('.overflow-y-hidden');
-    if (contentArea) {
-      contentArea.className = '';
-      contentArea.style.cssText = `
-        overflow: visible;
-        max-height: none !important;
-        height: auto !important;
-        padding: 16px;
-        line-height: 1.8;
-        margin-bottom: 0;
-        white-space: pre-wrap;
-        background: transparent;
-        border-radius: 12px;
-      `;
-    }
+if (contentArea) {
+  contentArea.className = '';
+  contentArea.style.cssText = `
+    overflow: visible;
+    max-height: none !important;
+    height: auto !important;
+    padding: 12px;
+    line-height: 1.6;
+    margin-bottom: 0;
+    white-space: pre-wrap;
+    background: transparent;
+    border-radius: 12px;
+    font-size: 14px;
+    color: #333;
+  `;
+}
 
     // 处理媒体元素
     const mediaElements = contentClone.querySelectorAll('video, audio, iframe');
@@ -528,51 +536,54 @@ const downloadAsImage = async (msgId: number) => {
       media.parentNode?.replaceChild(placeholder, media);
     });
 
-    // 处理图片
-    const images = contentClone.querySelectorAll('img');
-    await Promise.all(Array.from(images).map(async (img) => {
-      return new Promise<void>((resolve) => {
-        const originalSrc = img.src;
-        img.crossOrigin = 'anonymous';
-        img.style.maxHeight = '600px';
-        
-        if (originalSrc.startsWith('/')) {
-          img.src = `${BASE_API}${originalSrc}`;
-        }
-        
-        if (img.complete) {
+   // 处理图片
+   const images = contentClone.querySelectorAll('img');
+const processImages = async () => {
+  await Promise.all(Array.from(images).map(async (img) => {
+    return new Promise<void>((resolve) => {
+      const originalSrc = img.src;
+      img.crossOrigin = 'anonymous';
+      
+      // 处理图片路径
+      if (originalSrc.startsWith('/')) {
+        img.src = `${BASE_API}${originalSrc}`;
+      }
+      
+      if (img.complete) {
+        resolve();
+      } else {
+        img.onload = () => resolve();
+        img.onerror = () => {
+          console.error('图片加载失败:', originalSrc);
+          img.parentElement?.removeChild(img);
           resolve();
-        } else {
-          img.onload = () => resolve();
-          img.onerror = () => {
-            console.error('图片加载失败:', originalSrc);
-            img.parentElement?.removeChild(img);
-            resolve();
-          };
-        }
-      });
-    }));
+        };
+      }
+    });
+  }));
+};
+
+await processImages();
 
     tempContainer.appendChild(contentClone);
 
     // 添加 footer
     const footer = document.createElement('div');
-    footer.style.cssText = `
-      margin-top: 20px;
-      padding-top: 16px;
-      border-top: 1px solid rgba(251, 146, 60, 0.2);
-      text-align: center;
-      font-family: system-ui, -apple-system, sans-serif;
-      background: transparent;
-    `;
-    footer.innerHTML = `
-      <div style="color: #fb923c; font-size: 14px; margin-bottom: 8px;">
-       Noise·说说·笔记~
-      </div>
-      <div style="color: rgba(255,255,255,0.6); font-size: 12px;">
-        note.noisework.cn
-      </div>
-    `;
+footer.style.cssText = `
+  margin-top: 12px;
+  padding-top: 12px;
+  text-align: center;
+  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+  background: transparent;
+`;
+footer.innerHTML = `
+  <div style="color: #fb923c; font-size: 13px; margin-bottom: 4px; font-weight: 500;">
+    Noise·说说·笔记~
+  </div>
+  <div style="color: rgba(255,255,255,0.5); font-size: 11px;">
+    note.noisework.cn
+  </div>
+`;
     tempContainer.appendChild(footer);
 
     // 生成图片
@@ -632,19 +643,34 @@ const downloadAsImage = async (msgId: number) => {
 </script>
 
 <style scoped>
+/* 修改卡片生成样式 */
 .content-container {
-  padding: 8px;
-  background: rgba(36, 43, 50, 0.95);
-  border-radius: 12px;
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.593);
+  padding: 16px;
+  background: transparent;
+  border-radius: 16px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
   transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(14, 14, 14, 0.2);
-  margin: 4px 0;
+  border: 1px solid rgba(5, 5, 5, 0.2);
+  margin: 8px 0;
   width: 100%;
   box-sizing: border-box;
+  position: relative;
+  overflow: hidden;
 }
+.content-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(36, 43, 50, 0.95);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  z-index: -1;
+  border-radius: inherit;
+}
+
 /* 添加展开/折叠按钮样式 */
 button {
   background: rgba(36, 43, 50, 0.95);
@@ -675,11 +701,14 @@ button:hover {
 .content-container .overflow-y-hidden:not(.max-h-\[700px\]) {
   max-height: none;
 }
+/* 优化图片显示 */
 .content-container img {
   width: 100%;
   height: auto;
-  min-height: 200px;
+  min-height: 150px;
   object-fit: cover;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 /* 修改评论区样式 */
 :deep(.wl-comment) {
@@ -811,12 +840,44 @@ button:hover {
   color: #fb923c;
   filter: drop-shadow(0 0 2px rgba(251, 146, 60, 0.3));
 }
-/* 时间和发布者名称的间隔样式 */
 .gradient-dot {
-  background: linear-gradient(45deg, #ff6b6b, #de275b);
+  /* 添加明亮色彩的动态渐变动画 */
+  background: linear-gradient(
+    45deg,
+    #ff6b6b,
+    #ffd93d,
+    #ff9a9e,
+    #cd4e67,
+    #ffb347,
+    #ff7eb3,
+    #ffa07a
+  );
+  background-size: 400% 400%;
+  animation: rainbow 10s ease infinite;
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
   font-weight: bold;
+}
+
+@keyframes rainbow {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+/* 隐藏滚动条但保持功能 */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
 }
 </style>

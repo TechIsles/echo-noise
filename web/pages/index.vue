@@ -138,22 +138,47 @@ const fetchConfig = async () => {
 
 const currentImage = ref('')
 const isLoaded = ref(false)
-
-
-const changeBackground = () => {
-    const newIndex = Math.floor(Math.random() * frontendConfig.value.backgrounds.length)
-    const newImage = frontendConfig.value.backgrounds[newIndex]
-    if (newImage === currentImage.value) {
-        changeBackground()
-        return
-    }
-    const img = new Image()
-    img.src = newImage
-    img.onload = () => {
-        currentImage.value = newImage
-    }
+const imageLoading = ref(false)
+// 添加图片预加载函数
+const preloadImages = async (images: string[]) => {
+  const loadImage = (src: string) => {
+    return new Promise((resolve) => {
+      const img = new Image()
+      img.src = src
+      img.onload = () => resolve(src)
+      img.onerror = () => resolve(null)
+    })
+  }
+  
+  // 并行预加载所有图片
+  await Promise.all(images.map(src => loadImage(src)))
 }
+// 优化背景切换函数
+const changeBackground = async () => {
+  if (imageLoading.value) return
+  imageLoading.value = true
+  
+  const newIndex = Math.floor(Math.random() * frontendConfig.value.backgrounds.length)
+  const newImage = frontendConfig.value.backgrounds[newIndex]
+  
+  if (newImage === currentImage.value) {
+    imageLoading.value = false
+    changeBackground()
+    return
+  }
 
+  // 使用低质量图片作为占位
+  const lowQualityImage = `${newImage}?imageView2/2/w/100/q/30` // 假设使用七牛云或类似的图片服务
+  currentImage.value = lowQualityImage
+
+  // 加载高质量图片
+  const img = new Image()
+  img.src = newImage
+  img.onload = () => {
+    currentImage.value = newImage
+    imageLoading.value = false
+  }
+}
 
 const subtitleEl = ref<HTMLElement | null>(null)
 
@@ -200,23 +225,38 @@ const startTypeEffect = () => {
   return typeInterval
 }
 
+// 修改 onMounted 钩子
 onMounted(async () => {
-    await fetchConfig();
+  await fetchConfig()
+  
+  if (frontendConfig.value.backgrounds.length > 0) {
+    // 随机选择初始背景
+    const initialImage = frontendConfig.value.backgrounds[
+      Math.floor(Math.random() * frontendConfig.value.backgrounds.length)
+    ]
     
-    if (frontendConfig.value.backgrounds.length > 0) {
-        currentImage.value = frontendConfig.value.backgrounds[Math.floor(Math.random() * frontendConfig.value.backgrounds.length)]
-        const img = new Image()
-        img.src = currentImage.value
-        img.onload = () => {
-            isLoaded.value = true
-        }
+    // 先加载低质量版本
+    const lowQualityImage = `${initialImage}?imageView2/2/w/100/q/30`
+    currentImage.value = lowQualityImage
+    isLoaded.value = true
+
+    // 后台预加载其他图片
+    preloadImages(frontendConfig.value.backgrounds)
+    
+    // 加载高质量初始图片
+    const img = new Image()
+    img.src = initialImage
+    img.onload = () => {
+      currentImage.value = initialImage
     }
-    const typeInterval = startTypeEffect()
-    onUnmounted(() => {
-        if (typeInterval) {
-            clearInterval(typeInterval)
-        }
-    })
+  }
+  
+  const typeInterval = startTypeEffect()
+  onUnmounted(() => {
+    if (typeInterval) {
+      clearInterval(typeInterval)
+    }
+  })
 })
 </script>
 
@@ -268,7 +308,9 @@ html, body {
   background-repeat: no-repeat;
   filter: blur(8px);
   z-index: -1;
-  transition: background-image 0.5s ease;
+  transition: background-image 0.3s ease;
+  will-change: background-image;
+  transform: translateZ(0);
 }
 
 .content-wrapper {
@@ -306,7 +348,9 @@ html, body {
   background-position: center;
   border-radius: 18px;
   overflow: hidden;
-  transition: background-image 0.5s ease;
+  transition: background-image 0.3s ease;
+  will-change: background-image;
+  transform: translateZ(0);
 }
 
 .header-title {

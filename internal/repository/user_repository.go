@@ -97,3 +97,16 @@ func UpdateUser(user *models.User) error {
 	clearUserCache(user.ID)
 	return nil
 }
+func GetSettingByID(id uint) (*models.Setting, error) {
+    var setting models.Setting
+    result := database.DB.First(&setting, id)
+    if result.Error != nil {
+        return nil, result.Error
+    }
+    return &setting, nil
+}
+
+func UpdateSetting(setting *models.Setting, updates map[string]interface{}) error {
+    result := database.DB.Model(setting).Updates(updates)
+    return result.Error
+}

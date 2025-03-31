@@ -7,100 +7,109 @@ export const useMessageStore = defineStore("messageStore", () => {
   const messages = ref<Message[]>([]);
   const total = ref(0);
   const hasMore = ref(true);
-  const page = ref<number>(0);
-  const pageSize = ref(5);
+  const page = ref<number>(1);
+  const pageSize = ref(10);
   const toast = useToast();
-  const loading = ref<boolean>(true); // 添加loading状态
+  const loading = ref<boolean>(false);
 
-  // 获取笔记列表
-//   const getAllMessages = async () => {
-//     try {
-//       const response = await getRequest<Message[]>("messages");
-//       if (!response) {
-//         console.error("获取笔记列表失败");
-//         toast.add({
-//             title: "获取笔记列表失败",
-//             description: "请稍后重试",
-//             icon: "i-fluent-error-circle-16-filled",
-//             color: "red",
-//             timeout: 2000,
-//             });
-//         return null;
-//       }
-
-//       messages.value = response.data;
-//     } catch (error) {
-//       console.error(error);
-//     }
-//   };
+  // 重置状态
+  const reset = () => {
+    messages.value = [];
+    total.value = 0;
+    hasMore.value = true;
+    page.value = 1;
+    loading.value = false;
+  };
 
   // 分页获取笔记列表
   const getMessages = async (query: PageQuery) => {
+    if (loading.value) return;
+    loading.value = true;
+
     try {
-      if (query.page < page.value) return;
-      const response = await postRequest<PageQueryResult>(
-        "messages/page",
-        query
-      );
+      const response = await postRequest<PageQueryResult>("messages/page", query);
+      
       if (!response) {
-        console.error("获取笔记列表失败");
         toast.add({
-            title: "获取笔记列表失败",
-            description: "请稍后重试",
-            icon: "i-fluent-error-circle-16-filled",
-            color: "red",
-            timeout: 2000,
-            });
+          title: "获取笔记列表失败",
+          description: "请稍后重试",
+          icon: "i-fluent-error-circle-16-filled",
+          color: "red",
+          timeout: 2000,
+        });
         return null;
       }
 
-      // 将返回的笔记数据追加到 messages 数组中
-      if (messages.value.length < response.data.total) {
-        messages.value.push(...response.data.items);
+      // 根据页码决定是替换还是追加数据
+      if (query.page === 1) {
+        messages.value = response.data.items;
+      } else {
+        messages.value = [...messages.value, ...response.data.items];
       }
-      total.value = response.data.total;
-      page.value += 1; // 更新当前页码
 
-      // 更新分页状态
+      total.value = response.data.total;
+      page.value = query.page;
       hasMore.value = messages.value.length < total.value;
+
     } catch (error) {
-      console.error(error);
+      console.error("获取笔记列表失败:", error);
+      toast.add({
+        title: "获取笔记列表失败",
+        description: "请稍后重试",
+        icon: "i-fluent-error-circle-16-filled",
+        color: "red",
+        timeout: 2000,
+      });
     } finally {
-      loading.value = false; // 数据加载完成时设置为 false
+      loading.value = false;
     }
   };
 
+  // 删除笔记
   const deleteMessage = async (id: number) => {
     try {
       const response = await deleteRequest<any>(`messages/${id}`);
+      
       if (!response || response.code !== 1) {
-        console.error("删除笔记失败");
         toast.add({
-            title: "删除笔记失败",
-            description: response?.msg,
-            icon: "i-fluent-error-circle-16-filled",
-            color: "red",
-            timeout: 2000,
-            });
+          title: "删除笔记失败",
+          description: response?.msg,
+          icon: "i-fluent-error-circle-16-filled",
+          color: "red",
+          timeout: 2000,
+        });
         return null;
       }
 
-      // 从 messages 中删除对应的笔记
+      // 从本地状态中移除被删除的笔记
       messages.value = messages.value.filter((message) => message.id !== id);
+      total.value -= 1;
+      
       return response;
     } catch (error) {
-      console.error(error);
+      console.error("删除笔记失败:", error);
+      throw error;
     }
-  }
+  };
+
+  // 更新单条笔记
+  const updateMessage = (updatedMessage: Message) => {
+    const index = messages.value.findIndex(msg => msg.id === updatedMessage.id);
+    if (index !== -1) {
+      messages.value[index] = updatedMessage;
+    }
+  };
 
   return {
-    page,
-    pageSize,
     messages,
     total,
     hasMore,
+    page,
+    pageSize,
     loading,
+    reset,
     getMessages,
     deleteMessage,
+    updateMessage,
   };
 });

@@ -121,3 +121,12 @@ func UpdateMessageContent(id uint, content string) error {
     
     return tx.Commit().Error
 }
+
+// GetTotalMessages 获取消息总数
+func GetTotalMessages() (int64, error) {
+    var count int64
+    if err := database.DB.Model(&models.Message{}).Count(&count).Error; err != nil {
+        return 0, err
+    }
+    return count, nil
+}
