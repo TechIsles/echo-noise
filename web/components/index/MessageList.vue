@@ -90,13 +90,8 @@
       </div>
     </div>
     <!-- 来源信息 - 固定在底部 -->
-    <div class="text-center text-xs text-gray-400 py-4">
-      来自<a href="https://www.noisework.cn" target="_blank" rel="noopener noreferrer"
-        class="text-orange-400 hover:text-orange-500">Noise</a>
-      使用<a href="https://github.com/lin-snow/Ech0" target="_blank" rel="noopener noreferrer"
-        class="text-orange-400 hover:text-orange-500">Ech0</a>发布
+    <div v-if="message.siteConfig?.pageFooterHTML" v-html="message.siteConfig.pageFooterHTML"></div>
     </div>
-  </div>
   <!-- 编辑对话框 -->
   <UModal v-model="showEditModal" :ui="{ width: 'sm:max-w-2xl' }">
     <UCard>
@@ -236,7 +231,7 @@ const toggleComment = async (msgId: number) => {
       if (el) {
         window.Waline.init({
           el: `#waline-${msgId}`,
-          serverURL: "https://app-production-80c1.up.railway.app",
+          serverURL: message.siteConfig?.walineServerURL || "https://app-production-80c1.up.railway.app",
           path: `/message/${msgId}`,
           reaction: false,
           meta: ["nick", "mail", "link"],
@@ -569,19 +564,19 @@ await processImages();
 
     // 添加 footer
     const footer = document.createElement('div');
-footer.style.cssText = `
-  margin-top: 12px;
-  padding-top: 12px;
-  text-align: center;
-  font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  background: transparent;
-`;
-footer.innerHTML = `
-  <div style="color: #fb923c; font-size: 13px; margin-bottom: 4px; font-weight: 500;">
-    Noise·说说·笔记~
+    footer.style.cssText = `
+      margin-top: 12px;
+      padding-top: 12px;
+      text-align: center;
+      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+      background: transparent;
+    `;
+    footer.innerHTML = `
+      <div style="color: #fb923c; font-size: 13px; margin-bottom: 4px; font-weight: 500;">
+    ${message.siteConfig?.cardFooterTitle || ''}
   </div>
   <div style="color: rgba(255,255,255,0.5); font-size: 11px;">
-    note.noisework.cn
+    ${message.siteConfig?.cardFooterSubtitle || ''}
   </div>
 `;
     tempContainer.appendChild(footer);

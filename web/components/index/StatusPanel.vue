@@ -25,7 +25,94 @@
                         </div>
                     </div>
                 </div>
+                  <!-- 用户信息配置面板 -->
+                <div v-if="isLogin" class="bg-gray-700 rounded-lg p-4 mb-6">
+                    <h2 class="text-xl font-semibold text-white mb-4">用户信息配置</h2>
+                    <div class="space-y-4">
+                        <!-- 用户名修改 -->
+                        <div class="bg-gray-800 rounded p-3">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-gray-300">用户名</span>
+                                <UButton
+                                    size="sm"
+                                    @click="editUserInfo.username = !editUserInfo.username"
+                                    :color="editUserInfo.username ? 'gray' : 'primary'"
+                                    variant="soft"
+                                >
+                                    {{ editUserInfo.username ? '取消' : '编辑' }}
+                                </UButton>
+                            </div>
+                            <div v-if="editUserInfo.username">
+                                <UInput
+                                    v-model="userForm.username"
+                                    placeholder="新用户名"
+                                    class="w-full mb-2"
+                                />
+                                <div class="flex justify-end gap-2">
+                                    <UButton @click="updateUsername" color="primary">
+                                        保存
+                                    </UButton>
+                                </div>
+                            </div>
+                            <div v-else>
+                                <p class="text-white">{{ userStore.user?.username }}</p>
+                            </div>
+                        </div>
 
+                        <!-- 密码修改 -->
+                        <div class="bg-gray-800 rounded p-3">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="text-gray-300">修改密码</span>
+                                <UButton
+                                    size="sm"
+                                    @click="editUserInfo.password = !editUserInfo.password"
+                                    :color="editUserInfo.password ? 'gray' : 'primary'"
+                                    variant="soft"
+                                >
+                                    {{ editUserInfo.password ? '取消' : '编辑' }}
+                                </UButton>
+                            </div>
+                            <div v-if="editUserInfo.password">
+                                <UInput
+                                    v-model="userForm.oldPassword"
+                                    type="password"
+                                    placeholder="当前密码"
+                                    class="w-full mb-2"
+                                />
+                                <UInput
+                                    v-model="userForm.newPassword"
+                                    type="password"
+                                    placeholder="新密码"
+                                    class="w-full mb-2"
+                                />
+                                <div class="flex justify-end gap-2">
+                                    <UButton @click="updatePassword" color="primary">
+                                        保存
+                                    </UButton>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 管理员权限设置（仅管理员可见） -->
+                        <div v-if="isAdmin" class="bg-gray-800 rounded p-3">
+                            <h3 class="text-white font-semibold mb-3">用户权限管理</h3>
+                            <div class="space-y-2">
+                                <div v-for="user in userStore?.status?.users" :key="user.userID" 
+                                     class="flex justify-between items-center">
+                                    <span class="text-gray-300">{{ user.userName }}</span>
+                                    <UButton
+                                        v-if="user.userID !== 1"
+                                        size="sm"
+                                        :color="user.isAdmin ? 'yellow' : 'primary'"
+                                        @click="toggleAdmin(user.userID)"
+                                    >
+                                        {{ user.isAdmin ? '取消管理员' : '设为管理员' }}
+                                    </UButton>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                                <!-- 网站配置区域 -->
                 <div v-if="isAdmin" class="bg-gray-700 rounded-lg p-4 mb-6">
                     <div class="flex justify-between items-center mb-4">
@@ -229,6 +316,14 @@
                 </UForm>
             </div> 
         </UModal>
+        <input
+            type="file"
+            ref="fileInput"
+            accept="image/*"
+            multiple
+            class="hidden"
+            @change="handleFileUpload"
+        />
     </div>
 </template>
 
@@ -237,6 +332,7 @@ import { ref, reactive, watch, computed, onMounted } from 'vue'
 import type { UserToLogin, UserToRegister } from '~/types/models'
 import { useUser } from '~/composables/useUser'
 import { useUserStore } from '~/store/user'
+import { useToast } from '#ui/composables/useToast'
 
 const userStore = useUserStore()
 const { login, register, logout } = useUser()
@@ -250,7 +346,109 @@ const authmode = ref(true)
 const showLoginModal = ref(false)
 const editMode = ref(false)
 const fileInput = ref<HTMLInputElement | null>(null) 
+    const userForm = reactive({
+    username: '',
+    oldPassword: '',
+    newPassword: ''
+})
+const editUserInfo = reactive({
+    username: false,
+    password: false
+})
+const updateUsername = async () => {
+    try {
+        const response = await fetch('/api/user/update', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${userStore.token}`
+            },
+            body: JSON.stringify({ username: userForm.username })
+        })
+        const data = await response.json()
+        if (data.code === 1) {
+            await userStore.getUser()
+            editUserInfo.username = false
+            userForm.username = ''
+            useToast().add({
+                title: '成功',
+                description: '用户名已更新',
+                color: 'green'
+            })
+        } else {
+            throw new Error(data.msg)
+        }
+    } catch (error) {
+        useToast().add({
+            title: '错误',
+            description: error.message || '更新失败',
+            color: 'red'
+        })
+    }
+}
 
+const updatePassword = async () => {
+    try {
+        const response = await fetch('/api/user/password', {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${userStore.token}`
+            },
+            body: JSON.stringify({ 
+                password: userForm.newPassword,
+                oldPassword: userForm.oldPassword 
+            })
+        })
+        const data = await response.json()
+        if (data.code === 1) {
+            editUserInfo.password = false
+            userForm.oldPassword = ''
+            userForm.newPassword = ''
+            useToast().add({
+                title: '成功',
+                description: '密码已更新',
+                color: 'green'
+            })
+        } else {
+            throw new Error(data.msg)
+        }
+    } catch (error) {
+        useToast().add({
+            title: '错误',
+            description: error.message || '更新失败',
+            color: 'red'
+        })
+    }
+}
+
+const toggleAdmin = async (userId: number) => {
+    try {
+        const response = await fetch(`/api/user/admin?id=${userId}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${userStore.token}`
+            }
+        })
+        const data = await response.json()
+        if (data.code === 1) {
+            await userStore.getStatus()
+            useToast().add({
+                title: '成功',
+                description: '权限已更新',
+                color: 'green'
+            })
+        } else {
+            throw new Error(data.msg)
+        }
+    } catch (error) {
+        useToast().add({
+            title: '错误',
+            description: error.message || '更新失败',
+            color: 'red'
+        })
+    }
+}
 // 配置相关
 const configLabels = {
     siteTitle: '站点标题',
@@ -258,7 +456,15 @@ const configLabels = {
     avatarURL: '头像链接',
     username: '用户名',
     description: '个人描述',
-    backgrounds: '背景图片'
+    backgrounds: '背景图片',
+    cardFooterTitle: '卡片页脚标题',
+    cardFooterSubtitle: '卡片页脚副标题',
+    pageFooterHTML: '页面底部HTML',
+    rssTitle: 'RSS 标题',
+    rssDescription: 'RSS 描述',
+    rssAuthorName: 'RSS 作者',
+    rssFaviconURL: 'RSS 图标链接',
+    walineServerURL: 'Waline 评论服务器地址' 
 }
 
 const frontendConfig = reactive({
@@ -267,7 +473,15 @@ const frontendConfig = reactive({
     avatarURL: '',
     username: '',
     description: '',
-    backgrounds: [] as string[]
+    backgrounds: [] as string[],
+    cardFooterTitle: '',
+    cardFooterSubtitle: '',
+    pageFooterHTML: '',
+    rssTitle: '',
+    rssDescription: '',
+    rssAuthorName: '',
+    rssFaviconURL: '',
+    walineServerURL: '',
 })
 
 const authForm = reactive<UserToLogin | UserToRegister>({
@@ -282,6 +496,14 @@ const editItem = reactive({
     username: false,
     description: false,
     backgrounds: false,
+    cardFooterTitle: false,
+    cardFooterSubtitle: false,
+    pageFooterHTML: false,
+    rssTitle: false,
+    rssDescription: false,
+    rssAuthorName: false,
+    rssFaviconURL: false,
+    walineServerURL: false // 新增
 })
 
 // 更新默认配置
@@ -305,7 +527,15 @@ const defaultConfig = {
         "https://s2.loli.net/2025/03/26/d7iyuPYA8cRqD1K.jpg",
         "https://s2.loli.net/2025/03/27/wYy12qDMH6bGJOI.jpg",
         "https://s2.loli.net/2025/03/27/y67m2k5xcSdTsHN.jpg",
-    ]
+        ],
+        cardFooterTitle: "Noise·说说·笔记~",
+    cardFooterSubtitle: "note.noisework.cn",
+    pageFooterHTML: `<div class="text-center text-xs text-gray-400 py-4">来自<a href="https://www.noisework.cn" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Noise</a> 使用<a href="https://github.com/lin-snow/Ech0" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Ech0</a>发布</div>`,
+    rssTitle: 'Noise的说说笔记',
+    rssDescription: '一个说说笔记~',
+    rssAuthorName: 'Noise',
+    rssFaviconURL: '/favicon.ico',
+    walineServerURL: 'https://app-production-80c1.up.railway.app' 
 }
 // 添加单个配置项保存方法
 const saveConfigItem = async (key: string) => {
@@ -370,7 +600,15 @@ const fetchConfig = async () => {
                 description: data.frontendSettings.description || defaultConfig.description,
                 backgrounds: Array.isArray(data.frontendSettings.backgrounds) && data.frontendSettings.backgrounds.length > 0
                     ? [...data.frontendSettings.backgrounds]
-                    : [...defaultConfig.backgrounds]
+                    : [...defaultConfig.backgrounds],
+                cardFooterTitle: data.frontendSettings.cardFooterTitle || defaultConfig.cardFooterTitle,
+                cardFooterSubtitle: data.frontendSettings.cardFooterSubtitle || defaultConfig.cardFooterSubtitle,
+                pageFooterHTML: data.frontendSettings.pageFooterHTML || defaultConfig.pageFooterHTML,
+                rssTitle: data.frontendSettings.rssTitle || defaultConfig.rssTitle,
+                rssDescription: data.frontendSettings.rssDescription || defaultConfig.rssDescription,
+                rssAuthorName: data.frontendSettings.rssAuthorName || defaultConfig.rssAuthorName,
+                rssFaviconURL: data.frontendSettings.rssFaviconURL || defaultConfig.rssFaviconURL,
+                walineServerURL: data.frontendSettings.walineServerURL || defaultConfig.walineServerURL // 新增
             })
         } else {
             // 如果获取失败，使用默认配置

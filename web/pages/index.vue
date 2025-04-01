@@ -40,12 +40,19 @@ import Notification from '~/components/widgets/Notification.vue';
 
 // 添加前端配置的响应式对象
 const frontendConfig = ref({
-    siteTitle: '',
+  siteTitle: '',
     subtitleText: '',
     avatarURL: '',
     username: '',
     description: '',
-    backgrounds: [] as string[]
+    backgrounds: [] as string[],
+    cardFooterTitle: '',
+    cardFooterSubtitle: '',
+    pageFooterHTML: '',
+    rssTitle: '',
+    rssDescription: '',
+    rssAuthorName: '',
+    rssFaviconURL: ''
 })
 
 const backgroundStyle = computed(() => ({
@@ -89,9 +96,12 @@ const fetchConfig = async () => {
                 'https://s2.loli.net/2025/03/26/d7iyuPYA8cRqD1K.jpg',
                 'https://s2.loli.net/2025/03/27/wYy12qDMH6bGJOI.jpg',
                 'https://s2.loli.net/2025/03/27/y67m2k5xcSdTsHN.jpg',
-                ]
-            };
-            
+                ],
+                rssTitle: settings.rssTitle || 'Noise的说说笔记',
+                rssDescription: settings.rssDescription || '一个说说笔记~',
+                rssAuthorName: settings.rssAuthorName || 'Noise',
+                rssFaviconURL: settings.rssFaviconURL || '/favicon.ico',
+              };
             // 设置初始背景图并标记为已加载
             if (frontendConfig.value.backgrounds.length > 0) {
                 currentImage.value = frontendConfig.value.backgrounds[0];
@@ -129,7 +139,14 @@ const fetchConfig = async () => {
                 'https://s2.loli.net/2025/03/26/d7iyuPYA8cRqD1K.jpg',
                 'https://s2.loli.net/2025/03/27/7Zck3y6XTzhYPs5.jpg',
                 'https://s2.loli.net/2025/03/27/y67m2k5xcSdTsHN.jpg',
-            ]
+            ],
+            cardFooterTitle: 'Noise·说说·笔记~',
+            cardFooterSubtitle: 'note.noisework.cn',
+            pageFooterHTML: '<div class="text-center text-xs text-gray-400 py-4">来自<a href="https://www.noisework.cn" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Noise</a> 使用<a href="https://github.com/lin-snow/Ech0" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Ech0</a>发布</div>',
+            rssTitle: 'Noise的说说笔记',
+            rssDescription: '一个说说笔记~',
+            rssAuthorName: 'Noise',
+            rssFaviconURL: '/favicon.ico'
         };
         isLoaded.value = true; // 错误时也要设置为已加载
     }
@@ -227,36 +244,41 @@ const startTypeEffect = () => {
 
 // 修改 onMounted 钩子
 onMounted(async () => {
-  await fetchConfig()
-  
-  if (frontendConfig.value.backgrounds.length > 0) {
-    // 随机选择初始背景
-    const initialImage = frontendConfig.value.backgrounds[
-      Math.floor(Math.random() * frontendConfig.value.backgrounds.length)
-    ]
+  try {
+    await fetchConfig()
     
-    // 先加载低质量版本
-    const lowQualityImage = `${initialImage}?imageView2/2/w/100/q/30`
-    currentImage.value = lowQualityImage
-    isLoaded.value = true
+    // 确保配置加载完成后再执行后续操作
+    if (frontendConfig.value.backgrounds.length > 0) {
+      const initialImage = frontendConfig.value.backgrounds[
+        Math.floor(Math.random() * frontendConfig.value.backgrounds.length)
+      ]
+      
+      // 先加载低质量版本
+      const lowQualityImage = `${initialImage}?imageView2/2/w/100/q/30`
+      currentImage.value = lowQualityImage
+      isLoaded.value = true
 
-    // 后台预加载其他图片
-    preloadImages(frontendConfig.value.backgrounds)
+      // 后台预加载其他图片
+      preloadImages(frontendConfig.value.backgrounds)
+      
+      // 加载高质量初始图片
+      const img = new Image()
+      img.src = initialImage
+      img.onload = () => {
+        currentImage.value = initialImage
+      }
+    }
     
-    // 加载高质量初始图片
-    const img = new Image()
-    img.src = initialImage
-    img.onload = () => {
-      currentImage.value = initialImage
-    }
+    const typeInterval = startTypeEffect()
+    onUnmounted(() => {
+      if (typeInterval) {
+        clearInterval(typeInterval)
+      }
+    })
+  } catch (error) {
+    console.error('初始化失败:', error)
+    isLoaded.value = true // 即使出错也要设置加载完成
   }
-  
-  const typeInterval = startTypeEffect()
-  onUnmounted(() => {
-    if (typeInterval) {
-      clearInterval(typeInterval)
-    }
-  })
 })
 </script>
 

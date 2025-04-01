@@ -17,14 +17,22 @@ func GetFrontendConfig() (map[string]interface{}, error) {
     
     // 转换为前端所需的格式
     configMap := map[string]interface{}{
-        "allowRegistration": true, // 这里可能需要从数据库获取实际值
+        "allowRegistration": true,
         "frontendSettings": map[string]interface{}{
-            "siteTitle":    config.SiteTitle,
-            "subtitleText": config.SubtitleText,
-            "avatarURL":    config.AvatarURL,
-            "username":     config.Username,
-            "description":  config.Description,
-            "backgrounds":  config.GetBackgroundsList(),
+            "siteTitle":          config.SiteTitle,
+            "subtitleText":       config.SubtitleText,
+            "avatarURL":          config.AvatarURL,
+            "username":           config.Username,
+            "description":        config.Description,
+            "backgrounds":        config.GetBackgroundsList(),
+            "cardFooterTitle":    config.CardFooterTitle,
+            "cardFooterSubtitle": config.CardFooterLink,  // 修改这里
+            "pageFooterHTML":     config.PageFooterHTML,
+            "rssTitle":          config.RSSTitle,
+            "rssDescription":    config.RSSDescription,
+            "rssAuthorName":     config.RSSAuthorName,
+            "rssFaviconURL":     config.RSSFaviconURL,
+            "walineServerURL":   config.WalineServerURL,
         },
     }
     
@@ -36,12 +44,12 @@ func getDefaultConfig() map[string]interface{} {
     return map[string]interface{}{
         "allowRegistration": true,
         "frontendSettings": map[string]interface{}{
-            "siteTitle":    "Noise的说说笔记",
-            "subtitleText": "欢迎访问，点击头像可更换封面背景！",
-            "avatarURL":    "https://s2.loli.net/2025/03/24/HnSXKvibAQlosIW.png",
-            "username":     "Noise",
-            "description":  "执迷不悟",
-            "backgrounds": []string{
+            "siteTitle":          "Noise的说说笔记",
+            "subtitleText":       "欢迎访问，点击头像可更换封面背景！",
+            "avatarURL":          "https://s2.loli.net/2025/03/24/HnSXKvibAQlosIW.png",
+            "username":           "Noise",
+            "description":        "执迷不悟",
+            "backgrounds":        []string{
                 "https://s2.loli.net/2025/03/27/KJ1trnU2ksbFEYM.jpg",
                 "https://s2.loli.net/2025/03/27/MZqaLczCvwjSmW7.jpg",
                 "https://s2.loli.net/2025/03/27/UMijKXwJ9yTqSeE.jpg",
@@ -56,6 +64,14 @@ func getDefaultConfig() map[string]interface{} {
                 "https://s2.loli.net/2025/03/27/wYy12qDMH6bGJOI.jpg",
                 "https://s2.loli.net/2025/03/27/y67m2k5xcSdTsHN.jpg",
             },
+            "cardFooterTitle":    "Noise·说说·笔记~",
+            "cardFooterSubtitle": "note.noisework.cn",
+            "pageFooterHTML":     `<div class="text-center text-xs text-gray-400 py-4">来自<a href="https://www.noisework.cn" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Noise</a> 使用<a href="https://github.com/lin-snow/Ech0" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Ech0</a>发布</div>`,
+            "rssTitle":          "Noise的说说笔记",
+            "rssDescription":    "一个说说笔记~",
+            "rssAuthorName":     "Noise",
+            "rssFaviconURL":     "/favicon.ico",
+            "walineServerURL":   "https://app-production-80c1.up.railway.app",
         },
     }
 }

@@ -1,9 +1,11 @@
 package models
 
 import (
+	"strings"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"gorm.io/gorm"
 )
 
 type Message struct {
@@ -41,4 +43,35 @@ type MyCliams struct {
 	Username string `json:"username"`
 	IsAdmin  bool   `json:"is_admin"`
 	jwt.RegisteredClaims
+}
+
+type Setting struct {
+	gorm.Model
+	AllowRegistration bool `gorm:"default:true"`
+}
+
+type SiteConfig struct {
+	gorm.Model
+	SiteTitle        string `gorm:"type:varchar(100)"`
+	SubtitleText     string `gorm:"type:varchar(200)"`
+	AvatarURL        string `gorm:"type:varchar(500)"`
+	Username         string `gorm:"type:varchar(50)"`
+	Description      string `gorm:"type:varchar(200)"`
+	Backgrounds      string `gorm:"type:text"`
+	CardFooterTitle  string `gorm:"type:varchar(100)"`
+	CardFooterLink   string `gorm:"type:varchar(100)"`
+	PageFooterHTML   string `gorm:"type:text"`
+	RSSTitle         string `gorm:"type:varchar(100)"`
+	RSSDescription   string `gorm:"type:varchar(200)"`
+	RSSAuthorName    string `gorm:"type:varchar(50)"`
+	RSSFaviconURL    string `gorm:"type:varchar(500)"`
+	WalineServerURL  string `gorm:"type:varchar(500)"`
+}
+
+// GetBackgroundsList 将逗号分隔的背景图片字符串转换为切片
+func (s *SiteConfig) GetBackgroundsList() []string {
+	if s.Backgrounds == "" {
+		return []string{}
+	}
+	return strings.Split(s.Backgrounds, ",")
 }

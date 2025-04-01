@@ -2,6 +2,12 @@
 
 ![预览](https://s2.loli.net/2025/03/25/7gyEspef1ZhOtrH.png)
 
+## 介绍
+
+这是对于我自己的自定化使用而改版的，记录笔记所用，会加入自己喜欢的一些功能，不同步于原版
+
+原版介绍
+
 Ech0 是一款专为轻量级分享而设计的开源自托管平台，支持快速发布与分享你的想法、文字与链接。简单直观的操作界面，轻松管理你的内容，让分享变得更加自由，确保数据完全掌控，随时随地与世界连接。
 
 原版地址：https://github.com/lin-snow/Ech0
@@ -68,6 +74,16 @@ Ech0 是一款专为轻量级分享而设计的开源自托管平台，支持快
 
 - 优化生成卡片图片效果
 
+- 增加后台数据配置，包括评论、底部页脚、rss设置等
+
+  ![iLTP9tARVoaj3cv](https://s2.loli.net/2025/04/01/iLTP9tARVoaj3cv.png)
+
+- 增加数据库文件的备份、上传（未对接好）
+
+  ![ehS1BxwbUKyD2Vm](https://s2.loli.net/2025/04/01/ehS1BxwbUKyD2Vm.png)
+
+  
+
 ------
 
 
@@ -76,7 +92,7 @@ Ech0 是一款专为轻量级分享而设计的开源自托管平台，支持快
 > 
 > 📍 首次使用注册的账号会被设置为管理员
 
-## docker部署
+## [docker部署](https://hub.docker.com/repository/docker/noise233/echo-noise)
 
 一键部署
 
@@ -109,7 +125,14 @@ docker buildx build --platform linux/amd64,linux/arm64 -t noise233/echo-noise:la
 
 1. 有之前别的数据库可以直接迁移吗
 
-   可以，直接上传至容器文件夹/app/data/noise.db，或上传至部署时挂载的路径中，替换即可
+   可以，直接上传至部署时挂载的路径中，重新部署，或者在容器文件夹/app/data/noise.db直接替换即可
+   
+1. 自定义化前端数据后添加到数据库？
+
+   需要在setting.go、migrate.go、models.go、controllers.go同时写入前端参数的后端定义，并修改前端参数信息为后端可读取的参数，其中controllers.go为控制器
+   
+   - database.go 用于数据库连接管理
+   - migrate.go 用于数据库迁移和数据初始化
 
 ## To do
 
