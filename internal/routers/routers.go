@@ -4,6 +4,8 @@ import (
     "net/http"
     "strings"
     "github.com/gin-contrib/cors"
+    "github.com/gin-contrib/sessions"
+    "github.com/gin-contrib/sessions/cookie"
     "github.com/gin-contrib/static"
     "github.com/gin-gonic/gin"
     "github.com/lin-snow/ech0/internal/controllers"
@@ -13,12 +15,14 @@ import (
 func SetupRouter() *gin.Engine {
     r := gin.Default()
 
+    // 配置 Session
+    store := cookie.NewStore([]byte("secret_key"))
+    r.Use(sessions.Sessions("ech0_session", store))
     // 配置 CORS
     config := cors.DefaultConfig()
     config.AllowHeaders = []string{
         "Origin",
         "Content-Type",
-        "Authorization",
         "X-Requested-With",
         "Accept",
         "Device-Type",
@@ -50,7 +54,7 @@ func SetupRouter() *gin.Engine {
 
     // 需要鉴权的路由
     auth := api.Group("")
-    auth.Use(middleware.JWTAuthMiddleware())
+    auth.Use(middleware.SessionAuthMiddleware())
 
     // 需要鉴权的消息操作路由
     messages := auth.Group("/messages")

@@ -237,7 +237,7 @@
         <input
             type="file"
             ref="databaseFileInput"
-            accept=".db"
+            accept=".zip"
             class="hidden"
             @change="handleDatabaseUpload"
         />
@@ -360,9 +360,9 @@ const updateUsername = async () => {
         const response = await fetch('/api/user/update', {
             method: 'PUT',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${userStore.token}`
+                'Content-Type': 'application/json'
             },
+            credentials: 'include',
             body: JSON.stringify({ username: userForm.username })
         })
         const data = await response.json()
@@ -392,9 +392,9 @@ const updatePassword = async () => {
         const response = await fetch('/api/user/password', {
             method: 'PUT',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${userStore.token}`
+                'Content-Type': 'application/json'
             },
+            credentials: 'include',
             body: JSON.stringify({ 
                 password: userForm.newPassword,
                 oldPassword: userForm.oldPassword 
@@ -426,9 +426,7 @@ const toggleAdmin = async (userId: number) => {
     try {
         const response = await fetch(`/api/user/admin?id=${userId}`, {
             method: 'PUT',
-            headers: {
-                'Authorization': `Bearer ${userStore.token}`
-            }
+            credentials: 'include'
         })
         const data = await response.json()
         if (data.code === 1) {
@@ -540,19 +538,18 @@ const defaultConfig = {
 // 添加单个配置项保存方法
 const saveConfigItem = async (key: string) => {
     try {
-        const token = userStore.token;
-        if (!token) {
-            throw new Error('无效的登录状态');
-        }
-
         const response = await fetch('/api/settings', {
             method: 'PUT',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+                'Content-Type': 'application/json'
             },
+            credentials: 'include',
             body: JSON.stringify({
-                frontendSettings: frontendConfig
+                allow_registration: true,  // 添加这个字段
+                frontendSettings: {
+                    ...frontendConfig,  // 展开所有配置
+                    [key]: frontendConfig[key]  // 确保更新的字段被正确设置
+                }
             })
         });
         
@@ -564,6 +561,7 @@ const saveConfigItem = async (key: string) => {
         const data = await response.json();
         if (data.code === 1) {
             editItem[key] = false;
+            await fetchConfig();  // 保存成功后重新获取配置
             useToast().add({
                 title: '成功',
                 description: `${configLabels[key]}已更新`,
@@ -589,8 +587,10 @@ const resetConfigItem = (key: string) => {
 // 修改 fetchConfig 方法
 const fetchConfig = async () => {
     try {
-        const response = await fetch('/api/frontend/config')
-        const data = await response.json()
+        const response = await fetch('/api/frontend/config', {
+            credentials: 'include'  // 添加 credentials 支持
+        });
+        const data = await response.json();
         if (data.code === 1 && data.frontendSettings) {
             Object.assign(frontendConfig, {
                 siteTitle: data.frontendSettings.siteTitle || defaultConfig.siteTitle,
@@ -623,17 +623,12 @@ const fetchConfig = async () => {
 
 const saveConfig = async () => {
     try {
-        const token = userStore.token;
-        if (!token) {
-            throw new Error('无效的登录状态');
-        }
-
         const response = await fetch('/api/settings', {
             method: 'PUT',
             headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
+                'Content-Type': 'application/json'
             },
+            credentials: 'include',
             body: JSON.stringify({
                 frontendSettings: frontendConfig
             })
@@ -692,9 +687,7 @@ const handleFileUpload = async (event: Event) => {
 
             const response = await fetch('/api/images/upload', {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                },
+                credentials: 'include',
                 body: formData
             })
 
@@ -736,15 +729,8 @@ const databaseFileInput = ref<HTMLInputElement | null>(null)
 
 const downloadBackup = async () => {
     try {
-        const token = userStore.token || localStorage.getItem('token')
-        if (!token) {
-            throw new Error('令牌无效，请点击右上角登录')
-        }
-
         const response = await fetch('/api/backup/download', {
-            headers: {
-                'Authorization': `Bearer ${token}`
-            }
+            credentials: 'include'
         })
         
         
@@ -779,19 +765,12 @@ const handleDatabaseUpload = async (event: Event) => {
     if (!files || !files[0]) return
 
     try {
-        const token = userStore.token || localStorage.getItem('token')
-        if (!token) {
-            throw new Error('令牌无效，请点击右上角登录')
-        }
-
         const formData = new FormData()
-        formData.append('database', files[0])
+        formData.append('file', files[0])  // 修改为 'file'
 
         const response = await fetch('/api/backup/restore', {
             method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${token}`
-            },
+            credentials: 'include',
             body: formData
         })
 
@@ -802,6 +781,10 @@ const handleDatabaseUpload = async (event: Event) => {
                 description: '数据库恢复成功',
                 color: 'green'
             })
+            // 添加成功后刷新页面
+            setTimeout(() => {
+                window.location.reload()
+            }, 1500)
         } else {
             throw new Error(data.msg)
         }

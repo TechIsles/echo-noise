@@ -3,6 +3,7 @@ package controllers
 import (
     "archive/zip"
     "fmt"
+    "github.com/gin-contrib/sessions"
     "github.com/gin-gonic/gin"
     "io"
     "net/http"
@@ -10,27 +11,15 @@ import (
     "path/filepath"
     "strings"
     "time"
-    "github.com/golang-jwt/jwt/v5"
 )
 // isAdmin 检查当前用户是否为管理员
 func isAdmin(c *gin.Context) bool {
-    claims, exists := c.Get("claims")
-    if !exists {
+    session := sessions.Default(c)
+    isAdmin := session.Get("is_admin")
+    if isAdmin == nil {
         return false
     }
-    
-    userClaims, ok := claims.(jwt.MapClaims)
-    if !ok {
-        return false
-    }
-
-    // 直接从 JWT claims 中获取 is_admin
-    isAdmin, ok := userClaims["is_admin"].(bool)
-    if !ok {
-        return false
-    }
-
-    return isAdmin
+    return isAdmin.(bool)
 }
 // HandleBackupDownload 处理数据备份下载
 func HandleBackupDownload(c *gin.Context) {

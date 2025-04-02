@@ -1,37 +1,17 @@
 package controllers
 
 import (
-    "fmt"
+   "fmt"
     "net/http"
     "strconv"
-    "errors"
-
+    "github.com/gin-contrib/sessions"
     "github.com/gin-gonic/gin"
     "github.com/lin-snow/ech0/internal/dto"
     "github.com/lin-snow/ech0/internal/models"
     "github.com/lin-snow/ech0/internal/services"
 )
-
-func checkAdmin(c *gin.Context) (uint, error) {
-    userID, exists := c.Get("userid")
-    if !exists {
-        return 0, errors.New("未授权访问")
-    }
-
-    user, err := services.GetUserByID(userID.(uint))
-    if err != nil {
-        return 0, err
-    }
-
-    if !user.IsAdmin {
-        return 0, errors.New("需要管理员权限")
-    }
-
-    return userID.(uint), nil
-}
-
 func checkUser(c *gin.Context) (*models.User, error) {
-    userID, exists := c.Get("userid")
+    userID, exists := c.Get("user_id")  // 修改 userid 为 user_id
     if !exists {
         return nil, fmt.Errorf(models.UserNotFoundMessage)
     }
@@ -44,21 +24,37 @@ func checkUser(c *gin.Context) (*models.User, error) {
 }
 
 func Login(c *gin.Context) {
-    var user dto.LoginDto
-    if err := c.ShouldBindJSON(&user); err != nil {
-        c.JSON(http.StatusOK, dto.Fail[string](models.InvalidRequestBodyMessage))
+    var loginDto dto.LoginDto
+    if err := c.ShouldBindJSON(&loginDto); err != nil {
+        c.JSON(http.StatusOK, dto.Fail[any]("参数错误"))
         return
     }
 
-    token, err := services.Login(user)
+    user, err := services.Login(loginDto)
     if err != nil {
-        c.JSON(http.StatusOK, dto.Fail[string](err.Error()))
+        c.JSON(http.StatusOK, dto.Fail[any](err.Error()))
         return
     }
 
-    c.JSON(http.StatusOK, dto.OK(token, models.LoginSuccessMessage))
-}
+    session := sessions.Default(c)
+    session.Clear()
+    session.Set("user_id", user.ID)
+    session.Set("username", user.Username)
+    session.Set("is_admin", user.IsAdmin)
+    if err := session.Save(); err != nil {
+        c.JSON(http.StatusOK, dto.Fail[any]("Session 保存失败"))
+        return
+    }
 
+    c.JSON(http.StatusOK, dto.OK(user, "登录成功"))
+}
+// 添加登出功能
+func Logout(c *gin.Context) {
+    session := sessions.Default(c)
+    session.Clear()
+    session.Save()
+    c.JSON(http.StatusOK, dto.OK[any](nil, "登出成功"))
+}
 func Register(c *gin.Context) {
     var user dto.RegisterDto
     if err := c.ShouldBindJSON(&user); err != nil {
@@ -83,7 +79,7 @@ func GetMessage(c *gin.Context) {
     }
 
     showPrivate := false
-    userID, exists := c.Get("userid")
+    userID, exists := c.Get("user_id") 
     if exists {
         user, err := services.GetUserByID(userID.(uint))
         if err == nil && user.IsAdmin {
@@ -113,7 +109,7 @@ func GetMessagesByPage(c *gin.Context) {
     }
 
     showPrivate := false
-    userID, exists := c.Get("userid")
+    userID, exists := c.Get("user_id")
     if exists {
         user, err := services.GetUserByID(userID.(uint))
         if err == nil && user.IsAdmin {
@@ -137,7 +133,7 @@ func PostMessage(c *gin.Context) {
         return
     }
 
-    userID, exists := c.Get("userid")
+    userID, exists := c.Get("user_id")
     if !exists {
         c.JSON(http.StatusOK, dto.Fail[string]("未授权访问"))
         return
@@ -170,7 +166,7 @@ func DeleteMessage(c *gin.Context) {
         return
     }
 
-    userID, exists := c.Get("userid")
+    userID, exists := c.Get("user_id")
     if !exists {
         c.JSON(http.StatusOK, dto.Fail[string]("未授权访问"))
         return
@@ -248,6 +244,24 @@ func ChangePassword(c *gin.Context) {
 
     c.JSON(http.StatusOK, dto.OK[any](nil, models.ChangePasswordSuccessMessage))
 }
+// checkAdmin 函数需要重新添加
+func checkAdmin(c *gin.Context) (uint, error) {
+    userID, exists := c.Get("user_id")
+    if !exists {
+        return 0, fmt.Errorf("未授权访问")
+    }
+
+    user, err := services.GetUserByID(userID.(uint))
+    if err != nil {
+        return 0, err
+    }
+
+    if !user.IsAdmin {
+        return 0, fmt.Errorf("需要管理员权限")
+    }
+
+    return userID.(uint), nil
+}
 
 func UpdateUserAdmin(c *gin.Context) {
     _, err := checkAdmin(c)
@@ -295,9 +309,10 @@ func UpdateSetting(c *gin.Context) {
         return
     }
 
+    // 构建设置映射
     settingMap := map[string]interface{}{
-        "allow_registration": setting.AllowRegistration,
-        "frontend_settings": map[string]interface{}{
+        "allowRegistration": setting.AllowRegistration,
+        "frontendSettings": map[string]interface{}{
             "siteTitle":          setting.FrontendSettings.SiteTitle,
             "subtitleText":       setting.FrontendSettings.SubtitleText,
             "avatarURL":          setting.FrontendSettings.AvatarURL,
@@ -315,14 +330,14 @@ func UpdateSetting(c *gin.Context) {
         },
     }
 
-    if err := services.UpdateSetting(userID, settingMap); err != nil {
+    // 注意：这里需要修改为 UpdateFrontendSetting
+    if err := services.UpdateFrontendSetting(userID, settingMap); err != nil {
         c.JSON(http.StatusOK, dto.Fail[string](err.Error()))
         return
     }
 
     c.JSON(http.StatusOK, dto.OK[any](nil, models.UpdateSettingSuccessMessage))
 }
-
 func GetFrontendConfig(c *gin.Context) {
     config, err := services.GetFrontendConfig()
     if err != nil {
@@ -339,7 +354,7 @@ func GetFrontendConfig(c *gin.Context) {
 
 func GetMessages(c *gin.Context) {
     showPrivate := false
-    userID, exists := c.Get("userid")
+    userID, exists := c.Get("user_id")
     if exists {
         user, err := services.GetUserByID(userID.(uint))
         if err == nil && user.IsAdmin {

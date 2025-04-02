@@ -41,48 +41,44 @@ func Register(userdto dto.RegisterDto) error {
 	return nil
 }
 
-func Login(userdto dto.LoginDto) (string, error) {
-	if userdto.Username == "" || userdto.Password == "" {
-		return "", errors.New(models.UsernameOrPasswordCannotBeEmptyMessage)
-	}
+func Login(userdto dto.LoginDto) (*models.User, error) {
+    if userdto.Username == "" || userdto.Password == "" {
+        return nil, errors.New(models.UsernameOrPasswordCannotBeEmptyMessage)
+    }
 
-	userdto.Password = pkg.MD5Encrypt(userdto.Password)
+    userdto.Password = pkg.MD5Encrypt(userdto.Password)
 
-	user, err := repository.GetUserByUsername(userdto.Username)
-	if err != nil {
-		return "", errors.New(models.UserNotFoundMessage)
-	}
+    user, err := repository.GetUserByUsername(userdto.Username)
+    if err != nil {
+        return nil, errors.New(models.UserNotFoundMessage)
+    }
 
-	if user.Password != userdto.Password {
-		return "", errors.New(models.PasswordIncorrectMessage)
-	}
+    if user.Password != userdto.Password {
+        return nil, errors.New(models.PasswordIncorrectMessage)
+    }
 
-	token, err := pkg.GenerateToken(pkg.CreateClaims(*user))
-	if err != nil {
-		return "", errors.New(models.GenerateTokenFailMessage)
-	}
-
-	return token, nil
+    // 返回用户信息而不是生成 token
+    return user, nil
 }
 
 func GetStatus() (models.Status, error) {
-	sysuser, err := repository.GetSysAdmin()
-	if err != nil {
-		return models.Status{}, errors.New(models.UserNotFoundMessage)
-	}
+    sysuser, err := repository.GetSysAdmin()
+    if err != nil {
+        return models.Status{}, errors.New(models.UserNotFoundMessage)
+    }
 
-	var users []models.UserStatus
-	allusers, err := repository.GetAllUsers()
-	if err != nil {
-		return models.Status{}, errors.New(models.GetAllUsersFailMessage)
-	}
-	for _, user := range allusers {
-		users = append(users, models.UserStatus{
-			UserID:   user.ID,
-			UserName: user.Username,
-			IsAdmin:  user.IsAdmin,
-		})
-	}
+    var users []models.UserStatus
+    allusers, err := repository.GetAllUsers()
+    if err != nil {
+        return models.Status{}, errors.New(models.GetAllUsersFailMessage)
+    }
+    for _, user := range allusers {
+        users = append(users, models.UserStatus{
+            ID:       user.ID,        // 修改 UserID 为 ID
+            Username: user.Username,  // 修改 UserName 为 Username
+            IsAdmin:  user.IsAdmin,
+        })
+    }
 
 	status := models.Status{}
 
@@ -164,8 +160,3 @@ func UpdateUserAdmin(userID uint) error {
 	return nil
 }
 
-func UpdateSetting(settingID uint, updates map[string]interface{}) error {
-	// 实现更新逻辑
-	// ...
-	return nil
-}

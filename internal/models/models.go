@@ -3,10 +3,15 @@ package models
 import (
 	"strings"
 	"time"
-
-	"github.com/golang-jwt/jwt/v5"
 	"gorm.io/gorm"
 )
+
+type UserStatus struct {
+	ID       uint   `json:"id"`
+	Username string `json:"username"`
+	IsAdmin  bool   `json:"is_admin"`
+	Status   Status `json:"status"`
+}
 
 type Message struct {
 	ID        uint      `gorm:"primaryKey" json:"id"`
@@ -25,24 +30,18 @@ type User struct {
 	IsAdmin  bool   `json:"is_admin"`
 }
 
-type UserStatus struct {
-	UserID   uint   `json:"user_id"`  // 用户ID
-	UserName string `json:"username"` // 用户名
-	IsAdmin  bool   `json:"is_admin"` // 是否是管理员
-}
-
 type Status struct {
-	SysAdminID    uint         `json:"sys_admin_id"` // 系统管理员ID
-	Username      string       `json:"username"`     // 系统管理员用户名
-	Users         []UserStatus `json:"users"`        // 所有用户
+	SysAdminID    uint         `json:"sys_admin_id"` 
+	Username      string       `json:"username"`     
+	Users         []UserStatus `json:"users"`        
 	TotalMessages int          `json:"total_messages"`
 }
 
-type MyCliams struct {
-	Userid   uint   `json:"user_id"`
-	Username string `json:"username"`
-	IsAdmin  bool   `json:"is_admin"`
-	jwt.RegisteredClaims
+type UserSession struct {
+	UserID    uint      `json:"user_id"`
+	Username  string    `json:"username"`
+	IsAdmin   bool      `json:"is_admin"`
+	LoginTime time.Time `json:"login_time"`
 }
 
 type Setting struct {
@@ -68,7 +67,6 @@ type SiteConfig struct {
 	WalineServerURL  string `gorm:"type:varchar(500)"`
 }
 
-// GetBackgroundsList 将逗号分隔的背景图片字符串转换为切片
 func (s *SiteConfig) GetBackgroundsList() []string {
 	if s.Backgrounds == "" {
 		return []string{}

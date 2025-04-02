@@ -1,9 +1,12 @@
 package services
 
 import (
+    "fmt"
+    "encoding/json"
     "github.com/lin-snow/ech0/internal/models"  
     "github.com/lin-snow/ech0/internal/database" 
 )
+
 // GetFrontendConfig 获取前端配置
 func GetFrontendConfig() (map[string]interface{}, error) {
     db := database.GetDB()
@@ -26,7 +29,7 @@ func GetFrontendConfig() (map[string]interface{}, error) {
             "description":        config.Description,
             "backgrounds":        config.GetBackgroundsList(),
             "cardFooterTitle":    config.CardFooterTitle,
-            "cardFooterLink":     config.CardFooterLink,  // 修改这里
+            "cardFooterLink":     config.CardFooterLink,
             "pageFooterHTML":     config.PageFooterHTML,
             "rssTitle":          config.RSSTitle,
             "rssDescription":    config.RSSDescription,
@@ -37,6 +40,58 @@ func GetFrontendConfig() (map[string]interface{}, error) {
     }
     
     return configMap, nil
+}
+
+// UpdateSetting 更新站点配置
+func UpdateFrontendSetting(userID uint, settingMap map[string]interface{}) error {
+    db := database.GetDB()
+    
+    frontendSettings, ok := settingMap["frontendSettings"].(map[string]interface{})
+    if !ok {
+        return fmt.Errorf("无效的前端配置格式")
+    }
+    
+
+    config := models.SiteConfig{
+        SiteTitle:       frontendSettings["siteTitle"].(string),
+        SubtitleText:    frontendSettings["subtitleText"].(string),
+        AvatarURL:       frontendSettings["avatarURL"].(string),
+        Username:        frontendSettings["username"].(string),
+        Description:     frontendSettings["description"].(string),
+        CardFooterTitle: frontendSettings["cardFooterTitle"].(string),
+        CardFooterLink:  frontendSettings["cardFooterLink"].(string),
+        PageFooterHTML:  frontendSettings["pageFooterHTML"].(string),
+        RSSTitle:        frontendSettings["rssTitle"].(string),
+        RSSDescription:  frontendSettings["rssDescription"].(string),
+        RSSAuthorName:   frontendSettings["rssAuthorName"].(string),
+        RSSFaviconURL:   frontendSettings["rssFaviconURL"].(string),
+        WalineServerURL: frontendSettings["walineServerURL"].(string),
+    }
+
+    if backgrounds, ok := frontendSettings["backgrounds"].([]interface{}); ok {
+        var backgroundsList []string
+        for _, bg := range backgrounds {
+            if bgStr, ok := bg.(string); ok {
+                backgroundsList = append(backgroundsList, bgStr)
+            }
+        }
+        backgroundsJSON, _ := json.Marshal(backgroundsList)
+        config.Backgrounds = string(backgroundsJSON)
+    }
+
+    result := db.Table("site_configs").Where("id = ?", 1).Updates(&config)
+    if result.Error != nil {
+        return result.Error
+    }
+
+    if result.RowsAffected == 0 {
+        config.ID = 1
+        if err := db.Table("site_configs").Create(&config).Error; err != nil {
+            return err
+        }
+    }
+
+    return nil
 }
 
 // 获取默认配置
@@ -65,7 +120,7 @@ func getDefaultConfig() map[string]interface{} {
                 "https://s2.loli.net/2025/03/27/y67m2k5xcSdTsHN.jpg",
             },
             "cardFooterTitle":    "Noise·说说·笔记~",
-            "cardFooterLink":  "note.noisework.cn",
+            "cardFooterLink":     "note.noisework.cn",
             "pageFooterHTML":     `<div class="text-center text-xs text-gray-400 py-4">来自<a href="https://www.noisework.cn" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Noise</a> 使用<a href="https://github.com/lin-snow/Ech0" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Ech0</a>发布</div>`,
             "rssTitle":          "Noise的说说笔记",
             "rssDescription":    "一个说说笔记~",

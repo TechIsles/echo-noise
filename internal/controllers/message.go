@@ -2,20 +2,23 @@ package controllers
 
 import (
 	"net/http"
-	"strconv"
-	"strings"
+    "strconv"
+    "strings"
 
-	"github.com/gin-gonic/gin"
-	"github.com/lin-snow/ech0/internal/models"
-	"github.com/lin-snow/ech0/internal/repository"
+    "github.com/gin-contrib/sessions"
+    "github.com/gin-gonic/gin"
+    "github.com/lin-snow/ech0/internal/models"
+    "github.com/lin-snow/ech0/internal/repository"
 )
 
 func UpdateMessage(c *gin.Context) {
-	userID, exists := c.Get("userID")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
-		return
-	}
+    // 获取session中的用户信息
+    session := sessions.Default(c)
+    userID := session.Get("userid")
+    if userID == nil {
+        c.JSON(http.StatusUnauthorized, gin.H{"error": "未授权"})
+        return
+    }
 
 	messageID := c.Param("id")
 	id, err := strconv.ParseUint(messageID, 10, 64)
@@ -59,19 +62,19 @@ func UpdateMessage(c *gin.Context) {
 	}
 
 	// 权限检查
-	currentUser, err := repository.GetUserByID(userID.(uint))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"error": "获取用户信息失败",
-			"detail": err.Error(),
-		})
-		return
-	}
+    currentUser, err := repository.GetUserByID(userID.(uint))
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{
+            "error": "获取用户信息失败",
+            "detail": err.Error(),
+        })
+        return
+    }
 
-	if oldMessage.UserID != userID.(uint) && !currentUser.IsAdmin {
-		c.JSON(http.StatusForbidden, gin.H{"error": "没有权限编辑此消息"})
-		return
-	}
+    if oldMessage.UserID != userID.(uint) && !currentUser.IsAdmin {
+        c.JSON(http.StatusForbidden, gin.H{"error": "没有权限编辑此消息"})
+        return
+    }
 
 	// 删除旧消息
 	if err := repository.DeleteMessage(uint(id)); err != nil {

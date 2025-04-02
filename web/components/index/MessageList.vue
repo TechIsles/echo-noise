@@ -151,8 +151,7 @@ const deleteMsg = async (id: number) => {
   const confirmDelete = confirm("确定要删除这条消息吗？");
   if (confirmDelete) {
     try {
-      await deleteMessage(id);
-      // 只在本地移除消息，不重新加载
+      await message.deleteMessage(id); // 使用 store 中的方法
       message.messages = message.messages.filter(msg => msg.id !== id);
       useToast().add({
         title: '删除成功',
@@ -337,6 +336,7 @@ onMounted(async () => {
   if (!window.Waline) {
     const script = document.createElement("script");
     script.src = "https://unpkg.com/@waline/client@v2/dist/waline.js";
+    script.crossOrigin = "anonymous";  // 添加跨域支持
     script.onload = initFancybox;
     document.head.appendChild(script);
   } else {
@@ -398,28 +398,42 @@ const saveEditedMessage = async () => {
   
   isSaving.value = true;
   try {
-    await deleteMessage(editingMessageId.value);
-    
-    const oldMsg = message.messages.find(msg => msg.id === editingMessageId.value);
-    const newMessage: MessageToSave = {
-      content: editingContent.value,
-      private: oldMsg?.private || false,
-      username: oldMsg?.username || '',
-      image_url: oldMsg?.image_url || ''
-    };
+    const response = await fetch(`/api/messages/${editingMessageId.value}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        content: editingContent.value
+      })
+    });
 
-    const { save } = useMessage();
-    const savedMessage = await save(newMessage);
-    
-    // 在本地更新消息列表
-    const index = message.messages.findIndex(msg => msg.id === editingMessageId.value);
-    if (index !== -1) {
-      message.messages[index] = savedMessage;
+    const data = await response.json();
+    if (data.code === 1) {
+      const index = message.messages.findIndex(msg => msg.id === editingMessageId.value);
+      if (index !== -1) {
+        message.messages[index] = {
+          ...message.messages[index],
+          content: editingContent.value
+        };
+      }
+      showEditModal.value = false;
+      useToast().add({
+        title: '更新成功',
+        color: 'green',
+        timeout: 2000
+      });
+    } else {
+      throw new Error(data.msg || '保存失败');
     }
-    
-    showEditModal.value = false;
   } catch (error) {
     console.error('更新消息失败:', error);
+    useToast().add({
+      title: '更新失败',
+      color: 'red',
+      timeout: 2000
+    });
   } finally {
     isSaving.value = false;
   }
@@ -536,27 +550,38 @@ if (contentArea) {
     });
 
    // 处理图片
-   const images = contentClone.querySelectorAll('img');
-const processImages = async () => {
+   const processImages = async () => {
   await Promise.all(Array.from(images).map(async (img) => {
     return new Promise<void>((resolve) => {
       const originalSrc = img.src;
       img.crossOrigin = 'anonymous';
       
-      // 处理图片路径
+      // 处理图片路径并添加 credentials
       if (originalSrc.startsWith('/')) {
         img.src = `${BASE_API}${originalSrc}`;
-      }
-      
-      if (img.complete) {
-        resolve();
+        // 为图片请求添加 credentials
+        fetch(img.src, { credentials: 'include' })
+          .then(response => response.blob())
+          .then(blob => {
+            img.src = URL.createObjectURL(blob);
+            resolve();
+          })
+          .catch(() => {
+            console.error('图片加载失败:', originalSrc);
+            img.parentElement?.removeChild(img);
+            resolve();
+          });
       } else {
-        img.onload = () => resolve();
-        img.onerror = () => {
-          console.error('图片加载失败:', originalSrc);
-          img.parentElement?.removeChild(img);
+        if (img.complete) {
           resolve();
-        };
+        } else {
+          img.onload = () => resolve();
+          img.onerror = () => {
+            console.error('图片加载失败:', originalSrc);
+            img.parentElement?.removeChild(img);
+            resolve();
+          };
+        }
       }
     });
   }));

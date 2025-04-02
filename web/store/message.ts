@@ -27,7 +27,9 @@ export const useMessageStore = defineStore("messageStore", () => {
     loading.value = true;
 
     try {
-      const response = await postRequest<PageQueryResult>("messages/page", query);
+      const response = await postRequest<PageQueryResult>("messages/page", query, {
+        credentials: 'include'
+      });
       
       if (!response) {
         toast.add({
@@ -40,7 +42,6 @@ export const useMessageStore = defineStore("messageStore", () => {
         return null;
       }
 
-      // 根据页码决定是替换还是追加数据
       if (query.page === 1) {
         messages.value = response.data.items;
       } else {
@@ -68,7 +69,9 @@ export const useMessageStore = defineStore("messageStore", () => {
   // 删除笔记
   const deleteMessage = async (id: number) => {
     try {
-      const response = await deleteRequest<any>(`messages/${id}`);
+      const response = await deleteRequest<any>(`messages/${id}`, {
+        credentials: 'include'
+      });
       
       if (!response || response.code !== 1) {
         toast.add({
@@ -81,7 +84,6 @@ export const useMessageStore = defineStore("messageStore", () => {
         return null;
       }
 
-      // 从本地状态中移除被删除的笔记
       messages.value = messages.value.filter((message) => message.id !== id);
       total.value -= 1;
       
@@ -93,10 +95,32 @@ export const useMessageStore = defineStore("messageStore", () => {
   };
 
   // 更新单条笔记
-  const updateMessage = (updatedMessage: Message) => {
-    const index = messages.value.findIndex(msg => msg.id === updatedMessage.id);
-    if (index !== -1) {
-      messages.value[index] = updatedMessage;
+  const updateMessage = async (id: number, content: string) => {
+    try {
+      const response = await putRequest<any>(`messages/${id}`, { content }, {
+        credentials: 'include'
+      });
+
+      if (!response || response.code !== 1) {
+        toast.add({
+          title: "更新笔记失败",
+          description: response?.msg,
+          icon: "i-fluent-error-circle-16-filled",
+          color: "red",
+          timeout: 2000,
+        });
+        return null;
+      }
+
+      const index = messages.value.findIndex(msg => msg.id === id);
+      if (index !== -1) {
+        messages.value[index] = response.data;
+      }
+
+      return response;
+    } catch (error) {
+      console.error("更新笔记失败:", error);
+      throw error;
     }
   };
 
