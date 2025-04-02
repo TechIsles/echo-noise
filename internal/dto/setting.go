@@ -11,7 +11,6 @@ type SettingDto struct {
         Description        string   `json:"description"`
         Backgrounds        []string `json:"backgrounds"`
         CardFooterTitle    string   `json:"cardFooterTitle"`
-        CardFooterSubtitle string   `json:"cardFooterSubtitle"`
         CardFooterLink     string   `json:"cardFooterLink"` 
         PageFooterHTML     string   `json:"pageFooterHTML"`
         RSSTitle          string   `json:"rssTitle"`

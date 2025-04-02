@@ -90,8 +90,12 @@
       </div>
     </div>
     <!-- 来源信息 - 固定在底部 -->
-    <div v-if="message.siteConfig?.pageFooterHTML" v-html="message.siteConfig.pageFooterHTML"></div>
+    <div v-if="!message.siteConfig?.pageFooterHTML" class="text-center text-xs text-gray-400 py-4">
+      来自<a href="https://www.noisework.cn" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Noise</a> 
+      使用<a href="https://github.com/lin-snow/Ech0" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Ech0</a>发布
     </div>
+    <div v-else v-html="message.siteConfig.pageFooterHTML"></div>
+  </div>
   <!-- 编辑对话框 -->
   <UModal v-model="showEditModal" :ui="{ width: 'sm:max-w-2xl' }">
     <UCard>
@@ -573,11 +577,15 @@ await processImages();
     `;
     footer.innerHTML = `
       <div style="color: #fb923c; font-size: 13px; margin-bottom: 4px; font-weight: 500;">
-    ${message.siteConfig?.cardFooterTitle || ''}
+     ${message.siteConfig?.cardFooterTitle || 'Noise·说说·笔记~'}
   </div>
-  <div style="color: rgba(255,255,255,0.5); font-size: 11px;">
-    ${message.siteConfig?.cardFooterSubtitle || ''}
-  </div>
+  <a href="${message.siteConfig?.cardFooterLink || 'https://note.noisework.cn'}" 
+           target="_blank" 
+           rel="noopener noreferrer" 
+           style="color: rgba(255,255,255,0.5); text-decoration: none;">
+          ${message.siteConfig?.cardFooterLink || 'note.noisework.cn'}
+        </a>
+      </div>
 `;
     tempContainer.appendChild(footer);
 

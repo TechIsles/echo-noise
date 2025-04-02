@@ -26,7 +26,7 @@ func GetFrontendConfig() (map[string]interface{}, error) {
             "description":        config.Description,
             "backgrounds":        config.GetBackgroundsList(),
             "cardFooterTitle":    config.CardFooterTitle,
-            "cardFooterSubtitle": config.CardFooterLink,  // 修改这里
+            "cardFooterLink":     config.CardFooterLink,  // 修改这里
             "pageFooterHTML":     config.PageFooterHTML,
             "rssTitle":          config.RSSTitle,
             "rssDescription":    config.RSSDescription,
@@ -65,7 +65,7 @@ func getDefaultConfig() map[string]interface{} {
                 "https://s2.loli.net/2025/03/27/y67m2k5xcSdTsHN.jpg",
             },
             "cardFooterTitle":    "Noise·说说·笔记~",
-            "cardFooterSubtitle": "note.noisework.cn",
+            "cardFooterLink":  "note.noisework.cn",
             "pageFooterHTML":     `<div class="text-center text-xs text-gray-400 py-4">来自<a href="https://www.noisework.cn" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Noise</a> 使用<a href="https://github.com/lin-snow/Ech0" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Ech0</a>发布</div>`,
             "rssTitle":          "Noise的说说笔记",
             "rssDescription":    "一个说说笔记~",
