@@ -709,7 +709,7 @@ await processImages();
 </script>
 
 <style scoped>
-/* 修改卡片生成样式 */
+/* 修改内容卡片样式 */
 .content-container {
   padding: 16px;
   background: transparent;
@@ -717,11 +717,33 @@ await processImages();
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
   transition: all 0.3s ease;
   border: 1px solid rgba(5, 5, 5, 0.2);
-  margin: 8px 0;
+  margin: 8px 0 0.2rem 0; /* 修改下边距为0.2rem */
   width: 100%;
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
+}
+
+/* 添加移动端适配 */
+@media screen and (max-width: 768px) {
+  .content-container {
+    margin: 8px 0 0.2rem 0;
+    padding: 12px;
+    width: calc(100% - 0.4rem); /* 添加宽度调整 */
+  }
+  
+  /* 调整内容区域的内边距 */
+  .border-l-2 {
+    padding-left: 0.8rem; /* 减少左侧内边距 */
+    padding-right: 0.8rem;
+  }
+  
+  /* 确保图片在移动端也能充分利用空间 */
+  .content-container img {
+    min-width: calc(100% + 1.6rem); /* 图片宽度补偿 */
+    margin-left: -0.8rem;
+    margin-right: -0.8rem;
+  }
 }
 .content-container::before {
   content: '';

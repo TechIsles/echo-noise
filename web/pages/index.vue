@@ -389,6 +389,7 @@ html, body {
   transition: background-image 0.3s ease;
   will-change: background-image;
   transform: translateZ(0);
+  margin-top: 1px; /* 调整这个值来控制主图下移距离 */
 }
 
 .header-title {
@@ -404,7 +405,22 @@ html, body {
   white-space: nowrap;
   transition: font-size 0.3s ease;
 }
-
+@media screen and (max-width: 768px) {
+  .content-wrapper {
+    padding: 0.2rem 0.2rem 0; /* 上左右0.2rem，底部0 */
+  }
+  
+  .container-fixed {
+    width: 100%;
+    margin: 0 auto;
+    padding-bottom: 0.2rem; /* 底部内边距 */
+  }
+  
+  .header-image {
+    height: 260px;
+    margin-top: 0.2rem; /* 调整下移距离为0.2rem */
+  }
+}
 @media screen and (max-width: 768px) {
   .header-title {
     font-size: 1.8rem;

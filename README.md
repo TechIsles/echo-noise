@@ -82,10 +82,12 @@ Ech0 是一款专为轻量级分享而设计的开源自托管平台，支持快
 
   ![ehS1BxwbUKyD2Vm](https://s2.loli.net/2025/04/01/ehS1BxwbUKyD2Vm.png)
 
+  ## 待修复：
+
   修改该文件到Session 验证
 
   解决无法获取用户状态而造成的登陆退出不一致的问题
-
+  
   
 
 ------
@@ -105,7 +107,7 @@ docker run -d \
   --name Ech0-Noise \
   --platform linux/amd64 \
   -p 1314:1314 \
-  -v /Library/诺伊斯/test/Ech0-N/data/noise.db:/app/data/noise.db \
+  -v /opt/data/noise.db:/app/data/noise.db \
   noise233/echo-noise:last
 ```
 
