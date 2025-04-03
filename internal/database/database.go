@@ -95,3 +95,13 @@ func GetSystemStatus() (map[string]interface{}, error) {
         "allowRegistration": setting.AllowRegistration,
     }, nil
 }
+// ReconnectDB 重新连接数据库
+func ReconnectDB() error {
+    if DB != nil {
+        sqlDB, err := DB.DB()
+        if err == nil {
+            sqlDB.Close() // 关闭现有连接
+        }
+    }
+    return InitDB() // 重新初始化
+}

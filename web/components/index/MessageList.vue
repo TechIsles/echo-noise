@@ -717,13 +717,42 @@ await processImages();
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
   transition: all 0.3s ease;
   border: 1px solid rgba(5, 5, 5, 0.2);
-  margin: 8px 0 0.2rem 0; /* 修改下边距为0.2rem */
+  margin: 8px 0 0.2rem 0;
   width: 100%;
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
+  /* 添加以下优化属性 */
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  perspective: 1000px;
 }
-
+/* 优化图片渲染 */
+.content-container img {
+  width: 100%;
+  height: auto;
+  min-height: 150px;
+  object-fit: cover;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  /* 添加以下优化属性 */
+  will-change: transform;
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+/* 优化移动端滚动 */
+@media screen and (max-width: 768px) {
+  html, body {
+    -webkit-overflow-scrolling: touch;
+    overflow-scrolling: touch;
+  }
+  
+  .content-container {
+    /* 减少阴影复杂度 */
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  }
+}
 /* 添加移动端适配 */
 @media screen and (max-width: 768px) {
   .content-container {
@@ -789,15 +818,7 @@ button:hover {
 .content-container .overflow-y-hidden:not(.max-h-\[700px\]) {
   max-height: none;
 }
-/* 优化图片显示 */
-.content-container img {
-  width: 100%;
-  height: auto;
-  min-height: 150px;
-  object-fit: cover;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-}
+
 /* 修改评论区样式 */
 :deep(.wl-comment) {
   background: rgba(36, 43, 50, 0.95) !important;

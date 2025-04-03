@@ -111,7 +111,7 @@
                                 </div>
                             </div>
                         </div>
-                        
+
                     </div>
                 </div>
                                <!-- 网站配置区域 -->
@@ -864,14 +864,14 @@ const downloadBackup = async () => {
 const triggerDatabaseUpload = () => {
     databaseFileInput.value?.click()
 }
-
+const emit = defineEmits(['restore-success'])
 const handleDatabaseUpload = async (event: Event) => {
     const files = (event.target as HTMLInputElement).files
     if (!files || !files[0]) return
 
     try {
         const formData = new FormData()
-        formData.append('backup', files[0])
+        formData.append('database', files[0])
 
         const response = await fetch('/api/backup/restore', {
             method: 'POST',
@@ -886,6 +886,7 @@ const handleDatabaseUpload = async (event: Event) => {
                 description: '数据库恢复成功',
                 color: 'green'
             })
+            emit('restore-success')
             // 添加成功后刷新页面
             setTimeout(() => {
                 window.location.reload()

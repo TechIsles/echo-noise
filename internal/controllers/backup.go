@@ -5,6 +5,7 @@ import (
     "fmt"
     "github.com/gin-contrib/sessions"
     "github.com/gin-gonic/gin"
+    "github.com/lin-snow/ech0/internal/database"
     "io"
     "net/http"
     "os"
@@ -117,96 +118,223 @@ func HandleBackupRestore(c *gin.Context) {
         return
     }
 
+    // 检查文件大小
+    c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 100<<20) // 限制100MB
     file, err := c.FormFile("database")
     if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"code": 0, "msg": "未找到上传文件"})
+        c.JSON(http.StatusBadRequest, gin.H{
+            "code": 0,
+            "msg": "请选择有效的备份文件",
+            "error": err.Error(),
+        })
         return
     }
 
+    // 检查文件类型
     if !strings.HasSuffix(strings.ToLower(file.Filename), ".zip") {
-        c.JSON(http.StatusBadRequest, gin.H{"code": 0, "msg": "请上传zip格式的备份文件"})
+        c.JSON(http.StatusBadRequest, gin.H{
+            "code": 0,
+            "msg": "请上传有效的zip备份文件",
+        })
         return
     }
 
     // 创建临时目录
-    tempDir := "/app/data/temp_restore"
-    os.MkdirAll(tempDir, 0755)
+    tempDir := "/tmp/ech0_restore_" + time.Now().Format("20060102150405")
+    if err := os.MkdirAll(tempDir, 0755); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{
+            "code": 0,
+            "msg": "创建临时目录失败",
+            "error": err.Error(),
+        })
+        return
+    }
     defer os.RemoveAll(tempDir)
 
-    // 保存上传的文件
-    tempZip := filepath.Join(tempDir, "backup.zip")
+    // 保存上传的zip文件
+    tempZip := filepath.Join(tempDir, file.Filename)
     if err := c.SaveUploadedFile(file, tempZip); err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": "保存上传文件失败"})
+        c.JSON(http.StatusInternalServerError, gin.H{
+            "code": 0,
+            "msg": "保存上传文件失败",
+            "error": err.Error(),
+        })
         return
     }
 
     // 打开zip文件
     reader, err := zip.OpenReader(tempZip)
     if err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"code": 0, "msg": "无效的备份文件"})
+        c.JSON(http.StatusBadRequest, gin.H{
+            "code": 0,
+            "msg": "无效的zip文件",
+            "error": err.Error(),
+        })
         return
     }
     defer reader.Close()
 
-    // 验证是否包含必要文件
+    // 检查zip中是否包含.db文件
     hasDB := false
     for _, f := range reader.File {
-        if strings.HasSuffix(f.Name, "noise.db") {
+        if strings.HasSuffix(strings.ToLower(f.Name), ".db") {
             hasDB = true
             break
         }
     }
     if !hasDB {
-        c.JSON(http.StatusBadRequest, gin.H{"code": 0, "msg": "备份文件中未找到数据库文件"})
+        c.JSON(http.StatusBadRequest, gin.H{
+            "code": 0,
+            "msg": "备份文件中未找到数据库文件",
+        })
         return
     }
 
-    // 备份当前数据目录
-    backupDir := fmt.Sprintf("/app/data_backup_%s", time.Now().Format("20060102150405"))
-    if err := os.Rename("/app/data", backupDir); err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": "备份当前数据失败"})
+    
+    // 修改备份方式 - 使用复制而不是重命名
+    backupDir := "/app/data.bak_" + time.Now().Format("20060102150405")
+    if err := os.MkdirAll(backupDir, 0755); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{
+            "code": 0,
+            "msg": "创建备份目录失败",
+            "error": err.Error(),
+        })
+        return
+    }
+    defer os.RemoveAll(backupDir)
+
+    // 复制原数据到备份目录
+    if err := filepath.Walk("/app/data", func(path string, info os.FileInfo, err error) error {
+        if err != nil {
+            return err
+        }
+
+        relPath, err := filepath.Rel("/app/data", path)
+        if err != nil {
+            return err
+        }
+
+        dstPath := filepath.Join(backupDir, relPath)
+
+        if info.IsDir() {
+            return os.MkdirAll(dstPath, info.Mode())
+        }
+
+        src, err := os.Open(path)
+        if err != nil {
+            return err
+        }
+        defer src.Close()
+
+        dst, err := os.Create(dstPath)
+        if err != nil {
+            return err
+        }
+        defer dst.Close()
+
+        _, err = io.Copy(dst, src)
+        return err
+    }); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{
+            "code": 0,
+            "msg": "备份原数据失败",
+            "error": err.Error(),
+        })
         return
     }
 
-    // 创建新的数据目录
-    os.MkdirAll("/app/data", 0755)
-
-    // 解压文件
+    // 解压zip文件
     for _, f := range reader.File {
         dstPath := filepath.Join("/app/data", f.Name)
-        os.MkdirAll(filepath.Dir(dstPath), 0755)
+        
+        if f.FileInfo().IsDir() {
+            if err := os.MkdirAll(dstPath, f.Mode()); err != nil {
+                // 恢复备份
+                os.RemoveAll("/app/data")
+                os.Rename(backupDir, "/app/data")
+                c.JSON(http.StatusInternalServerError, gin.H{
+                    "code": 0,
+                    "msg": "创建目录失败",
+                    "error": err.Error(),
+                })
+                return
+            }
+            continue
+        }
+
+        if err := os.MkdirAll(filepath.Dir(dstPath), 0755); err != nil {
+            // 恢复备份
+            os.RemoveAll("/app/data")
+            os.Rename(backupDir, "/app/data")
+            c.JSON(http.StatusInternalServerError, gin.H{
+                "code": 0,
+                "msg": "创建父目录失败",
+                "error": err.Error(),
+            })
+            return
+        }
 
         dst, err := os.OpenFile(dstPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
         if err != nil {
+            // 恢复备份
             os.RemoveAll("/app/data")
             os.Rename(backupDir, "/app/data")
-            c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": "恢复文件失败"})
+            c.JSON(http.StatusInternalServerError, gin.H{
+                "code": 0,
+                "msg": "创建文件失败",
+                "error": err.Error(),
+            })
             return
         }
 
         src, err := f.Open()
         if err != nil {
             dst.Close()
+            // 恢复备份
             os.RemoveAll("/app/data")
             os.Rename(backupDir, "/app/data")
-            c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": "读取备份文件失败"})
+            c.JSON(http.StatusInternalServerError, gin.H{
+                "code": 0,
+                "msg": "打开压缩文件失败",
+                "error": err.Error(),
+            })
             return
         }
 
-        _, err = io.Copy(dst, src)
+        if _, err = io.Copy(dst, src); err != nil {
+            dst.Close()
+            src.Close()
+            // 恢复备份
+            os.RemoveAll("/app/data")
+            os.Rename(backupDir, "/app/data")
+            c.JSON(http.StatusInternalServerError, gin.H{
+                "code": 0,
+                "msg": "写入文件失败",
+                "error": err.Error(),
+            })
+            return
+        }
+
         dst.Close()
         src.Close()
-
-        if err != nil {
-            os.RemoveAll("/app/data")
-            os.Rename(backupDir, "/app/data")
-            c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": "恢复文件失败"})
-            return
-        }
     }
 
-    // 删除旧的备份
-    os.RemoveAll(backupDir)
+    // 重连数据库
+    if err := database.ReconnectDB(); err != nil {
+        // 恢复备份
+        os.RemoveAll("/app/data")
+        os.Rename(backupDir, "/app/data")
+        c.JSON(http.StatusInternalServerError, gin.H{
+            "code": 0,
+            "msg": "数据库重连失败，已恢复原数据",
+            "error": err.Error(),
+        })
+        return
+    }
 
-    c.JSON(http.StatusOK, gin.H{"code": 1, "msg": "数据恢复成功"})
+    c.JSON(http.StatusOK, gin.H{
+        "code": 1,
+        "msg": "数据恢复成功",
+        "shouldRefresh": true,
+    })
 }

@@ -7,7 +7,8 @@ services:
     ports:
       - "1314:1314"
     volumes:
-      - ./data/noise.db:/app/data/noise.db
+      - ./data:/app/data
     environment:
       - LOG_LEVEL=info
       - DATABASE_FILE=/app/data/noise.db
+    restart: unless-stopped

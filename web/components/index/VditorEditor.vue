@@ -52,6 +52,7 @@ const editorOptions: IOptions = {
   ],
   toolbarConfig: {
     pin: true,
+    hideTooltip: true,
   },
   counter: {
     enable: false,
@@ -66,6 +67,10 @@ const editorOptions: IOptions = {
   preview: {
     hljs: {
       style: "native",
+    },
+    markdown: {  
+      listStyle: true,
+      mark: true,
     },
     actions: [],
   },
@@ -113,7 +118,24 @@ defineExpose({
   border-color: #90a4ae;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
+.vditor-reset ol {
+  list-style-type: decimal;
+  padding-left: 2em;
+}
 
+.vditor-reset ul {
+  list-style-type: disc;
+  padding-left: 2em;
+}
+
+.vditor-ir .vditor-ir__list {
+  counter-reset: list-counter;
+}
+
+.vditor-ir .vditor-ir__list--ordered > .vditor-ir__list-item::before {
+  content: counter(list-counter) ".";
+  counter-increment: list-counter;
+}
 .vditor-toolbar {
   display: flex;
   flex-wrap: nowrap;
@@ -126,7 +148,7 @@ defineExpose({
   border-bottom: 1px solid #e9ecef;
   position: sticky; /* 修改为 sticky 定位 */
   top: 0; /* 添加 top 值 */
-  z-index: 999;
+  z-index: 100;
 }
 
 .vditor-toolbar::-webkit-scrollbar {
@@ -146,7 +168,7 @@ defineExpose({
 
 .vditor-panel {
   position: fixed; /* 改为固定定位 */
-  z-index: 9999; /* 确保在工具栏之上 */
+  z-index: 1000;  /* 确保在工具栏之上 */
   background: #fff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   border-radius: 4px;
@@ -154,7 +176,7 @@ defineExpose({
 }
 .vditor-hint {
   position: fixed; /* 改为固定定位 */
-  z-index: 999;
+  z-index: 1000;
   background: #fff;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   border-radius: 4px;

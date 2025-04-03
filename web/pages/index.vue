@@ -48,7 +48,7 @@ useHead({
 })
 // 添加前端配置的响应式对象
 const frontendConfig = ref({
-  siteTitle: '',
+    siteTitle: '',
     subtitleText: '',
     avatarURL: '',
     username: '',
@@ -417,13 +417,18 @@ html, body {
   }
   
   .header-image {
-    height: 260px;
+    height: 250px;
     margin-top: 0.2rem; /* 调整下移距离为0.2rem */
   }
 }
 @media screen and (max-width: 768px) {
   .header-title {
     font-size: 1.8rem;
+    top: 35%;
+  }
+  .header-subtitle {
+    top: calc(35% + 50px); 
+    font-size: 0.9rem;
   }
 }
 
