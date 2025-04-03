@@ -67,6 +67,7 @@ type SiteConfig struct {
 	RSSAuthorName    string `gorm:"type:varchar(50)"`
 	RSSFaviconURL    string `gorm:"type:varchar(500)"`
 	WalineServerURL  string `gorm:"type:varchar(500)"`
+	Version          int    `json:"version"`
 }
 
 func (s *SiteConfig) GetBackgroundsList() []string {

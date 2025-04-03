@@ -92,40 +92,32 @@ func DeleteMessageByAdmin(id uint) error {
 }
 
 func GenerateRSS(c *gin.Context) (string, error) {
-	// 获取所有笔记
-	showPrivate := false
-	messages, err := GetAllMessages(showPrivate)
-	if err != nil {
-		return "", err
+    // 获取所有公开留言（RSS 只显示公开内容）
+    messages, err := GetAllMessages(false)  // 直接传入 false 表示只获取公开内容
+    if err != nil {
+        return "", err
+    }
+
+	// 生成 RSS 订阅链接
+	schema := "http"
+	if c.Request.TLS != nil {
+		schema = "https"
 	}
-// 获取站点配置
-settings, err := GetFrontendConfig()
-if err != nil {
-	return "", err
-}
-// 从返回的 map 中正确获取配置
-frontendSettings := settings["frontendSettings"].(map[string]interface{})
-
-schema := "http"
-if c.Request.TLS != nil {
-	schema = "https"
-}
-host := c.Request.Host
-
-feed := &feeds.Feed{
-	Title: frontendSettings["rssTitle"].(string),
-	Link: &feeds.Link{
-		Href: fmt.Sprintf("%s://%s/", schema, host),
-	},
-	Image: &feeds.Image{
-		Url: frontendSettings["rssFaviconURL"].(string),
-	},
-	Description: frontendSettings["rssDescription"].(string),
-	Author: &feeds.Author{
-		Name: frontendSettings["rssAuthorName"].(string),
-	},
-	Updated: time.Now(),
-}
+	host := c.Request.Host
+	feed := &feeds.Feed{
+		Title: "Noise的说说笔记",
+		Link: &feeds.Link{
+			Href: fmt.Sprintf("%s://%s/", schema, host),
+		},
+		Image: &feeds.Image{
+			Url: fmt.Sprintf("%s://%s/favicon.ico", schema, host),
+		},
+		Description: "一个说说笔记~",
+		Author: &feeds.Author{
+			Name: "Noise",
+		},
+		Updated: time.Now(),
+	}
 
 	for _, msg := range messages {
 		renderedContent := pkg.MdToHTML([]byte(msg.Content))
@@ -157,6 +149,7 @@ feed := &feeds.Feed{
 
 	return atom, nil
 }
+
 // UpdateMessage 更新消息内容
 func UpdateMessage(messageID uint, content string) error {
     // 获取消息

@@ -327,6 +327,7 @@ html, body {
   overflow-y: auto;  /* 允许内容滚动 */
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch; /* 优化移动端滚动 */
+  background-color: black; 
 }
 
 
@@ -337,17 +338,18 @@ html, body {
   left: 0;
   right: 0;
   bottom: 0;
-  width: 100%;  /* 移除 vw 单位 */
-  height: 100%;  /* 移除 vh 单位 */
+  width: 100%;
+  height: 100%;
   background-image: var(--bg-image);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
   filter: blur(8px);
   z-index: -1;
-  transform: scale(1.1); /* 防止边缘模糊露白 */
+  transform: scale(1.1);
   transition: background-image 0.5s ease;
   will-change: transform;
+  background-color: black; /* 确保模糊层也有黑色背景 */
 }
 
 .content-wrapper {

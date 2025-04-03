@@ -70,16 +70,10 @@ func Register(c *gin.Context) {
     c.JSON(http.StatusOK, dto.OK[any](nil, models.RegisterSuccessMessage))
 }
 
-func GetMessage(c *gin.Context) {
-    idStr := c.Param("id")
-    id, err := strconv.ParseUint(idStr, 10, 64)
-    if err != nil {
-        c.JSON(http.StatusOK, dto.Fail[string](models.InvalidIDMessage))
-        return
-    }
-
+// GetMessages 处理 GET /messages 请求，返回所有留言
+func GetMessages(c *gin.Context) {
     showPrivate := false
-    userID, exists := c.Get("user_id") 
+    userID, exists := c.Get("user_id")
     if exists {
         user, err := services.GetUserByID(userID.(uint))
         if err == nil && user.IsAdmin {
@@ -87,6 +81,35 @@ func GetMessage(c *gin.Context) {
         }
     }
 
+    messages, err := services.GetAllMessages(showPrivate)
+    if err != nil {
+        c.JSON(http.StatusOK, dto.Fail[string](models.GetAllMessagesFailMessage))
+        return
+    }
+    c.JSON(http.StatusOK, dto.OK(messages, models.GetAllMessagesSuccess))
+}
+
+// GetMessage 处理 GET /messages/:id 请求，获取留言详情
+func GetMessage(c *gin.Context) {
+    // 从 URL 参数获取留言 ID
+    idStr := c.Param("id")
+    id, err := strconv.ParseUint(idStr, 10, 64)
+    if err != nil {
+        c.JSON(http.StatusOK, dto.Fail[string](models.InvalidIDMessage))
+        return
+    }
+
+    // 检查是否显示私密消息
+    showPrivate := false
+    userID, exists := c.Get("user_id")
+    if exists {
+        user, err := services.GetUserByID(userID.(uint))
+        if err == nil && user.IsAdmin {
+            showPrivate = true
+        }
+    }
+
+    // 调用 Service 层根据 ID 获取留言
     message, err := services.GetMessageByID(uint(id), showPrivate)
     if err != nil {
         c.JSON(http.StatusOK, dto.Fail[string](models.GetMessageByIDFailMessage))
@@ -98,6 +121,7 @@ func GetMessage(c *gin.Context) {
         return
     }
 
+    // 返回成功响应
     c.JSON(http.StatusOK, dto.OK(message, models.GetMessageByIDSuccess))
 }
 
@@ -194,13 +218,13 @@ func DeleteMessage(c *gin.Context) {
 }
 
 func GenerateRSS(c *gin.Context) {
-    atom, err := services.GenerateRSS(c)
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, dto.Fail[string](models.GenerateRSSFailMessage))
-        return
-    }
+	atom, err := services.GenerateRSS(c)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, dto.Fail[string](models.GenerateRSSFailMessage))
+		return
+	}
 
-    c.Data(http.StatusOK, "application/rss+xml; charset=utf-8", []byte(atom))
+	c.Data(http.StatusOK, "application/rss+xml; charset=utf-8", []byte(atom))
 }
 
 func UpdateUser(c *gin.Context) {
@@ -352,24 +376,6 @@ func GetFrontendConfig(c *gin.Context) {
     })
 }
 
-func GetMessages(c *gin.Context) {
-    showPrivate := false
-    userID, exists := c.Get("user_id")
-    if exists {
-        user, err := services.GetUserByID(userID.(uint))
-        if err == nil && user.IsAdmin {
-            showPrivate = true
-        }
-    }
-
-    messages, err := services.GetAllMessages(showPrivate)
-    if err != nil {
-        c.JSON(http.StatusOK, dto.Fail[string](models.GetAllMessagesFailMessage))
-        return
-    }
-
-    c.JSON(http.StatusOK, dto.OK(messages, models.GetAllMessagesSuccess))
-}
 func UpdateMessage(c *gin.Context) {
     // 获取消息ID
     id := c.Param("id")
