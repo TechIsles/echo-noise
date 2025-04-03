@@ -1,11 +1,13 @@
 package models
 
 import (
+	"errors"
 	"strings"
 	"time"
 	"gorm.io/gorm"
 )
 
+var DB *gorm.DB
 type UserStatus struct {
 	ID       uint   `json:"id"`
 	Username string `json:"username"`
@@ -72,4 +74,28 @@ func (s *SiteConfig) GetBackgroundsList() []string {
 		return []string{}
 	}
 	return strings.Split(s.Backgrounds, ",")
+}
+func UpdateMessage(id string, content string) error {
+    // 先查询消息是否存在
+    var message Message
+    result := DB.First(&message, id)
+    if result.Error != nil {
+        if result.Error == gorm.ErrRecordNotFound {
+            return errors.New("消息不存在")
+        }
+        return result.Error
+    }
+
+    // 更新消息内容
+    result = DB.Model(&message).Updates(map[string]interface{}{
+        "content": content,
+    })
+    if result.Error != nil {
+        return result.Error
+    }
+    if result.RowsAffected == 0 {
+        return errors.New("更新失败")
+    }
+    
+    return nil
 }

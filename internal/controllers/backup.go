@@ -28,8 +28,8 @@ func HandleBackupDownload(c *gin.Context) {
         return
     }
 
-    dataDir := "./data"
-    tempZip := fmt.Sprintf("./data/backup_%s.zip", time.Now().Format("20060102150405"))
+    dataDir := "/app/data"
+    tempZip := fmt.Sprintf("/app/data/backup_%s.zip", time.Now().Format("20060102150405"))
     
     // 创建临时zip文件
     zipFile, err := os.Create(tempZip)
@@ -129,7 +129,7 @@ func HandleBackupRestore(c *gin.Context) {
     }
 
     // 创建临时目录
-    tempDir := "./data/temp_restore"
+    tempDir := "/app/data/temp_restore"
     os.MkdirAll(tempDir, 0755)
     defer os.RemoveAll(tempDir)
 
@@ -162,24 +162,24 @@ func HandleBackupRestore(c *gin.Context) {
     }
 
     // 备份当前数据目录
-    backupDir := fmt.Sprintf("./data_backup_%s", time.Now().Format("20060102150405"))
-    if err := os.Rename("./data", backupDir); err != nil {
+    backupDir := fmt.Sprintf("/app/data_backup_%s", time.Now().Format("20060102150405"))
+    if err := os.Rename("/app/data", backupDir); err != nil {
         c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": "备份当前数据失败"})
         return
     }
 
     // 创建新的数据目录
-    os.MkdirAll("./data", 0755)
+    os.MkdirAll("/app/data", 0755)
 
     // 解压文件
     for _, f := range reader.File {
-        dstPath := filepath.Join("./data", f.Name)
+        dstPath := filepath.Join("/app/data", f.Name)
         os.MkdirAll(filepath.Dir(dstPath), 0755)
 
         dst, err := os.OpenFile(dstPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, f.Mode())
         if err != nil {
-            os.RemoveAll("./data")
-            os.Rename(backupDir, "./data")
+            os.RemoveAll("/app/data")
+            os.Rename(backupDir, "/app/data")
             c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": "恢复文件失败"})
             return
         }
@@ -187,8 +187,8 @@ func HandleBackupRestore(c *gin.Context) {
         src, err := f.Open()
         if err != nil {
             dst.Close()
-            os.RemoveAll("./data")
-            os.Rename(backupDir, "./data")
+            os.RemoveAll("/app/data")
+            os.Rename(backupDir, "/app/data")
             c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": "读取备份文件失败"})
             return
         }
@@ -198,8 +198,8 @@ func HandleBackupRestore(c *gin.Context) {
         src.Close()
 
         if err != nil {
-            os.RemoveAll("./data")
-            os.Rename(backupDir, "./data")
+            os.RemoveAll("/app/data")
+            os.Rename(backupDir, "/app/data")
             c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": "恢复文件失败"})
             return
         }

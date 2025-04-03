@@ -136,25 +136,25 @@
                             </div>
                             
                             <div v-if="editItem[key]">
-                                <template v-if="key === 'backgrounds'">
-                                    <div class="space-y-2">
-                                        <div v-for="(bg, index) in frontendConfig.backgrounds" 
-                                             :key="index" 
-                                             class="flex gap-2">
-                                            <UInput v-model="frontendConfig.backgrounds[index]" 
-                                                   placeholder="输入图片URL" 
-                                                   class="flex-1" />
-                                            <UButton @click="removeBackground(index)" 
-                                                    icon="i-heroicons-trash" 
-                                                    color="red" 
-                                                    variant="ghost" />
-                                        </div>
-                                        <div class="flex gap-2">
-                                            <UButton @click="addBackground" 
-                                                    icon="i-heroicons-plus" 
-                                                    variant="ghost" 
-                                                    class="mr-2">
-                                                添加链接
+                        <template v-if="key === 'backgrounds'">
+                            <div class="space-y-2">
+                                <div v-for="(bg, index) in frontendConfig.backgrounds" 
+                                     :key="index" 
+                                     class="flex gap-2">
+                                    <UInput v-model="frontendConfig.backgrounds[index]" 
+                                           placeholder="输入图片URL" 
+                                           class="flex-1" />
+                                    <UButton @click="removeBackground(index)" 
+                                            icon="i-heroicons-trash" 
+                                            color="red" 
+                                            variant="ghost" />
+                                </div>
+                                <div class="flex gap-2">
+                                    <UButton @click="addBackground" 
+                                            icon="i-heroicons-plus" 
+                                            variant="ghost" 
+                                            class="mr-2">
+                                        添加链接
                                             </UButton>
                                             <UButton @click="triggerFileInput" 
                                                     icon="i-heroicons-cloud-arrow-up" 
@@ -188,19 +188,19 @@
                                 </div>
                             </div>
                             <div v-else>
-                                <template v-if="key === 'backgrounds'">
-                                    <div class="grid grid-cols-3 gap-2">
-                                        <img v-for="(bg, index) in frontendConfig.backgrounds"
-                                             :key="index"
-                                             :src="bg"
-                                             class="w-full h-20 object-cover rounded cursor-pointer"
-                                             @click="previewImage(bg)" />
-                                    </div>
-                                </template>
-                                <template v-else>
-                                    <p class="text-white break-words">{{ frontendConfig[key] }}</p>
-                                </template>
+                        <template v-if="key === 'backgrounds'">
+                            <div class="grid grid-cols-3 gap-2">
+                                <img v-for="(bg, index) in frontendConfig.backgrounds"
+                                     :key="index"
+                                     :src="bg"
+                                     class="w-full h-20 object-cover rounded cursor-pointer"
+                                     @click="previewImage(bg)" />
                             </div>
+                        </template>
+                        <template v-else>
+                            <p class="text-white break-words">{{ frontendConfig[key] }}</p>
+                        </template>
+                    </div>
                         </div>
                     </div>
                 </div>
@@ -243,8 +243,8 @@
         />
     </div>
 </div>
-                <!-- 底部操作栏 -->
-                <div class="flex justify-between items-center">
+<!-- 底部操作栏 -->
+<div class="flex justify-between items-center">
                     <UButton
                         icon="i-heroicons-arrow-left"
                         variant="ghost"
@@ -259,7 +259,7 @@
                             icon="i-heroicons-power"
                             color="red"
                             variant="ghost"
-                            @click="logout"
+                            @click="handleLogout"
                         >
                             退出登录
                         </UButton>
@@ -275,14 +275,14 @@
                 </div>
             </div>
         </div>
-   
+    </div>
 
-        <!-- 登录模态框 -->
-        <UModal v-model="showLoginModal">
-            <div class="bg-gray-800 p-6 rounded-lg">
-                <h3 class="text-xl font-semibold text-white mb-4">
-                    {{ authmode ? '用户登录' : '用户注册' }}
-                </h3>
+    <!-- 登录模态框 -->
+    <UModal v-model="showLoginModal">
+        <div class="bg-gray-800 p-6 rounded-lg">
+            <h3 class="text-xl font-semibold text-white mb-4">
+                {{ authmode ? '用户登录' : '用户注册' }}
+            </h3>
                 <UForm :state="authForm" class="space-y-4">
                     <UFormGroup>
                         <UInput
@@ -324,7 +324,7 @@
             class="hidden"
             @change="handleFileUpload"
         />
-    </div>
+  
 </template>
 
 <script setup lang="ts">
@@ -336,7 +336,38 @@ import { useToast } from '#ui/composables/useToast'
 
 const userStore = useUserStore()
 const { login, register, logout } = useUser()
+// 添加退出登录处理函数
+const handleLogout = async () => {
+    try {
+        // 先调用后端退出接口
+        const response = await fetch('/api/user/logout', {
+            method: 'POST',
+            credentials: 'include' // 确保携带cookie
+        })
+        
+        if (!response.ok) {
+            throw new Error('退出请求失败')
+        }
 
+        // 清除前端状态
+        userStore.$reset()
+        
+        // 强制刷新页面以确保所有状态被清除
+        window.location.reload()
+        
+        useToast().add({
+            title: '成功',
+            description: '已退出登录',
+            color: 'green'
+        })
+    } catch (error) {
+        useToast().add({
+            title: '错误',
+            description: '退出登录失败',
+            color: 'red'
+        })
+    }
+}
 // 状态变量
 const isLogin = computed(() => userStore?.isLogin ?? false)
 const isAdmin = computed(() => {
@@ -357,13 +388,20 @@ const editUserInfo = reactive({
 })
 const updateUsername = async () => {
     try {
+        if (!userForm.username.trim()) {
+            throw new Error('用户名不能为空')
+        }
+        
         const response = await fetch('/api/user/update', {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
             },
             credentials: 'include',
-            body: JSON.stringify({ username: userForm.username })
+            body: JSON.stringify({ 
+                username: userForm.username,
+                type: 'username'  // 明确指定更新类型
+            })
         })
         const data = await response.json()
         if (data.code === 1) {
@@ -389,7 +427,17 @@ const updateUsername = async () => {
 
 const updatePassword = async () => {
     try {
-        const response = await fetch('/api/user/password', {
+        // 检查密码是否为空
+        if (!userForm.newPassword || !userForm.oldPassword) {
+            throw new Error('密码不能为空')
+        }
+
+        // 检查新旧密码是否相同
+        if (userForm.newPassword === userForm.oldPassword) {
+            throw new Error('新密码不能与当前密码相同')
+        }
+
+        const response = await fetch('/api/user/change_password', {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
@@ -680,10 +728,23 @@ const handleFileUpload = async (event: Event) => {
     const files = (event.target as HTMLInputElement).files
     if (!files) return
 
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp']
+    
     for (const file of Array.from(files)) {
         try {
+            if (!allowedTypes.includes(file.type)) {
+                throw new Error('仅支持 JPG/PNG/WEBP 格式')
+            }
+
             const formData = new FormData()
             formData.append('image', file)
+
+            const toast = useToast().add({
+                title: `正在上传 ${file.name}`,
+                description: '请稍候...',
+                color: 'blue',
+                timeout: 0
+            })
 
             const response = await fetch('/api/images/upload', {
                 method: 'POST',
@@ -692,14 +753,42 @@ const handleFileUpload = async (event: Event) => {
             })
 
             const data = await response.json()
-            if (data.code === 1 && data.data.url) {
-                frontendConfig.backgrounds.push(data.data.url)
+            
+            if (!response.ok || data.code !== 1) {
+                throw new Error(data.msg || '上传失败')
             }
-        } catch (error) {
-            console.error('上传失败:', error)
+
+            if (data.code === 1 && data.data) {
+                const fullImageUrl = data.data.startsWith('http') 
+                    ? data.data 
+                    : `${window.location.origin}${data.data}`
+                
+                if (!frontendConfig.backgrounds.includes(fullImageUrl)) {
+                    frontendConfig.backgrounds.push(fullImageUrl)
+                    await saveConfig()
+                }
+
+                useToast().add({
+                    title: '上传成功',
+                    description: `${file.name} 已添加`,
+                    color: 'green'
+                })
+            }
+        } catch (error: any) {
+            useToast().add({
+                title: `上传失败: ${file.name}`,
+                description: error.message || '文件上传失败',
+                color: 'red'
+            })
+        } finally {
+            if (toast) {
+                useToast().remove(toast.id)
+            }
         }
     }
 
+    new Audio('/sound/success.mp3').play().catch(() => {})
+    
     if (fileInput.value) {
         fileInput.value.value = ''
     }
@@ -719,11 +808,27 @@ watch(() => userStore.isLogin, (newVal) => {
 })
 
 // 生命周期
+const isLoading = ref(false) // 新增加载状态
+
 onMounted(async () => {
-    // 确保先加载状态信息
-    await userStore.getStatus()
-    await userStore.getUser()
-    await fetchConfig()
+  try {
+    isLoading.value = true
+    // 并行执行所有初始化请求
+    await Promise.all([
+      userStore.getStatus(),
+      userStore.getUser(),
+      fetchConfig()
+    ])
+  } catch (error) {
+    console.error('初始化失败:', error)
+    useToast().add({
+      title: '初始化失败',
+      description: '无法加载必要数据',
+      color: 'red'
+    })
+  } finally {
+    isLoading.value = false
+  }
 })
 const databaseFileInput = ref<HTMLInputElement | null>(null)
 
@@ -733,7 +838,6 @@ const downloadBackup = async () => {
             credentials: 'include'
         })
         
-        
         if (!response.ok) {
             throw new Error('下载失败')
         }
@@ -742,7 +846,7 @@ const downloadBackup = async () => {
         const url = window.URL.createObjectURL(blob)
         const a = document.createElement('a')
         a.href = url
-        a.download = `noise_backup_${new Date().toISOString().slice(0,10)}.db`
+        a.download = `noise_backup_${new Date().toISOString().slice(0,10)}.zip`
         document.body.appendChild(a)
         a.click()
         window.URL.revokeObjectURL(url)
@@ -766,7 +870,7 @@ const handleDatabaseUpload = async (event: Event) => {
 
     try {
         const formData = new FormData()
-        formData.append('file', files[0])  // 修改为 'file'
+        formData.append('backup', files[0])
 
         const response = await fetch('/api/backup/restore', {
             method: 'POST',

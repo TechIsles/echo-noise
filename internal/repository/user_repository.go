@@ -110,3 +110,6 @@ func UpdateSetting(setting *models.Setting, updates map[string]interface{}) erro
     result := database.DB.Model(setting).Updates(updates)
     return result.Error
 }
+func UpdateUserField(userID uint, field string, value interface{}) error {
+    return database.DB.Model(&models.User{}).Where("id = ?", userID).Update(field, value).Error
+}

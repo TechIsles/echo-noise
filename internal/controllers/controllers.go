@@ -370,3 +370,61 @@ func GetMessages(c *gin.Context) {
 
     c.JSON(http.StatusOK, dto.OK(messages, models.GetAllMessagesSuccess))
 }
+func UpdateMessage(c *gin.Context) {
+    // 获取消息ID
+    id := c.Param("id")
+    if id == "" {
+        c.JSON(http.StatusBadRequest, gin.H{"code": 0, "msg": "消息ID不能为空"})
+        return
+    }
+
+    // 检查用户权限
+    userID, exists := c.Get("user_id")
+    if !exists {
+        c.JSON(http.StatusUnauthorized, gin.H{"code": 0, "msg": "未授权访问"})
+        return
+    }
+
+    // 获取请求体
+    var req struct {
+        Content string `json:"content" binding:"required"`
+    }
+    if err := c.ShouldBindJSON(&req); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"code": 0, "msg": "请求参数错误"})
+        return
+    }
+
+    // 检查消息是否存在并且属于当前用户
+    messageID, err := strconv.ParseUint(id, 10, 64)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"code": 0, "msg": "无效的消息ID"})
+        return
+    }
+
+    // 获取用户信息
+    user, err := services.GetUserByID(userID.(uint))
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": "获取用户信息失败"})
+        return
+    }
+
+    // 检查消息所有权或管理员权限
+    message, err := services.GetMessageByID(uint(messageID), true)
+    if err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"code": 0, "msg": "消息不存在"})
+        return
+    }
+
+    if !user.IsAdmin && message.UserID != userID.(uint) {
+        c.JSON(http.StatusForbidden, gin.H{"code": 0, "msg": "无权限修改此消息"})
+        return
+    }
+
+    // 更新消息
+    if err := services.UpdateMessage(uint(messageID), req.Content); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": err.Error()})
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{"code": 1, "msg": "更新成功"})
+}

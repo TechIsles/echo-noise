@@ -157,3 +157,22 @@ feed := &feeds.Feed{
 
 	return atom, nil
 }
+// UpdateMessage 更新消息内容
+func UpdateMessage(messageID uint, content string) error {
+    // 获取消息
+    message, err := repository.GetMessageByID(messageID, true)
+    if err != nil {
+        return fmt.Errorf("获取消息失败: %v", err)
+    }
+    if message == nil {
+        return fmt.Errorf("消息不存在")
+    }
+
+    // 更新消息内容
+    message.Content = content
+    if err := database.DB.Save(message).Error; err != nil {
+        return fmt.Errorf("更新消息失败: %v", err)
+    }
+
+    return nil
+}

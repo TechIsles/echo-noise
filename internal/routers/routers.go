@@ -4,28 +4,27 @@ import (
     "net/http"
     "strings"
     "github.com/gin-contrib/cors"
-    "github.com/gin-contrib/sessions"
-    "github.com/gin-contrib/sessions/cookie"
     "github.com/gin-contrib/static"
     "github.com/gin-gonic/gin"
     "github.com/lin-snow/ech0/internal/controllers"
     "github.com/lin-snow/ech0/internal/middleware"
+    "github.com/lin-snow/ech0/pkg"
 )
 
 func SetupRouter() *gin.Engine {
     r := gin.Default()
 
-    // 配置 Session
-    store := cookie.NewStore([]byte("secret_key"))
-    r.Use(sessions.Sessions("ech0_session", store))
+     // 使用 pkg 中的 session 初始化
+     pkg.InitSession(r)
     // 配置 CORS
     config := cors.DefaultConfig()
     config.AllowHeaders = []string{
-        "Origin",
-        "Content-Type",
-        "X-Requested-With",
-        "Accept",
-        "Device-Type",
+    "Origin",
+    "Content-Type",
+    "X-Requested-With",
+    "Accept",
+    "Device-Type",
+    "Authorization", // 新增授权头
     }
     config.AllowMethods = []string{"GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS"}
     config.AllowCredentials = true
@@ -53,11 +52,11 @@ func SetupRouter() *gin.Engine {
     api.POST("/messages/page", controllers.GetMessagesByPage)
 
     // 需要鉴权的路由
-    auth := api.Group("")
-    auth.Use(middleware.SessionAuthMiddleware())
+    authRoutes := api.Group("")
+    authRoutes.Use(middleware.SessionAuthMiddleware())
 
     // 需要鉴权的消息操作路由
-    messages := auth.Group("/messages")
+    messages := authRoutes.Group("/messages")
     {
         messages.POST("", controllers.PostMessage)
         messages.PUT("/:id", controllers.UpdateMessage)
@@ -65,26 +64,27 @@ func SetupRouter() *gin.Engine {
     }
 
     // 数据库备份相关路由
-    backup := auth.Group("/backup")
+    backup := authRoutes.Group("/backup")
     {
         backup.GET("/download", controllers.HandleBackupDownload)
         backup.POST("/restore", controllers.HandleBackupRestore)
     }
 
     // 图片上传路由
-    auth.POST("/images/upload", controllers.UploadImage)
+    authRoutes.POST("/images/upload", controllers.UploadImage)  // 上传图片 
 
     // 用户相关路由
-    user := auth.Group("/user")
+    user := authRoutes.Group("/user")
     {
         user.GET("", controllers.GetUserInfo)
         user.PUT("/change_password", controllers.ChangePassword)
         user.PUT("/update", controllers.UpdateUser)
         user.PUT("/admin", controllers.UpdateUserAdmin)
+        user.POST("/logout", controllers.Logout)  // 添加退出登录路由
     }
 
     // 设置路由
-    auth.PUT("/settings", controllers.UpdateSetting)
+    authRoutes.PUT("/settings", controllers.UpdateSetting)
 
     // 404 处理
     r.NoRoute(func(c *gin.Context) {

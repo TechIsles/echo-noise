@@ -37,7 +37,15 @@ import { ref, computed, onMounted, onUnmounted } from 'vue'  // 添加 onUnmount
 import AddForm from '@/components/index/AddForm.vue'
 import MessageList from '@/components/index/MessageList.vue'
 import Notification from '~/components/widgets/Notification.vue';
-
+// 添加 useHead
+useHead({
+  meta: [
+    {
+      name: 'viewport',
+      content: 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no'
+    }
+  ]
+})
 // 添加前端配置的响应式对象
 const frontendConfig = ref({
   siteTitle: '',
@@ -287,9 +295,9 @@ html, body {
   margin: 0;
   padding: 0;
   width: 100%;
-  overflow-x: hidden;
-  min-height: 100vh;
-  overflow-y: overlay;
+  height: 100%;
+  overflow: hidden; /* 防止滚动条出现 */
+  overscroll-behavior: none; /* 防止橡皮筋效果 */
 }
 .header-subtitle {
   position: absolute;
@@ -310,10 +318,17 @@ html, body {
 }
 .background-container {
   min-height: 100vh;
-  width: 100vw;
-  position: relative;
+  width: 100%;  /* 移除 vw 单位 */
+  position: fixed;  /* 改为 fixed */
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow-y: auto;  /* 允许内容滚动 */
   overflow-x: hidden;
+  -webkit-overflow-scrolling: touch; /* 优化移动端滚动 */
 }
+
 
 .background-container::before {
   content: '';
@@ -322,17 +337,17 @@ html, body {
   left: 0;
   right: 0;
   bottom: 0;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;  /* 移除 vw 单位 */
+  height: 100%;  /* 移除 vh 单位 */
   background-image: var(--bg-image);
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
   filter: blur(8px);
   z-index: -1;
-  transition: background-image 0.3s ease;
-  will-change: background-image;
-  transform: translateZ(0);
+  transform: scale(1.1); /* 防止边缘模糊露白 */
+  transition: background-image 0.5s ease;
+  will-change: transform;
 }
 
 .content-wrapper {
@@ -342,8 +357,7 @@ html, body {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
-  padding-right: calc(100vw - 100%);
-  overflow-x: hidden;
+  padding: 1rem;  /* 使用固定内边距 */
 }
 
 .container-fixed {
@@ -479,14 +493,18 @@ white-space: nowrap;  /* 防止换行 */
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  background: rgba(255, 255, 255, 0.8);
+  background: rgba(0, 0, 0, 0.7); /* 更改背景色 */
+  backdrop-filter: blur(8px);
   z-index: 1000;
   gap: 15px;
+  opacity: 1;
+  transition: opacity 0.3s ease;
 }
 
 .loading-text {
   font-size: 16px;
-  color: #333;
+  color: #fff; /* 更改文字颜色 */
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
 }
 
 .rainbow-spinner {
@@ -499,6 +517,7 @@ white-space: nowrap;  /* 防止换行 */
   border-bottom: 4px solid #0000FF;
   border-left: 4px solid #FF00FF;
   animation: spin 1s linear infinite;
+  will-change: transform;
 }
 
 @keyframes spin {

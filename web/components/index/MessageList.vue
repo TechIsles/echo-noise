@@ -144,8 +144,10 @@ import MarkdownRenderer from "~/components/index/MarkdownRenderer.vue";
 const BASE_API = useRuntimeConfig().public.baseApi;
 const { deleteMessage } = useMessage();
 const message = useMessageStore();
-const isLogin = ref<boolean>(false);
+
 const activeCommentId = ref<number | null>(null);
+const userStore = useUserStore();
+const isLogin = computed(() => userStore.isLogin);
 
 const deleteMsg = async (id: number) => {
   const confirmDelete = confirm("确定要删除这条消息吗？");
@@ -319,44 +321,75 @@ watch(
 );
 
 onMounted(async () => {
-  isLogin.value = useUserStore()?.isLogin;
-  
-  // 获取消息列表
-  await message.getMessages({
-    page: 1,
-    pageSize: 10,
-  });
+  try {
+    // 获取消息列表，不等待登录状态检查
+    await message.getMessages({
+      page: 1,
+      pageSize: 10,
+    });
 
-  // 确保内容加载后检查高度
-  await nextTick();
-  await new Promise(resolve => setTimeout(resolve, 100));
-  checkContentHeight();
+    // 异步检查登录状态
+    userStore.checkLoginStatus();
 
-  // Waline 加载逻辑
-  if (!window.Waline) {
-    const script = document.createElement("script");
-    script.src = "https://unpkg.com/@waline/client@v2/dist/waline.js";
-    script.crossOrigin = "anonymous";  // 添加跨域支持
-    script.onload = initFancybox;
-    document.head.appendChild(script);
-  } else {
+    // 加载 Waline
+    if (!window.Waline) {
+      const link = document.createElement("link");
+      link.rel = "stylesheet";
+      link.href = "https://unpkg.com/@waline/client@v2/dist/waline.css";
+      document.head.appendChild(link);
+
+      await new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "https://unpkg.com/@waline/client@v2/dist/waline.js";
+        script.crossOrigin = "anonymous";
+        script.onload = resolve;
+        script.onerror = reject;
+        document.head.appendChild(script);
+      });
+    }
+
+    // 初始化其他功能
+    await nextTick();
+    checkContentHeight();
     initFancybox();
+    
+  } catch (error) {
+    console.error('初始化失败:', error);
   }
 });
 
-// 简化监听器 - 移除重复的 messages 监听
+// 添加登录状态变化监听
+watch(
+  () => userStore.isLogin,
+  (newVal) => {
+    if (newVal) {
+      // 用户登录后的处理
+      message.getMessages({
+        page: 1,
+        pageSize: 10,
+      });
+    }
+  }
+);
+
+// 监听消息变化
 watch(
   () => message.messages,
-  () => {
-    nextTick(() => {
+  async () => {
+    try {
+      await nextTick();
       checkContentHeight();
-      initFancybox(); // 合并为一个调用
-    });
+      initFancybox();
+    } catch (error) {
+      console.error('更新视图失败:', error);
+    }
   },
   { deep: true }
 );
 
-// 移除组件卸载时的状态重置
+
+
+// 组件卸载时清理
 onBeforeUnmount(() => {
   if (window.Fancybox) {
     window.Fancybox.destroy();
@@ -392,22 +425,26 @@ const editMessage = (msg: any) => {
   editingContent.value = msg.content;
   showEditModal.value = true;
 };
-
 const saveEditedMessage = async () => {
   if (!editingMessageId.value) return;
   
   isSaving.value = true;
   try {
-    const response = await fetch(`/api/messages/${editingMessageId.value}`, {
+    const response = await fetch(`${BASE_API}/messages/${editingMessageId.value}`, {
       method: 'PUT',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'  // 添加 Accept 头
       },
       credentials: 'include',
       body: JSON.stringify({
         content: editingContent.value
       })
     });
+     // 检查响应状态
+     if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
 
     const data = await response.json();
     if (data.code === 1) {
@@ -551,6 +588,7 @@ if (contentArea) {
 
    // 处理图片
    const processImages = async () => {
+  const images = contentClone.querySelectorAll('img');
   await Promise.all(Array.from(images).map(async (img) => {
     return new Promise<void>((resolve) => {
       const originalSrc = img.src;

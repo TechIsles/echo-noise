@@ -78,9 +78,13 @@ Ech0 是一款专为轻量级分享而设计的开源自托管平台，支持快
 
   ![iLTP9tARVoaj3cv](https://s2.loli.net/2025/04/01/iLTP9tARVoaj3cv.png)
 
-- 增加数据库文件的备份、上传（未对接好）
+- 增加数据库文件的备份、上传
 
   ![ehS1BxwbUKyD2Vm](https://s2.loli.net/2025/04/01/ehS1BxwbUKyD2Vm.png)
+
+  修改该文件到Session 验证
+
+  解决无法获取用户状态而造成的登陆退出不一致的问题
 
   
 
@@ -101,7 +105,7 @@ docker run -d \
   --name Ech0-Noise \
   --platform linux/amd64 \
   -p 1314:1314 \
-  -v /opt/data/noise.db:/app/data/noise.db \
+  -v /Library/诺伊斯/test/Ech0-N/data/noise.db:/app/data/noise.db \
   noise233/echo-noise:last
 ```
 
@@ -129,7 +133,11 @@ docker buildx build --platform linux/amd64,linux/arm64 -t noise233/echo-noise:la
 
 1. 有之前别的数据库可以直接迁移吗
 
-   可以，直接上传至部署时挂载的路径中，重新部署，或者在容器文件夹/app/data/noise.db直接替换即可
+   1、直接上传至部署时挂载的路径中，重新部署，或者在容器文件夹/app/data/noise.db直接替换即可
+   
+   2、使用后台数据库管理备份功能，支持一键下载、上传
+   
+   ​    数据库文件下载为zip格式，上传也必须为zip，且包中必须有noise.db文件
    
 1. 自定义化前端数据后添加到数据库？
 
@@ -140,10 +148,11 @@ docker buildx build --platform linux/amd64,linux/arm64 -t noise233/echo-noise:la
 
 ## To do
 
-- [ ] 优化编辑
-- [ ] 加入搜索功能
 - [x] 卡片生成的美化
+- [x] 优化编辑器
+- [ ] 加入搜索功能
 - [ ] 后台和前端数据的匹配完善
+- [ ] 加入一键推送
 
 ---
 

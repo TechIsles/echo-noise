@@ -6,6 +6,15 @@ export const useUser = () => {
     const toast = useToast()
     const router = useRouter()
 
+    // 添加状态检查函数
+    const checkLoginStatus = async () => {
+        const status = await userStore.getStatus();
+        if (status) {
+            userStore.setUserStatus(status);
+        }
+        return status;
+    }
+
     const register = async (userToRegister: UserToRegister) => {
         const response = await userStore.register(userToRegister);
         if (response) {
@@ -22,6 +31,8 @@ export const useUser = () => {
     const login = async (userToLogin: UserToLogin) => {
         const response = await userStore.login(userToLogin);
         if (response) {
+            // 登录成功后立即获取最新状态
+            await checkLoginStatus();
             toast.add({
                 title: '登录成功',
                 description: '欢迎回来！',
@@ -29,13 +40,14 @@ export const useUser = () => {
                 color: 'green',
                 timeout: 1000,
             });
-            // 跳转到首页
             router.push('/')
         }
     }
 
-    const logout = () => {
-        userStore.logout()
+    const logout = async () => {
+        await userStore.logout()
+        // 退出后清除状态
+        userStore.clearUserStatus();
         toast.add({
             title: '注销成功',
             description: '欢迎再次使用！',
@@ -46,9 +58,14 @@ export const useUser = () => {
         router.push('/')
     }
 
-    const getStatus = () => {
-        return userStore.getStatus()
+    const getStatus = async () => {
+        return await checkLoginStatus();
     }
+
+    // 初始化时检查登录状态
+    onMounted(async () => {
+        await checkLoginStatus();
+    })
 
     return {
         register,
