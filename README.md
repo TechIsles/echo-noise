@@ -38,6 +38,8 @@ Ech0 是一款专为轻量级分享而设计的开源自托管平台，支持快
 6. 添加朋友圈样式主图banner,并和背景图使用相同
 7. 所有链接都可通过新标签页打开
 
+<details>
+<summary><h2>✅ 更新状况【点击查看】</h2></summary>
 ## 更新
 
 - 增加内容发布日历-热力图组件，默认不显示，点击日历图标后显示
@@ -85,6 +87,10 @@ Ech0 是一款专为轻量级分享而设计的开源自托管平台，支持快
 - 增加数据库文件的备份、上传
 
   ![ehS1BxwbUKyD2Vm](https://s2.loli.net/2025/04/01/ehS1BxwbUKyD2Vm.png)
+
+  
+
+  </details>
 
   ## 待修复：
 
@@ -137,25 +143,30 @@ docker buildx build --platform linux/amd64,linux/arm64 -t noise233/echo-noise:la
 
 ## 问题🙋
 
-1. 有之前别的数据库可以直接迁移吗
+有之前别的数据库可以直接迁移吗
 
-   1、直接上传至部署时挂载的路径中，重新部署，或者在容器文件夹/app/data/noise.db直接替换即可
-   
-   2、使用后台数据库管理备份功能，支持一键下载、上传
-   
-   ​    数据库文件下载为zip格式，上传也必须为zip，且包中必须有noise.db文件
-   
-1. 自定义化前端数据后添加到数据库？
+1、直接上传至部署时挂载的路径中，重新部署，或者在容器文件夹/app/data/noise.db直接替换即可
 
-   需要在setting.go、migrate.go、models.go、controllers.go同时写入前端参数的后端定义，并修改前端参数信息为后端可读取的参数，其中controllers.go为控制器
-   
-   - database.go 用于数据库连接管理
-   - migrate.go 用于数据库迁移和数据初始化
+2、使用后台数据库管理备份功能，支持一键下载、上传
+
+​    数据库文件下载为zip格式，上传也必须为zip，且包中必须有noise.db文件
+
+## 关于魔改指南🌈
+
+如何自定义化前端数据后添加到数据库？
+
+需要在setting.go、migrate.go、models.go、controllers.go同时写入前端参数的后端定义，并修改前端参数信息为后端可读取的参数，其中controllers.go为控制器
+
+- database.go 用于数据库连接管理
+- migrate.go 用于数据库迁移和数据初始化
+
+前端基本在web目录下，目前模版文件为components目录文件，pages下index.vue为父级模版
 
 ## To do
 
 - [x] 卡片生成的美化
 - [x] 优化编辑器
+- [x] 增加发布热力图组件
 - [ ] 加入搜索功能
 - [ ] 后台和前端数据的匹配完善
 - [ ] 加入一键推送
