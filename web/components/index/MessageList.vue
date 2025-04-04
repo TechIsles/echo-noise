@@ -423,10 +423,16 @@ const isSaving = ref(false);
 const editMessage = (msg: any) => {
   editingMessageId.value = msg.id;
   let contentWithImages = msg.content;
-  if (msg.image_url) {
+  
+  // 检查内容中是否已经包含任何图片链接
+  const hasImageInContent = /!\[.*?\]\((.*?)\)/.test(contentWithImages);
+  
+  // 如果存在附件图片且内容中没有任何图片，则添加附件图片
+  if (msg.image_url && !hasImageInContent) {
     const imageMarkdown = `\n![图片附件](${BASE_API}${msg.image_url})\n`;
     contentWithImages += imageMarkdown;
   }
+  
   editingContent.value = contentWithImages;
   showEditModal.value = true;
 };
@@ -435,13 +441,11 @@ const saveEditedMessage = async () => {
   
   isSaving.value = true;
   try {
-    // 提取内容中的图片URL
-    const imageUrlMatch = editingContent.value.match(/!\[.*?\]\((.*?)\)/);
-    const imageUrl = imageUrlMatch ? imageUrlMatch[1].replace(BASE_API, '') : null;
-    
-    // 移除图片标记后的纯文本内容
-    const pureContent = editingContent.value.replace(/!\[.*?\]\(.*?\)/g, '').trim();
-    
+    // 获取当前编辑的消息
+    const currentMsg = message.messages.find(msg => msg.id === editingMessageId.value);
+    if (!currentMsg) return;
+
+    // 直接使用编辑器中的内容，不做任何修改
     const response = await fetch(`${BASE_API}/messages/${editingMessageId.value}`, {
       method: 'PUT',
       headers: {
@@ -450,8 +454,8 @@ const saveEditedMessage = async () => {
       },
       credentials: 'include',
       body: JSON.stringify({
-        content: pureContent,
-        image_url: imageUrl || null
+        content: editingContent.value,
+        image_url: currentMsg.image_url
       })
     });
 
@@ -463,8 +467,8 @@ const saveEditedMessage = async () => {
       if (index !== -1) {
         message.messages[index] = {
           ...message.messages[index],
-          content: pureContent,
-          image_url: imageUrl || message.messages[index].image_url
+          content: editingContent.value,  // 修正：使用 editingContent.value 替代 pureContent
+          image_url: currentMsg.image_url  // 修正：使用 currentMsg.image_url 替代 imageUrl
         };
       }
       showEditModal.value = false;
