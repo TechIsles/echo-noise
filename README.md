@@ -43,7 +43,7 @@ Ech0 是一款专为轻量级分享而设计的开源自托管平台，支持快
 
 ## 代码部分
 
-1. 调整jwk-token存储验证为session方式
+1. 调整jwk-token验证为session方式
 2. 调整优化数据库的迁移及连接处理
 3. 增加不同的路由及调整控制器
 4. 增加额外的外挂插件文件
@@ -182,8 +182,12 @@ docker buildx build --platform linux/amd64,linux/arm64 -t noise233/echo-noise:la
 - [ ] 加入一键推送
 - [ ] 数据库的同步
 
+## 致谢
+
+[lin-snow](https://github.com/lin-snow)
+
 ---
 
 > [!CAUTION]
 >
-> 本版本是在原版旧版本基础上进行改进，不保证兼容原版，但会进行优化
+> 本版本是在原版旧版本基础上进行改进，不保证兼容原版，但会进行优化，出于对原版的尊重和保护，本版仅在完善到一定程度才会开放开源
