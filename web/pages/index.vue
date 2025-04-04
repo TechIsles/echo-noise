@@ -192,15 +192,22 @@ const changeBackground = async () => {
     return
   }
 
-  // 使用低质量图片作为占位
-  const lowQualityImage = `${newImage}?imageView2/2/w/100/q/30` // 假设使用七牛云或类似的图片服务
+  // 桌面端和移动端都使用低质量图片作为占位
+  const isMobile = window.innerWidth <= 768
+  const lowQualityImage = isMobile 
+    ? `${newImage}?imageView2/2/w/400/q/50`  // 移动端更低质量
+    : `${newImage}?imageView2/2/w/800/q/70`  // 桌面端较高质量但仍低于原图
+  
   currentImage.value = lowQualityImage
 
-  // 加载高质量图片
+  // 加载原图
   const img = new Image()
   img.src = newImage
   img.onload = () => {
     currentImage.value = newImage
+    imageLoading.value = false
+  }
+  img.onerror = () => {
     imageLoading.value = false
   }
 }
@@ -415,10 +422,14 @@ html, body {
     margin: 0 auto;
     padding-bottom: 0.2rem; /* 底部内边距 */
   }
-  
+  .background-container::before {
+    transform: scale(1); /* 移除放大效果 */
+    filter: blur(4px); /* 减少模糊度 */
+  }
   .header-image {
     height: 250px;
-    margin-top: 0.2rem; /* 调整下移距离为0.2rem */
+    background-size: cover;
+    background-position: center;
   }
 }
 @media screen and (max-width: 768px) {

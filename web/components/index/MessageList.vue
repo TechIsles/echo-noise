@@ -826,25 +826,49 @@ button:hover {
   padding: 12px !important;
   margin-bottom: 12px !important;
 }
+/* 修改输入框文本颜色为黑色 */
+:deep(.wl-input) {
+  color: #fff !important;  /* 输入文字颜色保持白色 */
+  background-color: rgba(36, 43, 50, 0.95) !important; /* 输入框背景改为深色 */
+  border-color: rgba(251, 146, 60, 0.3) !important; /* 边框颜色调整 */
+}
+:deep(.wl-input::placeholder) {
+  color: rgba(255, 255, 255, 0.5) !important; /* placeholder文字颜色 */
+}
+
+:deep(.wl-editor) {
+  color: #000 !important;
+}
 
 :deep(.wl-comment .wl-content) {
   color: #fff !important;
   background: transparent !important;
 }
 
-:deep(.wl-comment .wl-meta),
-:deep(.wl-comment .wl-meta > span),
-:deep(.wl-comment .wl-meta > a),
-:deep(.wl-comment .wl-meta .wl-time),
-:deep(.wl-comment .wl-meta .wl-nick) {
-  color: #e5e5e5 !important;
+/* 确保评论内容为白色 */
+:deep(.wl-content),
+:deep(.wl-content p),
+:deep(.wl-content *) {
+  color: #fff !important;
 }
-
+/* 调整编辑器区域样式 */
+:deep(.wl-editor) {
+  background-color: rgba(36, 43, 50, 0.95) !important;
+  color: #fff !important;
+}
 :deep(.wl-comment .wl-meta .wl-like),
 :deep(.wl-comment .wl-meta .wl-reply) {
   color: #999 !important;
 }
+/* 调整输入框背景色 */
+:deep(.wl-editor) {
+  background: rgba(255, 255, 255, 0.9) !important;
+}
 
+/* 调整输入框边框 */
+:deep(.wl-input-row) {
+  border-color: rgba(0, 0, 0, 0.1) !important;
+}
 :deep(.wl-comment .wl-meta .wl-like:hover),
 :deep(.wl-comment .wl-meta .wl-reply:hover) {
   color: #fff !important;
@@ -854,7 +878,11 @@ button:hover {
 :deep(.wl-comment *) {
   color: #fff !important;
 }
-
+/* 调整按钮样式 */
+:deep(.wl-btn) {
+  background-color: rgba(251, 146, 60, 0.8) !important;
+  color: #fff !important;
+}
 :deep(.wl-input) {
   color: #fff !important;
 }
