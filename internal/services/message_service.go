@@ -169,3 +169,35 @@ func UpdateMessage(messageID uint, content string) error {
 
     return nil
 }
+func GetMessagesGroupByDate() ([]struct {
+    Date  string `json:"date"`
+    Count int    `json:"count"`
+}, error) {
+    var results []struct {
+        Date  string `json:"date"`
+        Count int    `json:"count"`
+    }
+    
+    // 移除 deleted_at 条件，因为该列不存在
+    err := database.DB.Table("messages").
+        Select("DATE(created_at) as date, COUNT(*) as count").
+        // 移除这一行: Where("deleted_at IS NULL").
+        Group("DATE(created_at)").
+        Order("date DESC").
+        Scan(&results).Error
+        
+    if err != nil {
+        fmt.Printf("获取消息日历数据失败: %v\n", err)
+        return nil, err
+    }
+    
+    // 如果结果为空，返回空数组而不是nil
+    if len(results) == 0 {
+        return []struct {
+            Date  string `json:"date"`
+            Count int    `json:"count"`
+        }{}, nil
+    }
+    
+    return results, nil
+}

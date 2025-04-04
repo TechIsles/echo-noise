@@ -434,3 +434,16 @@ func UpdateMessage(c *gin.Context) {
 
     c.JSON(http.StatusOK, gin.H{"code": 1, "msg": "更新成功"})
 }
+func GetMessagesCalendar(c *gin.Context) {
+    // 改为调用 services 层方法
+    calendarData, err := services.GetMessagesGroupByDate()
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+        return
+    }
+    
+    c.JSON(http.StatusOK, gin.H{
+        "code": 1,
+        "data": calendarData,
+    })
+}

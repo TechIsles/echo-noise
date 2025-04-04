@@ -23,7 +23,13 @@
     </div>
           </div>
         </div>
-        <AddForm />
+       <!-- 移动热力图到这里，在头部主图下方，AddForm上方 -->
+    <div v-if="showHeatmap" class="mx-auto sm:max-w-2xl mb-4">
+      <HeatmapWidget />
+    </div>
+    
+    <!-- 添加表单 -->
+    <AddForm />
         <!-- 确保 MessageList 有足够的 z-index -->
         <MessageList class="message-list-container" />
       </UContainer>
@@ -33,10 +39,21 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onUnmounted } from 'vue'  // 添加 onUnmounted
+import { ref, computed, inject, onMounted, onUnmounted } from 'vue'  // 添加 onUnmounted
 import AddForm from '@/components/index/AddForm.vue'
 import MessageList from '@/components/index/MessageList.vue'
 import Notification from '~/components/widgets/Notification.vue';
+import HeatmapWidget from '~/components/widgets/heatmap.vue'
+
+// 注入从AddForm组件提供的showHeatmap变量
+const showHeatmap = ref(false);
+// 提供给子组件
+provide('showHeatmap', showHeatmap);
+
+// 添加监听，查看状态变化
+watch(showHeatmap, (newVal) => {
+  console.log('index.vue 中热力图状态变化:', newVal);
+});
 // 添加 useHead
 useHead({
   meta: [
@@ -580,5 +597,12 @@ white-space: nowrap;  /* 防止换行 */
 /* 确保背景不会遮挡评论框 */
 .background-container::before {
   z-index: -1;
+}
+.heatmap-container {
+  background: rgba(0, 0, 0, 0.3);
+  backdrop-filter: blur(4px);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1rem;
 }
 </style>

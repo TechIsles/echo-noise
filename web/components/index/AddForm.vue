@@ -7,6 +7,10 @@
       </div>
       <div class="flex gap-2">
         <ClientOnly>
+          <!-- 添加热力图图标 -->
+          <button @click="toggleHeatmap">
+            <UIcon name="i-mdi-calendar-month" class="w-5 h-5 text-gray-200" />
+          </button>
           <a href="/rss" target="_blank">
             <UIcon name="i-mdi-rss" class="w-5 h-5 text-gray-200" />
           </a>
@@ -95,7 +99,7 @@
   </div>
 </template>
 <script setup lang="ts">
-import { ref, onMounted, computed } from "vue";
+import { ref, computed, inject, onMounted, onUnmounted, watch } from 'vue'
 import type { MessageToSave } from "~/types/models";
 import { UButton } from "#components";
 import { useMessage } from "~/composables/useMessage";
@@ -107,6 +111,19 @@ import VditorEditor from './VditorEditor.vue'
 const toast = useToast()
 const BASE_API = useRuntimeConfig().public.baseApi;
 const { save, uploadImage } = useMessage();
+
+// 添加热力图控制变量
+const showHeatmap = inject('showHeatmap') as Ref<boolean>;
+
+// 提供给父组件的方法，用于控制热力图显示
+provide('showHeatmap', showHeatmap);
+
+// 切换热力图显示状态
+const toggleHeatmap = () => {
+  console.log('热力图按钮被点击，当前状态:', showHeatmap.value);
+  showHeatmap.value = !showHeatmap.value;
+  console.log('切换后状态:', showHeatmap.value);
+};
 
 const Username = ref("");
 const MessageContent = ref("");

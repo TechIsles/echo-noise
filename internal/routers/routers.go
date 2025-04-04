@@ -50,6 +50,7 @@ func SetupRouter() *gin.Engine {
     api.GET("/messages", controllers.GetMessages)
     api.GET("/messages/:id", controllers.GetMessage)
     api.POST("/messages/page", controllers.GetMessagesByPage)
+    api.GET("/messages/calendar", controllers.GetMessagesCalendar) // 新增热力图专用路由
 
     // 需要鉴权的路由
     authRoutes := api.Group("")
