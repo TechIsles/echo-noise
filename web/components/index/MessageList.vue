@@ -422,7 +422,12 @@ const isSaving = ref(false);
 
 const editMessage = (msg: any) => {
   editingMessageId.value = msg.id;
-  editingContent.value = msg.content;
+  let contentWithImages = msg.content;
+  if (msg.image_url) {
+    const imageMarkdown = `\n![图片附件](${BASE_API}${msg.image_url})\n`;
+    contentWithImages += imageMarkdown;
+  }
+  editingContent.value = contentWithImages;
   showEditModal.value = true;
 };
 const saveEditedMessage = async () => {
@@ -430,21 +435,27 @@ const saveEditedMessage = async () => {
   
   isSaving.value = true;
   try {
+    // 提取内容中的图片URL
+    const imageUrlMatch = editingContent.value.match(/!\[.*?\]\((.*?)\)/);
+    const imageUrl = imageUrlMatch ? imageUrlMatch[1].replace(BASE_API, '') : null;
+    
+    // 移除图片标记后的纯文本内容
+    const pureContent = editingContent.value.replace(/!\[.*?\]\(.*?\)/g, '').trim();
+    
     const response = await fetch(`${BASE_API}/messages/${editingMessageId.value}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
-        'Accept': 'application/json'  // 添加 Accept 头
+        'Accept': 'application/json'
       },
       credentials: 'include',
       body: JSON.stringify({
-        content: editingContent.value
+        content: pureContent,
+        image_url: imageUrl || null
       })
     });
-     // 检查响应状态
-     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
+
+    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
     const data = await response.json();
     if (data.code === 1) {
@@ -452,7 +463,8 @@ const saveEditedMessage = async () => {
       if (index !== -1) {
         message.messages[index] = {
           ...message.messages[index],
-          content: editingContent.value
+          content: pureContent,
+          image_url: imageUrl || message.messages[index].image_url
         };
       }
       showEditModal.value = false;
