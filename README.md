@@ -43,7 +43,7 @@ Ech0 是一款专为轻量级分享而设计的开源自托管平台，支持快
 
 ## 代码部分
 
-1. 调整jwk-token验证为session方式
+1. 调整jwk验证为session方式，同时调整token的验证机制
 2. 调整优化数据库的迁移及连接处理
 3. 增加不同的路由及调整控制器
 4. 增加额外的外挂插件文件
@@ -75,7 +75,7 @@ Ech0 是一款专为轻量级分享而设计的开源自托管平台，支持快
   -H 'Content-Type: application/json' \
   -H 'Authorization: c721249bd66e1133fba430ea9e3c32f1' \
   -d '{
-    "content": "# 标题\n这是一段文字\n![图片描述](https://s2.loli.net/2025/04/04/AZatmbHQJLxe5ql.png)",
+    "content": "# 标题\n这是一段文字\n![图片描述](https://example.com/image.jpg)",
     "type": "text"
   }'
   
@@ -245,16 +245,19 @@ docker buildx build --platform linux/amd64,linux/arm64 -t noise233/echo-noise:la
 
 ## 关于魔改指南🌈
 
-如何自定义化前端数据后添加到数据库？
+👉如何自定义化前端数据后添加到数据库？
 
 需要在setting.go、migrate.go、models.go、controllers.go同时写入前端参数的后端定义，并修改前端参数信息为后端可读取的参数，其中controllers.go为控制器
 
 - database.go 用于数据库连接管理
 - migrate.go 用于数据库迁移和数据初始化
 
-前端基本在web目录下，目前模版文件为components目录文件，pages下index.vue为父级模版
+👉前端基本在web目录下，目前模版文件为components目录文件，pages下index.vue为父级模版
 
-建议：不要和我一样在同一个文件里修改添加，造成一个文件上千行代码...请尽量使用父子层级来添加代码
+👉可以增加如mysql的在线数据库的存储功能吗？
+
+可以，database.go中修改增加即可，自己调整即可，但目前db文件的一键下载存储及一键上传恢复是目前体验最佳的！
+
 
 ## To do
 
@@ -270,6 +273,8 @@ docker buildx build --platform linux/amd64,linux/arm64 -t noise233/echo-noise:la
 ## 致谢
 
 [lin-snow](https://github.com/lin-snow)
+
+[Trae](https://www.trae.ai/home)
 
 ---
 
