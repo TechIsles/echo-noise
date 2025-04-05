@@ -1,9 +1,28 @@
 <template>
    <div class="min-h-screen flex flex-col">
     <div class="flex-grow mx-auto w-full sm:max-w-2xl px-2">
+      <!-- 搜索模式提示 -->
+  <div v-if="isSearchMode" class="flex justify-between items-center mb-4 p-4 rounded-lg">
+  <p class="text-white">搜索结果 ({{ searchResults.length }} 条)</p>
+  <UButton
+    size="sm"
+    variant="ghost"
+    class="text-white hover:text-orange-500"
+    icon="i-heroicons-arrow-left"
+    @click="resetSearch"
+  >
+    返回完整列表
+  </UButton>
+</div>
+      <!-- 消息列表 -->
       <div class="my-4">
-        <div v-for="msg in message.messages" :key="msg.id"
-          class="w-full h-auto overflow-hidden flex flex-col justify-between">
+         <!-- 无搜索结果提示 -->
+  <div v-if="isSearchMode && searchResults.length === 0" class="text-center text-gray-500 py-8">
+    <UIcon name="i-heroicons-magnifying-glass" class="w-12 h-12 mx-auto mb-4" />
+    <p>未找到相关内容</p>
+  </div>
+        <!-- 消息列表内容 -->
+        <div v-for="msg in displayMessages" :key="msg.id" class="w-full h-auto overflow-hidden flex flex-col justify-between">
            <!-- 修改头部布局 -->
            <div class="flex justify-between items-center">
             <!-- 时间部分保持不变 -->
@@ -71,8 +90,8 @@
           </div>
         </div>
       </div>
-        <!-- 加载更多 -->
-        <div v-if="message.hasMore" class="flex justify-center w-full my-4">
+        <!-- 加载更多按钮 -->
+      <div v-if="!isSearchMode && message.hasMore" class="flex justify-center w-full my-4">
         <UButton 
           color="gray" 
           variant="outline" 
@@ -140,6 +159,7 @@
 import { useMessageStore } from "~/store/message";
 import { useUserStore } from "~/store/user";
 import MarkdownRenderer from "~/components/index/MarkdownRenderer.vue";
+
 
 const BASE_API = useRuntimeConfig().public.baseApi;
 const { deleteMessage } = useMessage();
@@ -291,9 +311,14 @@ const toggleExpand = (msgId: number) => {
 };
 
 // 修改检查内容高度的函数
+// 修改检查内容高度的函数
 const checkContentHeight = () => {
   nextTick(() => {
-    message.messages.forEach((msg) => {
+    // 获取当前显示的消息列表（可能是普通列表或搜索结果）
+    const currentMessages = isSearchMode.value ? searchResults.value : message.messages;
+    
+    // 检查每条消息的内容高度
+    currentMessages.forEach((msg) => {
       const contentEl = document.querySelector(
         `.content-container[data-msg-id="${msg.id}"] .overflow-y-hidden`
       );
@@ -325,7 +350,7 @@ onMounted(async () => {
     // 获取消息列表，不等待登录状态检查
     await message.getMessages({
       page: 1,
-      pageSize: 10,
+      pageSize: 15,
     });
 
     // 异步检查登录状态
@@ -722,6 +747,159 @@ await processImages();
     });
   }
 };
+
+// 添加搜索相关变量
+const isSearchMode = ref(false);
+const searchResults = ref([]);
+
+// 添加搜索结果处理函数
+const handleSearchResult = async (results: any) => {
+  try {
+    console.debug('API返回的原始数据:', JSON.stringify(results, null, 2));
+    
+    // 先重置搜索状态
+    resetSearch();
+    
+    // 数据验证 - 更宽松的验证
+    if (!results) {
+      throw new Error('API返回数据为空');
+    }
+    
+    // 尝试多种可能的数据结构
+    let items = [];
+    let total = 0;
+    
+    // 打印完整的数据结构以便调试
+    console.debug('完整数据结构:', results);
+    
+    // 情况1: {code: 1, data: {items: [...], total: n}, msg: '...'}
+    if (results.code === 1 && results.data && Array.isArray(results.data.items)) {
+      items = results.data.items;
+      total = results.data.total || items.length;
+      console.debug('使用标准数据结构');
+    } 
+    // 情况2: {code: 1, data: [...], msg: '...'}
+    else if (results.code === 1 && Array.isArray(results.data)) {
+      items = results.data;
+      total = items.length;
+      console.debug('使用简化数据结构 - 数组');
+    }
+    // 情况3: 直接返回数组
+    else if (Array.isArray(results)) {
+      items = results;
+      total = items.length;
+      console.debug('使用直接数组结构');
+    }
+    // 无法识别的结构
+    else {
+      console.error('无法识别的数据结构:', results);
+      throw new Error('API返回数据结构无法识别');
+    }
+    
+    // 确保items是数组
+    if (!Array.isArray(items)) {
+      console.error('处理后的items不是数组:', items);
+      throw new Error('处理后的数据不是有效数组');
+    }
+    
+    console.debug('解析后的items:', JSON.stringify(items, null, 2));
+    console.debug('items数组长度:', items.length);
+    
+    // 确保searchResults被正确设置 - 使用reactive方式更新
+    searchResults.value = [...items];
+    
+    // 强制设置搜索模式
+    isSearchMode.value = true;
+    
+    console.log('设置后的searchResults:', searchResults.value);
+    console.log('设置后的isSearchMode:', isSearchMode.value);
+    
+    // 根据结果数量显示不同提示
+    if (items.length === 0) {
+      useToast().add({
+        title: '未找到相关内容',
+        color: 'orange',
+        timeout: 2000
+      });
+    } else {
+      useToast().add({
+        title: `找到 ${total} 条结果`,
+        color: 'green',
+        timeout: 2000
+      });
+    }
+    
+    // 更新DOM后检查内容高度
+    await nextTick();
+    checkContentHeight();
+    initFancybox();
+    
+  } catch (error: any) {
+    console.error('处理搜索结果时出错:', error);
+    useToast().add({
+      title: '搜索失败',
+      description: error.message || '处理搜索结果时发生错误',
+      color: 'red',
+      timeout: 2000
+    });
+    resetSearch();
+  }
+};
+
+// 添加重置搜索函数
+const resetSearch = () => {
+  // 先清空结果数组
+  searchResults.value = [];
+  // 再关闭搜索模式
+  isSearchMode.value = false;
+  
+  console.log('重置搜索 - searchResults:', searchResults.value);
+  console.log('重置搜索 - isSearchMode:', isSearchMode.value);
+  
+  // 重置后更新UI
+  nextTick(() => {
+    checkContentHeight();
+    initFancybox();
+  });
+};
+
+// 修改displayMessages计算属性以支持搜索模式
+const displayMessages = computed(() => {
+  // 添加调试日志
+  console.log('计算displayMessages - 搜索模式:', isSearchMode.value);
+  console.log('计算displayMessages - 搜索结果数量:', searchResults.value?.length);
+  
+  if (isSearchMode.value && searchResults.value?.length >= 0) {
+    return searchResults.value;
+  }
+  return message.messages || [];
+});
+
+// 添加事件监听
+defineExpose({
+  handleSearchResult
+});
+
+// 添加watch监听searchResults变化
+watch(searchResults, (newVal) => {
+  console.log('searchResults变化:', newVal);
+  // 强制更新内容高度检查
+  nextTick(() => {
+    checkContentHeight();
+    initFancybox();
+  });
+}, { deep: true, immediate: true });
+
+// 添加watch监听isSearchMode变化
+watch(isSearchMode, (newVal) => {
+  console.log('isSearchMode变化:', newVal);
+  // 强制更新内容高度检查
+  nextTick(() => {
+    checkContentHeight();
+    initFancybox();
+  });
+});
+
 </script>
 
 <style scoped>

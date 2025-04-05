@@ -447,3 +447,50 @@ func GetMessagesCalendar(c *gin.Context) {
         "data": calendarData,
     })
 }
+func SearchMessages(c *gin.Context) {
+    // 从查询参数获取数据
+    keyword := c.Query("keyword")
+    page := 1
+    pageSize := 10
+
+    // 尝试解析页码和每页数量
+    if pageStr := c.Query("page"); pageStr != "" {
+        if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+            page = p
+        }
+    }
+    if sizeStr := c.Query("pageSize"); sizeStr != "" {
+        if s, err := strconv.Atoi(sizeStr); err == nil && s > 0 {
+            pageSize = s
+        }
+    }
+
+    // 默认只搜索公开内容
+    showPrivate := false
+    
+    // 检查用户是否为管理员，管理员可以看到私密内容
+    userID, exists := c.Get("user_id")
+    if exists {
+        user, err := services.GetUserByID(userID.(uint))
+        if err == nil && user.IsAdmin {
+            showPrivate = true
+        }
+    }
+
+    result, err := services.SearchMessages(keyword, page, pageSize, showPrivate)
+    if err != nil {
+        c.JSON(http.StatusOK, gin.H{
+            "code": 0,
+            "msg": err.Error(),
+            "data": nil,
+        })
+        return
+    }
+
+    // 直接构造符合前端期望的JSON格式
+    c.JSON(http.StatusOK, gin.H{
+        "code": 1,
+        "msg": "搜索成功",
+        "data": result,
+    })
+}

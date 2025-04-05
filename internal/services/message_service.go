@@ -201,3 +201,42 @@ func GetMessagesGroupByDate() ([]struct {
     
     return results, nil
 }
+// ... existing code ...
+
+func SearchMessages(keyword string, page, pageSize int, showPrivate bool) (dto.PageQueryResult, error) {
+    // 参数校验
+    if page < 1 {
+        page = 1
+    }
+    if pageSize < 1 || pageSize > 100 {
+        pageSize = 10
+    }
+
+    // 直接使用服务层实现
+    query := database.DB.Model(&models.Message{}).
+        Select("id, content, created_at, username, image_url, private, user_id").
+        Where("content LIKE ?", "%"+keyword+"%")
+    
+    if !showPrivate {
+        query = query.Where("private = ?", false)
+    }
+
+    var total int64
+    var messages []models.Message
+    
+    err := query.Count(&total).
+        Limit(pageSize).
+        Offset((page-1)*pageSize).
+        Order("created_at DESC").
+        Find(&messages).Error
+        
+    if err != nil {
+        return dto.PageQueryResult{}, err
+    }
+
+    // 确保返回的数据结构符合前端期望
+    return dto.PageQueryResult{
+        Total: total,
+        Items: messages,
+    }, nil
+}

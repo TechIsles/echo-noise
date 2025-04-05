@@ -52,6 +52,10 @@ Ech0 是一款专为轻量级分享而设计的开源自托管平台，支持快
 <summary><h2>✅ 更新状况【点击查看】</h2></summary>
 ## 更新
 
+- 增加搜索功能组件
+
+  ![1743816024503](https://s2.loli.net/2025/04/05/wcJSRFktmrxTpui.png)
+
 - 增加内容发布日历-热力图组件，默认不显示，点击日历图标后显示
 
   ![1743765992985_副本](https://s2.loli.net/2025/04/04/Jf48HmYjvCk1sVU.png)
@@ -171,6 +175,8 @@ docker buildx build --platform linux/amd64,linux/arm64 -t noise233/echo-noise:la
 - migrate.go 用于数据库迁移和数据初始化
 
 前端基本在web目录下，目前模版文件为components目录文件，pages下index.vue为父级模版
+
+建议：不要和我一样在同一个文件里修改添加，造成一个文件上千行代码...请尽量使用父子层级来添加代码
 
 ## To do
 

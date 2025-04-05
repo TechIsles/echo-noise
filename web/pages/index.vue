@@ -29,22 +29,35 @@
     </div>
     
     <!-- 添加表单 -->
-    <AddForm />
+    <AddForm @search-result="handleSearchResult" />
         <!-- 确保 MessageList 有足够的 z-index -->
-        <MessageList class="message-list-container" />
+        <MessageList ref="messageList" class="message-list-container" />
       </UContainer>
       <Notification />
+      <!-- 添加搜索模态框组件 -->
+      <SearchMode v-model="showSearchModal" @search-result="handleSearchResult" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, inject, onMounted, onUnmounted } from 'vue'  // 添加 onUnmounted
+import { ref, computed, inject, provide, onMounted, onUnmounted, watch } from 'vue' // 添加 provide
 import AddForm from '@/components/index/AddForm.vue'
 import MessageList from '@/components/index/MessageList.vue'
 import Notification from '~/components/widgets/Notification.vue';
 import HeatmapWidget from '~/components/widgets/heatmap.vue'
+import SearchMode from '~/components/index/Searchmode.vue' // 导入 SearchMode 组件
 
+// 添加 messageList ref
+const messageList = ref(null)
+// 添加搜索结果处理函数
+const handleSearchResult = (result: any) => {
+  console.log('接收到搜索结果:', result); // 添加调试日志
+  if (messageList.value) {
+    // 直接传递原始结果，让 MessageList 组件自己处理数据格式
+    messageList.value.handleSearchResult(result);
+  }
+}
 // 注入从AddForm组件提供的showHeatmap变量
 const showHeatmap = ref(false);
 // 提供给子组件

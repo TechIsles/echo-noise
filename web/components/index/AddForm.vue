@@ -7,6 +7,10 @@
       </div>
       <div class="flex gap-2">
         <ClientOnly>
+          <!-- 添加搜索按钮 -->
+         <div @click="showSearchModal=true" class="cursor-pointer flex">
+         <UIcon name="i-heroicons-magnifying-glass" class="w-5 h-5 text-gray-200" />
+        </div>
           <!-- 添加热力图图标 -->
           <button @click="toggleHeatmap">
             <UIcon name="i-mdi-calendar-month" class="w-5 h-5 text-gray-200" />
@@ -77,7 +81,7 @@
     </div>
   </UCard>
 
-  <!-- 预览区域 - 仅在有图片时显示 -->
+  <!-- 图片预览区域 - 仅在有图片时显示 -->
   <div
     v-if="ImageUrl"
     class="mx-auto sm:max-w-2xl mt-5 backdrop-blur-sm bg-black/40 p-4 rounded-md"
@@ -97,16 +101,32 @@
       <div v-html="MessageContent"></div>
     </div>
   </div>
+  <!-- 添加搜索模态框组件 -->
+  <SearchMode 
+    v-model="showSearchModal" 
+    @search-result="handleSearchResult" 
+  />
 </template>
 <script setup lang="ts">
 import { ref, computed, inject, onMounted, onUnmounted, watch } from 'vue'
 import type { MessageToSave } from "~/types/models";
 import { UButton } from "#components";
 import { useMessage } from "~/composables/useMessage";
-import { useUserStore } from "~/store/user";
-import { Fancybox } from "@fancyapps/ui";
-import "@fancyapps/ui/dist/fancybox/fancybox.css";
+import { useUserStore } from '~/store/user'
+import { Fancybox } from '@fancyapps/ui'
+import '@fancyapps/ui/dist/fancybox/fancybox.css'
 import VditorEditor from './VditorEditor.vue'
+// 导入搜索模式组件
+import SearchMode from './Searchmode.vue'
+
+// 添加搜索相关变量和函数
+const showSearchModal = ref(false);
+const emit = defineEmits(['search-result']);
+// 处理搜索结果
+const handleSearchResult = (result: any) => {
+  // 将搜索结果传递给父组件
+  emit('search-result', result);
+};
 
 const toast = useToast()
 const BASE_API = useRuntimeConfig().public.baseApi;
