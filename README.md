@@ -4,7 +4,7 @@
 
 ## 介绍
 
-这是对于Ech0的二次开发、魔改及完善，属于个人的自定化使用，会加入定制化的一些功能，由于代码已重构，不同步于原版
+这是基于Ech0基本框架的二次开发、魔改及完善，属于个人的自定化使用，会加入定制化的一些功能，由于代码已重构，不同步于原版
 
 原版介绍
 
@@ -52,6 +52,84 @@ Ech0 是一款专为轻量级分享而设计的开源自托管平台，支持快
 <summary><h2>✅ 更新状况【点击查看】</h2></summary>
 ## 更新
 
+- 除了session 认证外增加Token认证，后台可设置更改，方便使用api发布信息
+
+  （获取信息是get,发布是post）
+
+  ![1743847126537](https://s2.loli.net/2025/04/05/QqLEC1HUw2J9XO8.png)
+
+  ```
+  # 发送纯文本信息
+  curl -X POST 'https://my-app.ech0-noise.orb.local/api/token/messages' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: c721249bd66e1133fba430ea9e3c32f1' \
+  -d '{
+    "content": "测试信息",
+    "type": "text"
+  }'
+  ```
+
+  ```
+  # 方式1：使用 Markdown 语法发送文本
+  curl -X POST 'https://my-app.ech0-noise.orb.local/api/token/messages' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: c721249bd66e1133fba430ea9e3c32f1' \
+  -d '{
+    "content": "# 标题\n这是一段文字\n![图片描述](https://s2.loli.net/2025/04/04/AZatmbHQJLxe5ql.png)",
+    "type": "text"
+  }'
+  
+  # 方式2：使用 type: image 发送图片消息
+  curl -X POST 'https://my-app.ech0-noise.orb.local/api/token/messages' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: c721249bd66e1133fba430ea9e3c32f1' \
+  -d '{
+    "content": "图片描述文字",
+    "type": "image",
+    "image": "https://example.com/image.jpg"
+  }'
+  ```
+
+  如果你想使用session 认证方式
+
+  ```
+  curl -v -X POST 'https://my-app.ech0-noise.orb.local/api/messages' \
+  -H 'Content-Type: application/json' \
+  --cookie "your_session_cookie" \
+  -d '{
+    "content": "测试信息",
+    "type": "text"
+  }'
+  ```
+
+  对于图文混合消息，可以这样发送：
+
+  ```bash
+  curl -X POST 'https://my-app.ech0-noise.orb.local/api/token/messages' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: c721249bd66e1133fba430ea9e3c32f1' \
+  -d '{
+    "content": "# 这是标题\n\n这是一段文字说明\n\n![图片描述](https://example.com/image.jpg)\n\n继续写文字内容",
+    "type": "text"
+  }'
+  ```
+  ```
+  
+  或者使用 multipart 类型：
+  
+  ```bash
+  curl -X POST 'https://my-app.ech0-noise.orb.local/api/token/messages' \
+  -H 'Content-Type: application/json' \
+  -H 'Authorization: c721249bd66e1133fba430ea9e3c32f1' \
+  -d '{
+    "content": "# 这是标题\n\n这是一段文字说明",
+    "type": "multipart",
+    "image": "https://example.com/image.jpg"
+  }'
+  ```
+
+  
+
 - 增加搜索功能组件
 
   ![1743816024503](https://s2.loli.net/2025/04/05/wcJSRFktmrxTpui.png)
@@ -60,7 +138,7 @@ Ech0 是一款专为轻量级分享而设计的开源自托管平台，支持快
 
   ![1743765992985_副本](https://s2.loli.net/2025/04/04/Jf48HmYjvCk1sVU.png)
 
-- 添加每条笔记条目的评论功能
+- 添加每条笔记条目的评论功能（属于外挂评论，因为容易集成和省事）
 
   ![1742962169845](https://s2.loli.net/2025/03/26/kKJsw51PzcUdyQ6.png)
 
@@ -183,7 +261,8 @@ docker buildx build --platform linux/amd64,linux/arm64 -t noise233/echo-noise:la
 - [x] 卡片生成的美化
 - [x] 优化编辑器
 - [x] 增加发布热力图组件
-- [ ] 加入搜索功能
+- [x] 加入搜索功能
+- [x] post发布认证
 - [ ] 后台和前端数据的匹配完善
 - [ ] 加入一键推送
 - [ ] 数据库的同步

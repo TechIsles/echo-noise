@@ -494,3 +494,38 @@ func SearchMessages(c *gin.Context) {
         "data": result,
     })
 }
+func GetUserToken(c *gin.Context) {
+    userID, exists := c.Get("user_id")
+    if !exists {
+        c.JSON(http.StatusOK, dto.Fail[any]("未授权访问"))
+        return
+    }
+
+    token, err := services.GetUserToken(userID.(uint))
+    if err != nil {
+        c.JSON(http.StatusOK, dto.Fail[any]("获取Token失败"))
+        return
+    }
+    
+    c.JSON(http.StatusOK, dto.OK(gin.H{
+        "token": token,
+    }, "获取成功"))
+}
+
+func RegenerateUserToken(c *gin.Context) {
+    userID, exists := c.Get("user_id")
+    if !exists {
+        c.JSON(http.StatusOK, dto.Fail[any]("未授权访问"))
+        return
+    }
+
+    token, err := services.RegenerateUserToken(userID.(uint))
+    if err != nil {
+        c.JSON(http.StatusOK, dto.Fail[any]("更新Token失败"))
+        return
+    }
+    
+    c.JSON(http.StatusOK, dto.OK(gin.H{
+        "token": token,
+    }, "更新成功"))
+}

@@ -46,7 +46,7 @@ func SetupRouter() *gin.Engine {
     api.POST("/login", controllers.Login)
     api.POST("/register", controllers.Register)
     api.GET("/status", controllers.GetStatus)
-    api.GET("/config", controllers.GetFrontendConfig)
+    // api.GET("/config", controllers.GetFrontendConfig)
     api.GET("/messages", controllers.GetMessages)
     api.GET("/messages/:id", controllers.GetMessage)
     api.POST("/messages/page", controllers.GetMessagesByPage)
@@ -57,6 +57,12 @@ func SetupRouter() *gin.Engine {
     authRoutes := api.Group("")
     authRoutes.Use(middleware.SessionAuthMiddleware())
 
+    // 添加 token 认证的路由组
+    tokenAuth := api.Group("/token")
+    tokenAuth.Use(middleware.TokenAuthMiddleware())
+    {
+    tokenAuth.POST("/messages", controllers.PostMessage)
+   }
     // 需要鉴权的消息操作路由
     messages := authRoutes.Group("/messages")
     {
@@ -83,6 +89,9 @@ func SetupRouter() *gin.Engine {
         user.PUT("/update", controllers.UpdateUser)
         user.PUT("/admin", controllers.UpdateUserAdmin)
         user.POST("/logout", controllers.Logout)  // 添加退出登录路由
+        // 添加 Token 相关路由
+        user.GET("/token", controllers.GetUserToken)
+        user.POST("/token/regenerate", controllers.RegenerateUserToken)
     }
 
     // 设置路由

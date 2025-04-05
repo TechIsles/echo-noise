@@ -2,7 +2,10 @@
   <UCard class="mx-auto sm:max-w-2xl hover:shadow-md backdrop-blur-sm bg-black/40 shadow-lg text-white">
     <div class="flex justify-between mb-3">
       <div class="flex justify-start items-center gap-2">
-        <UIcon name="i-fluent-emoji-flat-alien-monster" class="w-6 h-6" />
+        <UIcon 
+          name="i-heroicons-pencil-square" 
+          class="w-6 h-6 transition-all duration-300 hover:scale-110 hover:text-blue-400 animate-pulse" 
+        />
         <h2 class="text-lg font-bold italic text-white">说说·笔记~</h2>
       </div>
       <div class="flex gap-2">

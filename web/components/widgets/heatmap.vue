@@ -11,7 +11,8 @@
         </div>
       </div>
       
-      <div class="calendar-container" ref="calendarContainer">
+      <div class="calendar-wrapper">
+        <div class="calendar-container" ref="calendarContainer">
         <!-- 月份标题 -->
         <div class="month-labels">
           <div class="month-label" v-for="(month, index) in monthLabels" :key="index">{{ month }}</div>
@@ -19,7 +20,7 @@
         
         <!-- 星期标签 -->
         <div class="weekday-labels">
-          <div class="weekday-label" v-for="day in weekdays" :key="day">周{{ day }}</div>
+          <div class="weekday-label" v-for="day in weekdays" :key="day">{{ day }}</div>
         </div>
         
         <!-- 热力图网格 -->
@@ -29,17 +30,15 @@
               v-for="(day, j) in week" 
               :key="j" 
               class="heatmap-day"
-              :style="{ 
-                backgroundColor: day.count ? getColor(day.level) : '#ebedf0',
-                opacity: day.count ? 1 : 0.4
-              }"
+              :style="{ backgroundColor: getBackgroundColor(day) }"
               :title="`${day.date}: ${day.count || 0} 条内容`"
             ></div>
           </div>
         </div>
       </div>
-    </UCard>
-  </template>
+    </div>
+  </UCard>
+</template>
   
   <script setup lang="ts">
   import { ref, onMounted, computed, nextTick } from 'vue'
@@ -87,7 +86,11 @@
     const colors = ['#9be9a8', '#40c463', '#30a14e', '#216e39', '#0e4429']
     return colors[Math.min(level - 1, 4)] || '#ebedf0'
   }
-  
+  // 优化颜色计算
+const getBackgroundColor = (day: { count: number; level: number }) => {
+  if (!day.count) return 'rgba(235, 237, 240, 0.4)'
+  return getColor(day.level)
+}
   const fetchHeatmapData = async () => {
     try {
       const response = await fetch('/api/messages/calendar')
@@ -193,6 +196,20 @@
   </script>
   
   <style scoped>
+  .calendar-wrapper {
+  position: relative;
+  overflow: hidden;
+  margin: 0 -16px;
+  padding: 16px;
+}
+
+.calendar-container {
+  position: relative;
+  padding-top: 20px;
+  padding-left: 30px;
+  overflow: visible;
+}
+
   .heatmap-header {
     display: flex;
     justify-content: space-between;
@@ -270,13 +287,29 @@
   }
   
   .heatmap-grid {
-    display: flex;
-    gap: 3px;
-    overflow-x: auto;
-    padding-bottom: 5px;
-    scroll-behavior: smooth;
+   display: flex;
+   gap: 3px;
+   overflow-x: auto;
+   padding-bottom: 5px;
+   scroll-behavior: smooth;
+   -webkit-overflow-scrolling: touch;
+   scrollbar-width: thin;
+   mask-image: linear-gradient(to right, transparent, black 30px, black 90%, transparent);
+   -webkit-mask-image: linear-gradient(to right, transparent, black 30px, black 90%, transparent);
   }
-  
+  .heatmap-grid::-webkit-scrollbar {
+  height: 6px;
+}
+
+.heatmap-grid::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+}
+
+.heatmap-grid::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
   .heatmap-week {
     display: flex;
     flex-direction: column;
@@ -310,9 +343,16 @@
       line-height: 8px;
       padding-right: 2px;
     }
-  
     .weekday-labels {
-      gap: 3px;
-    }
+  position: absolute;
+  left: 0;
+  top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: linear-gradient(to right, rgba(0, 0, 0, 0.8) 80%, transparent);
+  padding-right: 10px;
+  z-index: 1;
+}
   }
   </style>

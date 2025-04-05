@@ -10,7 +10,20 @@ func MigrateDB(db *gorm.DB) error {
     if err != nil {
         return err
     }
-
+    // 为现有用户添加 Token 字段
+    var users []User
+    if err := db.Find(&users).Error; err != nil {
+        return err
+    }
+    for _, user := range users {
+        if user.Token == "" {
+            newToken := GenerateToken(32)
+            // 使用正确的更新方式
+            if err := db.Model(&User{}).Where("id = ?", user.ID).Update("token", newToken).Error; err != nil {
+                return err
+            }
+        }
+    }
     // 初始化系统设置
     var setting Setting
     if err := db.First(&setting).Error; err != nil {

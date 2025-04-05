@@ -9,12 +9,13 @@ import (
 
 // GetFrontendConfig 获取前端配置
 func GetFrontendConfig() (map[string]interface{}, error) {
-    db := database.GetDB()
-    var config models.SiteConfig
+    db, err := database.GetDB()
+    if err != nil {
+        return getDefaultConfig(), nil
+    }
     
-    // 从数据库获取配置
+    var config models.SiteConfig
     if err := db.Table("site_configs").First(&config).Error; err != nil {
-        // 如果没有配置，返回默认配置
         return getDefaultConfig(), nil
     }
     
@@ -44,13 +45,25 @@ func GetFrontendConfig() (map[string]interface{}, error) {
 
 // UpdateSetting 更新站点配置
 func UpdateFrontendSetting(userID uint, settingMap map[string]interface{}) error {
-    db := database.GetDB()
+    db, err := database.GetDB()
+    if err != nil {
+        return fmt.Errorf("数据库连接失败: %v", err)
+    }
     
     frontendSettings, ok := settingMap["frontendSettings"].(map[string]interface{})
     if !ok {
         return fmt.Errorf("无效的前端配置格式")
     }
     
+    // 类型检查
+    for key, value := range frontendSettings {
+        if value == nil {
+            return fmt.Errorf("配置项 %s 不能为空", key)
+        }
+        if _, ok := value.(string); !ok && key != "backgrounds" {
+            return fmt.Errorf("配置项 %s 必须为字符串类型", key)
+        }
+    }
 
     config := models.SiteConfig{
         SiteTitle:       frontendSettings["siteTitle"].(string),
@@ -68,30 +81,41 @@ func UpdateFrontendSetting(userID uint, settingMap map[string]interface{}) error
         WalineServerURL: frontendSettings["walineServerURL"].(string),
     }
 
+    // 处理背景图片列表
     if backgrounds, ok := frontendSettings["backgrounds"].([]interface{}); ok {
-        var backgroundsList []string
+        backgroundsList := make([]string, 0, len(backgrounds))
         for _, bg := range backgrounds {
             if bgStr, ok := bg.(string); ok {
                 backgroundsList = append(backgroundsList, bgStr)
             }
         }
-        backgroundsJSON, _ := json.Marshal(backgroundsList)
+        backgroundsJSON, err := json.Marshal(backgroundsList)
+        if err != nil {
+            return fmt.Errorf("背景图片列表序列化失败: %v", err)
+        }
         config.Backgrounds = string(backgroundsJSON)
     }
 
-    result := db.Table("site_configs").Where("id = ?", 1).Updates(&config)
+    tx := db.Begin()
+    if err := tx.Error; err != nil {
+        return fmt.Errorf("开启事务失败: %v", err)
+    }
+
+    result := tx.Table("site_configs").Where("id = ?", 1).Updates(&config)
     if result.Error != nil {
-        return result.Error
+        tx.Rollback()
+        return fmt.Errorf("更新配置失败: %v", result.Error)
     }
 
     if result.RowsAffected == 0 {
         config.ID = 1
-        if err := db.Table("site_configs").Create(&config).Error; err != nil {
-            return err
+        if err := tx.Table("site_configs").Create(&config).Error; err != nil {
+            tx.Rollback()
+            return fmt.Errorf("创建配置失败: %v", err)
         }
     }
 
-    return nil
+    return tx.Commit().Error
 }
 
 // 获取默认配置

@@ -113,3 +113,11 @@ func UpdateSetting(setting *models.Setting, updates map[string]interface{}) erro
 func UpdateUserField(userID uint, field string, value interface{}) error {
     return database.DB.Model(&models.User{}).Where("id = ?", userID).Update(field, value).Error
 }
+func UpdateUserToken(userID uint, token string) error {
+    err := database.DB.Model(&models.User{}).Where("id = ?", userID).Update("token", token).Error
+    if err != nil {
+        return err
+    }
+    clearUserCache(userID)  // 清除用户缓存
+    return nil
+}

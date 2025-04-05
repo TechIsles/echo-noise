@@ -58,7 +58,39 @@
                                 <p class="text-white">{{ userStore.user?.username }}</p>
                             </div>
                         </div>
-
+                         <!-- 在用户信息配置面板中添加 -->
+<div class="bg-gray-800 rounded p-3">
+    <div class="flex justify-between items-center mb-2">
+        <span class="text-gray-300">API Token</span>
+        <UButton
+            size="sm"
+            @click="regenerateToken"
+            color="primary"
+            variant="soft"
+        >
+            重新生成
+        </UButton>
+    </div>
+    <div v-if="userToken" class="mb-2">
+        <div class="flex items-center gap-2">
+            <UInput
+                v-model="userToken"
+                readonly
+                class="font-mono text-sm"
+            />
+            <UButton
+                icon="i-heroicons-clipboard"
+                color="gray"
+                variant="ghost"
+                @click="copyToken"
+            />
+        </div>
+        <p class="text-xs text-gray-400 mt-1">请妥善保管此 Token，它用于 API 访问认证</p>
+    </div>
+    <div v-else>
+        <p class="text-gray-400">暂无 Token</p>
+    </div>
+</div>
                         <!-- 密码修改 -->
                         <div class="bg-gray-800 rounded p-3">
                             <div class="flex justify-between items-center mb-2">
@@ -337,6 +369,71 @@ import { useToast } from '#ui/composables/useToast'
 
 const userStore = useUserStore()
 const { login, register, logout } = useUser()
+const userToken = ref('')
+
+// 重新生成 Token
+// 修改 regenerateToken 函数
+const regenerateToken = async () => {
+    if (!userStore.isLogin) {
+        useToast().add({
+            title: '错误',
+            description: '请先登录',
+            color: 'red'
+        });
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/user/token/regenerate', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+        if (!response.ok) {
+            throw new Error(data.msg || 'Token生成请求失败');
+        }
+
+        if (data.code === 1 && data.data?.token) {
+            userToken.value = data.data.token;
+            useToast().add({
+                title: '成功',
+                description: 'Token 已更新',
+                color: 'green'
+            });
+        } else {
+            throw new Error(data.msg || 'Token 生成失败');
+        }
+    } catch (error: any) {
+        console.error('Token生成错误:', error);
+        useToast().add({
+            title: '错误',
+            description: error.message || 'Token 生成失败',
+            color: 'red'
+        });
+    }
+};
+
+// 复制 Token
+const copyToken = async () => {
+    try {
+        await navigator.clipboard.writeText(userToken.value)
+        useToast().add({
+            title: '成功',
+            description: 'Token 已复制到剪贴板',
+            color: 'green'
+        })
+    } catch (error) {
+        useToast().add({
+            title: '错误',
+            description: '复制失败',
+            color: 'red'
+        })
+    }
+}
 // 添加退出登录处理函数
 const handleLogout = async () => {
     try {
@@ -594,11 +691,8 @@ const saveConfigItem = async (key: string) => {
             },
             credentials: 'include',
             body: JSON.stringify({
-                allow_registration: true,  // 添加这个字段
-                frontendSettings: {
-                    ...frontendConfig,  // 展开所有配置
-                    [key]: frontendConfig[key]  // 确保更新的字段被正确设置
-                }
+                allow_registration: true,
+                frontendSettings: frontendConfig  // 发送完整的配置对象
             })
         });
         
@@ -610,7 +704,8 @@ const saveConfigItem = async (key: string) => {
         const data = await response.json();
         if (data.code === 1) {
             editItem[key] = false;
-            await fetchConfig();  // 保存成功后重新获取配置
+            // 触发前端配置更新事件
+            window.dispatchEvent(new CustomEvent('frontend-config-updated'));
             useToast().add({
                 title: '成功',
                 description: `${configLabels[key]}已更新`,
@@ -637,38 +732,41 @@ const resetConfigItem = (key: string) => {
 const fetchConfig = async () => {
     try {
         const response = await fetch('/api/frontend/config', {
-            credentials: 'include'  // 添加 credentials 支持
+            credentials: 'include',
+            headers: {
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+            }
         });
+        
         const data = await response.json();
-        if (data.code === 1 && data.frontendSettings) {
+        console.log('获取到的配置数据:', data);
+        
+        if (data && data.frontendSettings) {
+            // 使用解构合并，保持配置一致性
             Object.assign(frontendConfig, {
-                siteTitle: data.frontendSettings.siteTitle || defaultConfig.siteTitle,
-                subtitleText: data.frontendSettings.subtitleText || defaultConfig.subtitleText,
-                avatarURL: data.frontendSettings.avatarURL || defaultConfig.avatarURL,
-                username: data.frontendSettings.username || defaultConfig.username,
-                description: data.frontendSettings.description || defaultConfig.description,
-                backgrounds: Array.isArray(data.frontendSettings.backgrounds) && data.frontendSettings.backgrounds.length > 0
-                    ? [...data.frontendSettings.backgrounds]
-                    : [...defaultConfig.backgrounds],
-                cardFooterTitle: data.frontendSettings.cardFooterTitle || defaultConfig.cardFooterTitle,
-                cardFooterSubtitle: data.frontendSettings.cardFooterSubtitle || defaultConfig.cardFooterSubtitle,
-                pageFooterHTML: data.frontendSettings.pageFooterHTML || defaultConfig.pageFooterHTML,
-                rssTitle: data.frontendSettings.rssTitle || defaultConfig.rssTitle,
-                rssDescription: data.frontendSettings.rssDescription || defaultConfig.rssDescription,
-                rssAuthorName: data.frontendSettings.rssAuthorName || defaultConfig.rssAuthorName,
-                rssFaviconURL: data.frontendSettings.rssFaviconURL || defaultConfig.rssFaviconURL,
-                walineServerURL: data.frontendSettings.walineServerURL || defaultConfig.walineServerURL // 新增
-            })
+                ...defaultConfig,  // 默认值作为基础
+                ...data.frontendSettings  // 服务器配置覆盖默认值
+            });
+            
+            // 特殊处理背景图片数组
+            if (!data.frontendSettings.backgrounds?.length) {
+                frontendConfig.backgrounds = [...defaultConfig.backgrounds];
+            }
+            
+            // 触发前端配置更新事件
+            window.dispatchEvent(new CustomEvent('frontend-config-updated'));
         } else {
-            // 如果获取失败，使用默认配置
-            Object.assign(frontendConfig, defaultConfig)
+            // 使用默认配置
+            Object.assign(frontendConfig, defaultConfig);
         }
     } catch (error) {
-        console.error('获取配置失败:', error)
-        // 发生错误时也使用默认配置
-        Object.assign(frontendConfig, defaultConfig)
+        console.error('获取配置失败:', error);
+        // 发生错误时使用默认配置
+        Object.assign(frontendConfig, defaultConfig);
     }
-}
+};
+
 
 const saveConfig = async () => {
     try {
@@ -691,6 +789,8 @@ const saveConfig = async () => {
         const data = await response.json();
         if (data.code === 1) {
             editMode.value = false;
+            // 触发前端配置更新事件
+            window.dispatchEvent(new CustomEvent('frontend-config-updated'));
             useToast().add({
                 title: '成功',
                 description: '配置已更新',
@@ -812,25 +912,43 @@ watch(() => userStore.isLogin, (newVal) => {
 const isLoading = ref(false) // 新增加载状态
 
 onMounted(async () => {
-  try {
-    isLoading.value = true
-    // 并行执行所有初始化请求
-    await Promise.all([
-      userStore.getStatus(),
-      userStore.getUser(),
-      fetchConfig()
-    ])
-  } catch (error) {
-    console.error('初始化失败:', error)
-    useToast().add({
-      title: '初始化失败',
-      description: '无法加载必要数据',
-      color: 'red'
-    })
-  } finally {
-    isLoading.value = false
-  }
-})
+    try {
+        isLoading.value = true;
+        
+        // 先获取用户状态和配置
+        await Promise.all([
+            userStore.getStatus(),
+            userStore.getUser(),
+            fetchConfig()
+        ]);
+
+        // 如果用户已登录，再获取 token
+        if (userStore.isLogin) {
+            const response = await fetch('/api/user/token', {
+                method: 'GET',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const data = await response.json();
+            if (data.code === 1 && data.data?.token) {
+                userToken.value = data.data.token;
+            }
+        }
+    } catch (error) {
+        console.error('初始化失败:', error);
+        useToast().add({
+            title: '初始化失败',
+            description: '请刷新页面重试',
+            color: 'red',
+            timeout: 3000
+        });
+    } finally {
+        isLoading.value = false;
+    }
+});
 const databaseFileInput = ref<HTMLInputElement | null>(null)
 
 const downloadBackup = async () => {

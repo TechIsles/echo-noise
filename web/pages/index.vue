@@ -115,8 +115,8 @@ const fetchConfig = async () => {
         if (data && data.frontendSettings) {
             const settings = data.frontendSettings;
             frontendConfig.value = {
-                siteTitle: settings.siteTitle || '默认标题',
-                subtitleText: settings.subtitleText || '默认副标题',
+                siteTitle: settings.siteTitle || 'Noise的说说笔记',
+                subtitleText: settings.subtitleText || '欢迎访问，点击头像可更换封面背景！',
                 avatarURL: settings.avatarURL || 'https://s2.loli.net/2025/03/24/HnSXKvibAQlosIW.png',
                 username: settings.username || 'Noise',
                 description: settings.description || '执迷不悟',
@@ -446,7 +446,12 @@ html, body {
   .content-wrapper {
     padding: 0.2rem 0.2rem 0; /* 上左右0.2rem，底部0 */
   }
-  
+  /* 优化移动端滚动性能 */
+  .message-list-container {
+    transform: translateZ(0);
+    will-change: transform;
+    -webkit-overflow-scrolling: touch;
+  }
   .container-fixed {
     width: 100%;
     margin: 0 auto;

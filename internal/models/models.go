@@ -1,10 +1,12 @@
 package models
 
 import (
-	"errors"
-	"strings"
-	"time"
-	"gorm.io/gorm"
+	"crypto/rand"
+    "encoding/hex"
+    "errors"
+    "strings"
+    "time"
+    "gorm.io/gorm"
 )
 
 var DB *gorm.DB
@@ -30,8 +32,14 @@ type User struct {
 	Username string `gorm:"size:255;not null;unique" json:"username"`
 	Password string `gorm:"size:255;not null" json:"password"`
 	IsAdmin  bool   `json:"is_admin"`
+	Token    string `gorm:"type:varchar(255)" json:"token"`
 }
-
+// 生成 Token 的工具函数
+func GenerateToken(length int) string {
+    b := make([]byte, length/2)
+    rand.Read(b)
+    return hex.EncodeToString(b)
+}
 type Status struct {
 	SysAdminID    uint         `json:"sys_admin_id"` 
 	Username      string       `json:"username"`     

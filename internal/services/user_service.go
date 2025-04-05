@@ -2,10 +2,11 @@ package services
 
 import (
 	"errors"
-	"github.com/lin-snow/ech0/internal/dto"
-	"github.com/lin-snow/ech0/internal/models"
-	"github.com/lin-snow/ech0/internal/repository"
-	"github.com/lin-snow/ech0/pkg"
+    "fmt"
+    "github.com/lin-snow/ech0/internal/dto"
+    "github.com/lin-snow/ech0/internal/models"
+    "github.com/lin-snow/ech0/internal/repository"
+    "github.com/lin-snow/ech0/pkg"
 )
 
 func Register(userdto dto.RegisterDto) error {
@@ -19,6 +20,7 @@ func Register(userdto dto.RegisterDto) error {
 		Username: userdto.Username,
 		Password: userdto.Password,
 		IsAdmin:  false,
+		Token:    models.GenerateToken(32),
 	}
 
 	user, err := repository.GetUserByUsername(userdto.Username)
@@ -57,7 +59,14 @@ func Login(userdto dto.LoginDto) (*models.User, error) {
         return nil, errors.New(models.PasswordIncorrectMessage)
     }
 
-    // 返回用户信息而不是生成 token
+    // 只在 token 为空时生成新的 token
+    if user.Token == "" {
+        user.Token = models.GenerateToken(32)
+        if err := repository.UpdateUser(user); err != nil {
+            return nil, fmt.Errorf("生成用户 token 失败: %v", err)
+        }
+    }
+
     return user, nil
 }
 
@@ -74,8 +83,8 @@ func GetStatus() (models.Status, error) {
     }
     for _, user := range allusers {
         users = append(users, models.UserStatus{
-            ID:       user.ID,        // 修改 UserID 为 ID
-            Username: user.Username,  // 修改 UserName 为 Username
+            ID:       user.ID,
+            Username: user.Username,
             IsAdmin:  user.IsAdmin,
         })
     }
@@ -129,20 +138,27 @@ func UpdateUser(user *models.User, userdto dto.UserInfoDto) error {
 }
 
 func ChangePassword(user *models.User, userdto dto.UserInfoDto) error {
-	if user.Password == pkg.MD5Encrypt(userdto.Password) {
-		return errors.New(models.PasswordCannotBeSameAsBeforeMessage)
-	}
+    if user == nil {
+        return errors.New("用户信息不能为空")
+    }
 
-	if userdto.Password == "" {
-		return errors.New(models.PasswordCannotBeEmptyMessage)
-	}
+    if userdto.Password == "" {
+        return errors.New(models.PasswordCannotBeEmptyMessage)
+    }
 
-	user.Password = pkg.MD5Encrypt(userdto.Password)
-	if err := repository.UpdateUser(user); err != nil {
-		return errors.New(err.Error())
-	}
+    newPassword := pkg.MD5Encrypt(userdto.Password)
+    if user.Password == newPassword {
+        return errors.New(models.PasswordCannotBeSameAsBeforeMessage)
+    }
 
-	return nil
+    user.Password = newPassword
+    // 修改密码时不更新 token
+    
+    if err := repository.UpdateUser(user); err != nil {
+        return fmt.Errorf("更新密码失败: %v", err)
+    }
+
+    return nil
 }
 
 func UpdateUserAdmin(userID uint) error {
@@ -159,4 +175,3 @@ func UpdateUserAdmin(userID uint) error {
 
 	return nil
 }
-
