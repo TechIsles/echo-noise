@@ -529,3 +529,20 @@ func RegenerateUserToken(c *gin.Context) {
         "token": token,
     }, "更新成功"))
 }
+// RefreshRSS 刷新 RSS 内容
+func RefreshRSS(c *gin.Context) {
+    // 重新生成 RSS
+    _, err := services.GenerateRSS(c)
+    if err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{
+            "code": 0,
+            "msg":  "RSS 刷新失败: " + err.Error(),
+        })
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "code": 1,
+        "msg":  "RSS 已刷新",
+    })
+}

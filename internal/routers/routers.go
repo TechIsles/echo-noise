@@ -36,10 +36,12 @@ func SetupRouter() *gin.Engine {
     r.Use(static.Serve("/", static.LocalFile("./public", true)))
     r.Static("/api/images", "./data/images")
 
-    r.GET("/rss", controllers.GenerateRSS)
-
     // API 路由组
     api := r.Group("/api")
+
+    // RSS 路由
+    r.GET("/rss", controllers.GenerateRSS)  // 保持原有的 RSS 订阅链接
+    api.POST("/rss/refresh", middleware.SessionAuthMiddleware(), controllers.RefreshRSS) // 添加刷新 RSS 的路由
     
     // 公共路由
     api.GET("/frontend/config", controllers.GetFrontendConfig)

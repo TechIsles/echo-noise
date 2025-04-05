@@ -24,12 +24,14 @@ WORKDIR /app
 # 安装构建时所需的工具
 RUN apk add --no-cache gcc musl-dev
 
-# 禁用 CGO（如果不依赖 CGO，可以禁用以避免安装 gcc）
-# ENV CGO_ENABLED=0
-
 # 复制 Go 模块文件并下载依赖
 COPY ./go.mod ./go.sum ./
 RUN go mod download
+
+# 添加数据库驱动依赖
+RUN go get -u gorm.io/driver/mysql && \
+    go get -u gorm.io/driver/postgres && \
+    go mod download
 
 # 复制项目文件
 COPY ./cmd ./cmd
@@ -56,14 +58,32 @@ COPY --from=backend-build /app/noise /app/noise
 # 从前端构建阶段复制静态文件
 COPY --from=frontend-build /app/public /app/public
 
-# 安装运行时所需的工具（如 CA 证书）
-RUN apk add --no-cache ca-certificates
+# 安装运行时所需的工具
+RUN apk add --no-cache \
+    ca-certificates \
+    postgresql-client \
+    mysql-client \
+    && rm -rf /var/cache/apk/*
 
-# 复制数据库文件到运行时目录
+# 创建数据和图片目录
+RUN mkdir -p /app/data/images && \
+    chmod -R 755 /app/data
+
+# 复制数据库文件到运行时目录（如果使用 SQLite）
 COPY ./data/noise.db /app/data/
 
 # 暴露应用端口
 EXPOSE 1314
+
+# 设置默认环境变量
+ENV DB_TYPE=sqlite \
+    DB_PATH=/app/data/noise.db \
+    DB_HOST="" \
+    DB_PORT="" \
+    DB_USER="" \
+    DB_PASSWORD="" \
+    DB_NAME="" \
+    DB_SSL_MODE="disable"
 
 # 启动应用
 CMD ["/app/noise"]

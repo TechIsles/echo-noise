@@ -397,6 +397,10 @@ html, body {
   flex-direction: column;
   box-sizing: border-box;
   padding: 1rem;  /* 使用固定内边距 */
+  /* 优化内容层性能 */
+  transform: translate3d(0, 0, 0);
+  will-change: transform;
+  z-index: 1;
 }
 
 .container-fixed {
@@ -409,6 +413,7 @@ html, body {
   z-index: 1;
   box-sizing: border-box;
   overflow: hidden;
+
 }
 
 .moments-header {

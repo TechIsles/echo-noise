@@ -692,7 +692,7 @@ const saveConfigItem = async (key: string) => {
             credentials: 'include',
             body: JSON.stringify({
                 allow_registration: true,
-                frontendSettings: frontendConfig  // 发送完整的配置对象
+                frontendSettings: frontendConfig
             })
         });
         
@@ -704,8 +704,21 @@ const saveConfigItem = async (key: string) => {
         const data = await response.json();
         if (data.code === 1) {
             editItem[key] = false;
+            
+            // 更新前端配置
+            await fetchConfig();
+            
             // 触发前端配置更新事件
             window.dispatchEvent(new CustomEvent('frontend-config-updated'));
+            
+            // 如果更新的是 RSS 相关配置，则刷新 RSS
+            if (key.startsWith('rss')) {
+                await fetch('/api/rss/refresh', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+            }
+            
             useToast().add({
                 title: '成功',
                 description: `${configLabels[key]}已更新`,
@@ -722,7 +735,6 @@ const saveConfigItem = async (key: string) => {
         });
     }
 };
-
 // 添加单个配置项重置方法
 const resetConfigItem = (key: string) => {
     frontendConfig[key] = defaultConfig[key]
@@ -766,8 +778,6 @@ const fetchConfig = async () => {
         Object.assign(frontendConfig, defaultConfig);
     }
 };
-
-
 const saveConfig = async () => {
     try {
         const response = await fetch('/api/settings', {
@@ -789,8 +799,22 @@ const saveConfig = async () => {
         const data = await response.json();
         if (data.code === 1) {
             editMode.value = false;
+            
+            // 更新前端配置
+            await fetchConfig();
+            
             // 触发前端配置更新事件
             window.dispatchEvent(new CustomEvent('frontend-config-updated'));
+            
+            // 刷新 RSS
+            await fetch('/api/rss/refresh', {
+                method: 'POST',
+                credentials: 'include'
+            });
+            
+            // 刷新用户状态
+            await userStore.getStatus();
+            
             useToast().add({
                 title: '成功',
                 description: '配置已更新',
@@ -807,7 +831,6 @@ const saveConfig = async () => {
         });
     }
 };
-
 const resetConfig = () => {
     fetchConfig()
     editMode.value = false

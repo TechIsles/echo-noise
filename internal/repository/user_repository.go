@@ -121,3 +121,40 @@ func UpdateUserToken(userID uint, token string) error {
     clearUserCache(userID)  // 清除用户缓存
     return nil
 }
+// DeleteUser 删除用户
+func DeleteUser(id uint) error {
+    err := database.DB.Delete(&models.User{}, id).Error
+    if err != nil {
+        return err
+    }
+    clearUserCache(id)
+    return nil
+}
+
+// BatchCreateUsers 批量创建用户
+func BatchCreateUsers(users []*models.User) error {
+    return database.DB.Create(&users).Error
+}
+
+// BatchUpdateUsers 批量更新用户
+func BatchUpdateUsers(users []*models.User) error {
+    for _, user := range users {
+        if err := UpdateUser(user); err != nil {
+            return err
+        }
+    }
+    return nil
+}
+
+// ClearExpiredCache 清理过期缓存
+func ClearExpiredCache() {
+    cacheMutex.Lock()
+    defer cacheMutex.Unlock()
+    
+    now := time.Now()
+    for id, item := range userCacheMap {
+        if now.Sub(item.timestamp) > cacheExpiry {
+            delete(userCacheMap, id)
+        }
+    }
+}

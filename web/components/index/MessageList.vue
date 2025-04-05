@@ -143,10 +143,10 @@
       </div>
       <template #footer>
         <div class="flex justify-end space-x-2">
-          <UButton color="gray" variant="outline" @click="showEditModal = false">
+          <UButton color="gray" variant="outline" @click="showEditModal = false" class="text-white">
             取消
           </UButton>
-          <UButton color="orange" @click="saveEditedMessage" :loading="isSaving">
+          <UButton color="orange" @click="saveEditedMessage" :loading="isSaving" class="text-white">
             保存
           </UButton>
         </div>
@@ -391,7 +391,7 @@ watch(
       // 用户登录后的处理
       message.getMessages({
         page: 1,
-        pageSize: 10,
+        pageSize: 15,
       });
     }
   }
@@ -411,9 +411,6 @@ watch(
   },
   { deep: true }
 );
-
-
-
 // 组件卸载时清理
 onBeforeUnmount(() => {
   if (window.Fancybox) {
@@ -906,7 +903,7 @@ watch(isSearchMode, (newVal) => {
 /* 修改内容卡片样式 */
 .content-container {
   padding: 16px;
-  background: transparent;
+  background: rgba(36, 43, 50, 0.95);
   border-radius: 16px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
   transition: all 0.3s ease;
@@ -929,11 +926,12 @@ watch(isSearchMode, (newVal) => {
   min-height: 150px;
   object-fit: cover;
   border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  /* 添加以下优化属性 */
-  will-change: transform;
-  transform: translateZ(0);
-  backface-visibility: hidden;
+  box-shadow: none;  /* 移除阴影 */
+  transform: translate3d(0, 0, 0);  /* 启用硬件加速 */
+}
+/* 简化过渡动画 */
+.overflow-y-hidden {
+  transition: max-height 0.2s ease;  /* 缩短动画时间 */
 }
 /* 优化移动端滚动 */
 @media screen and (max-width: 768px) {
@@ -950,9 +948,11 @@ watch(isSearchMode, (newVal) => {
 /* 添加移动端适配 */
 @media screen and (max-width: 768px) {
   .content-container {
-    margin: 8px 0 0.2rem 0;
+    margin: 4px 0;
     padding: 12px;
-    width: calc(100% - 0.4rem); /* 添加宽度调整 */
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
   
   /* 调整内容区域的内边距 */
@@ -960,12 +960,17 @@ watch(isSearchMode, (newVal) => {
     padding-left: 0.8rem; /* 减少左侧内边距 */
     padding-right: 0.8rem;
   }
-  
-  /* 确保图片在移动端也能充分利用空间 */
+  /* 优化移动端滚动 */
+  .message-list-container {
+    transform: translate3d(0, 0, 0);
+    -webkit-overflow-scrolling: touch;
+  }
   .content-container img {
-    min-width: calc(100% + 1.6rem); /* 图片宽度补偿 */
-    margin-left: -0.8rem;
-    margin-right: -0.8rem;
+    min-height: 100px;
+  }
+  /* 移除移动端动画效果 */
+  .message-actions > div {
+    transition: none;
   }
 }
 .content-container::before {

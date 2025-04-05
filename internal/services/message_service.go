@@ -92,64 +92,71 @@ func DeleteMessageByAdmin(id uint) error {
 }
 
 func GenerateRSS(c *gin.Context) (string, error) {
-    // 获取所有公开留言（RSS 只显示公开内容）
-    messages, err := GetAllMessages(false)  // 直接传入 false 表示只获取公开内容
+    messages, err := GetAllMessages(false)
     if err != nil {
         return "", err
     }
 
-	// 生成 RSS 订阅链接
-	schema := "http"
-	if c.Request.TLS != nil {
-		schema = "https"
-	}
-	host := c.Request.Host
-	feed := &feeds.Feed{
-		Title: "Noise的说说笔记",
-		Link: &feeds.Link{
-			Href: fmt.Sprintf("%s://%s/", schema, host),
-		},
-		Image: &feeds.Image{
-			Url: fmt.Sprintf("%s://%s/favicon.ico", schema, host),
-		},
-		Description: "一个说说笔记~",
-		Author: &feeds.Author{
-			Name: "Noise",
-		},
-		Updated: time.Now(),
-	}
+    schema := "http"
+    if c.Request.TLS != nil {
+        schema = "https"
+    }
+    host := c.Request.Host
 
-	for _, msg := range messages {
-		renderedContent := pkg.MdToHTML([]byte(msg.Content))
+    feed := &feeds.Feed{
+        Title: "Noise的说说笔记",
+        Link: &feeds.Link{
+            Href: fmt.Sprintf("%s://%s/", schema, host),
+        },
+        Image: &feeds.Image{
+            Url: fmt.Sprintf("%s://%s/favicon.ico", schema, host),
+        },
+        Description: "一个说说笔记~",
+        Author: &feeds.Author{
+            Name: "Noise",
+        },
+        Updated: time.Now(),
+    }
 
-		title := msg.Username + " - " + msg.CreatedAt.Format("2006-01-02")
+    for _, msg := range messages {
+        // 处理内容
+        content := msg.Content
+        if msg.ImageURL != "" {
+            imageURL := fmt.Sprintf("%s://%s/api%s", schema, host, msg.ImageURL)
+            content = fmt.Sprintf("![图片](%s)\n\n%s", imageURL, content)
+        }
 
-		// 添加图片链接到正文前(scheme://host/api/ImageURL)
-		if msg.ImageURL != "" {
-			image := fmt.Sprintf("%s://%s/api%s", schema, host, msg.ImageURL)
-			renderedContent = append([]byte(fmt.Sprintf("<img src=\"%s\" alt=\"Image\" style=\"max-width:100%%;height:auto;\" />", image)), renderedContent...)
-		}
+        // 渲染 Markdown
+        htmlContent := pkg.MdToHTML([]byte(content))
 
-		item := &feeds.Item{
-			Title:       title,
-			Link:        &feeds.Link{Href: fmt.Sprintf("%s://%s/api/messages/%d", schema, host, msg.ID)},
-			Description: string(renderedContent),
-			Author: &feeds.Author{
-				Name: msg.Username,
-			},
-			Created: msg.CreatedAt,
-		}
-		feed.Items = append(feed.Items, item)
-	}
+        // 生成标题
+        title := msg.Username
+        if firstLine := pkg.GetFirstLine(msg.Content); firstLine != "" {
+            title = firstLine
+        }
 
-	atom, err := feed.ToAtom()
-	if err != nil {
-		return "", err
-	}
+        // 生成前端页面 URL
+        pageURL := fmt.Sprintf("%s://%s/#/messages/%d", schema, host, msg.ID)
 
-	return atom, nil
+        item := &feeds.Item{
+            Title:       title,
+            Link:        &feeds.Link{Href: pageURL},
+            Description: string(htmlContent),
+            Author:      &feeds.Author{Name: msg.Username},
+            Created:     msg.CreatedAt,
+            Id:         pageURL,
+        }
+
+        feed.Items = append(feed.Items, item)
+    }
+
+    rss, err := feed.ToRss()
+    if err != nil {
+        return "", err
+    }
+
+    return rss, nil
 }
-
 // UpdateMessage 更新消息内容
 func UpdateMessage(messageID uint, content string) error {
     // 获取消息

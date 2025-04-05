@@ -47,10 +47,15 @@ Ech0 是一款专为轻量级分享而设计的开源自托管平台，支持快
 2. 调整优化数据库的迁移及连接处理
 3. 增加不同的路由及调整控制器
 4. 增加额外的外挂插件文件
+5. 增加定期清理缓存
 
 <details>
 <summary><h2>✅ 更新状况【点击查看】</h2></summary>
 ## 更新
+
+- 增加数据库PostgreSQL、MySQL的连接支持，默认SQLite
+
+- 优化rss生成效果，优化页面性能，减少卡顿延迟
 
 - 除了session 认证外增加Token认证，后台可设置更改，方便使用api发布信息
 
@@ -117,7 +122,6 @@ Ech0 是一款专为轻量级分享而设计的开源自托管平台，支持快
   
   或者使用 multipart 类型：
   
-  ```bash
   curl -X POST 'https://my-app.ech0-noise.orb.local/api/token/messages' \
   -H 'Content-Type: application/json' \
   -H 'Authorization: c721249bd66e1133fba430ea9e3c32f1' \
@@ -222,6 +226,106 @@ docker run -d \
 ```shell
 docker-compose up -d
 ```
+
+## 数据库连接
+
+直接通过环境变量连接到已有的远程数据库服务。以下是连接示例：
+
+连接远程 PostgreSQL：
+```bash
+docker run -d \
+  --name Ech0-Noise \
+  --platform linux/amd64 \
+  -p 1314:1314 \
+  -e DB_TYPE=postgres \
+  -e DB_HOST=your.postgres.host \
+  -e DB_PORT=5432 \
+  -e DB_USER=your_username \
+  -e DB_PASSWORD=your_password \
+  -e DB_NAME=noise \
+  -v /opt/data/images:/app/data/images \
+  noise233/echo-noise:last
+```
+
+连接远程 MySQL：
+```bash
+docker run -d \
+  --name Ech0-Noise \
+  --platform linux/amd64 \
+  -p 1314:1314 \
+  -e DB_TYPE=mysql \
+  -e DB_HOST=your.mysql.host \
+  -e DB_PORT=3306 \
+  -e DB_USER=your_username \
+  -e DB_PASSWORD=your_password \
+  -e DB_NAME=noise \
+  -v /opt/data/images:/app/data/images \
+  noise233/echo-noise:last
+```
+
+注意事项：
+1. 确保远程数据库允许外部连接
+2. 检查防火墙设置
+3. 使用正确的数据库连接信息
+4. 建议使用加密连接
+5. 注意数据库的字符集设置
+
+对于 Neon PostgreSQL 这样的云数据库服务，需要使用特定的连接参数。以下是连接命令：
+
+```bash
+docker run -d \
+  --name Ech0-Noise \
+  --platform linux/amd64 \
+  -p 1314:1314 \
+  -e DB_TYPE=postgres \
+  -e DB_HOST=ep-old-recipe-a1sf8u4h-pooler.ap-southeast-1.aws.neon.tech \
+  -e DB_PORT=5432 \
+  -e DB_USER=noise_owner \
+  -e DB_PASSWORD=npg_NGOpjvP1DyX5 \
+  -e DB_NAME=noise \
+  -e DB_SSL_MODE=require \
+  -v /opt/data/images:/app/data/images \
+  noise233/echo-noise:last
+```
+
+注意事项：
+1. 添加了 `DB_SSL_MODE=require` 环境变量，因为 Neon 要求 SSL 连接
+2. 使用了连接 URL 中提供的主机名、用户名、密码和数据库名
+3. 确保数据库已创建相应的表结构
+4. 保持图片目录的挂载
+
+## 数据的备份恢复
+
+对于所有数据库类型（SQLite/PostgreSQL/MySQL），点击数据库下载按钮后，都会先备份数据库文件
+
+- 然后通过 createBackupZip 函数将整个 tempDir（包含数据库备份和图片）打包成 zip 文件
+- zip 文件中会包含：
+  - 数据库备份文件（.db/.dump/.sql）
+  - images 目录下的所有图片
+
+对于 PostgreSQL：
+
+- 备份：使用 pg_dump 命令将数据库导出为 .sql 或 .dump 文件
+- 恢复：使用 pg_restore 或 psql 命令将备份文件导入到数据库
+
+对于 MySQL：
+
+- 备份：使用 mysqldump 命令将数据库导出为 .sql 文件
+- 恢复：使用 mysql 命令将备份文件导入到数据库
+工作流程：
+
+```plaintext
+备份过程：
+本地 -> 执行备份命令 -> 生成备份文件 -> 打包下载
+
+恢复过程：
+上传备份文件 -> 解压缩 -> 执行恢复命令 -> 导入到云数据库
+```
+
+整体恢复：
+
+- 根据数据库类型恢复数据库
+- 同时会恢复 images 目录下的所有图片
 
 ## 说明
 

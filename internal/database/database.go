@@ -1,35 +1,70 @@
 package database
 
 import (
-   "errors"
+    "errors"
     "fmt"
     "os"
 
     "github.com/lin-snow/ech0/config"
     "github.com/lin-snow/ech0/internal/models"
+    "gorm.io/driver/mysql"
+    "gorm.io/driver/postgres"
     "gorm.io/driver/sqlite"
     "gorm.io/gorm"
 )
 
 var DB *gorm.DB
 
+func getEnvOrConfig(envKey, configValue string) string {
+    if value := os.Getenv(envKey); value != "" {
+        return value
+    }
+    return configValue
+}
+
 func InitDB() error {
     if DB != nil {
         return nil
     }
 
-    dbType := config.Config.Database.Type
-    dbPath := config.Config.Database.Path
-
-    dir := fmt.Sprintf("%s", dbPath[:len(dbPath)-len("/noise.db")]) 
-    if err := os.MkdirAll(dir, os.ModePerm); err != nil {
-        return fmt.Errorf("创建数据库目录失败: %v", err)
-    }
-
+    dbType := getEnvOrConfig("DB_TYPE", config.Config.Database.Type)
     var err error
-    if dbType == "sqlite" {
+
+    switch dbType {
+    case "sqlite":
+        dbPath := getEnvOrConfig("DB_PATH", config.Config.Database.Path)
+        dir := fmt.Sprintf("%s", dbPath[:len(dbPath)-len("/noise.db")])
+        if err := os.MkdirAll(dir, os.ModePerm); err != nil {
+            return fmt.Errorf("创建数据库目录失败: %v", err)
+        }
         DB, err = gorm.Open(sqlite.Open(dbPath), &gorm.Config{})
-    } else {
+
+    case "postgres":
+        host := getEnvOrConfig("DB_HOST", config.Config.Database.Host)
+        port := getEnvOrConfig("DB_PORT", config.Config.Database.Port)
+        user := getEnvOrConfig("DB_USER", config.Config.Database.User)
+        password := getEnvOrConfig("DB_PASSWORD", config.Config.Database.Password)
+        dbname := getEnvOrConfig("DB_NAME", config.Config.Database.DBName)
+        sslmode := getEnvOrConfig("DB_SSL_MODE", "disable")
+        timezone := getEnvOrConfig("DB_TIMEZONE", "Asia/Shanghai")
+        
+        dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%s sslmode=%s TimeZone=%s",
+            host, user, password, dbname, port, sslmode, timezone)
+        DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+
+    case "mysql":
+        host := getEnvOrConfig("DB_HOST", config.Config.Database.Host)
+        port := getEnvOrConfig("DB_PORT", config.Config.Database.Port)
+        user := getEnvOrConfig("DB_USER", config.Config.Database.User)
+        password := getEnvOrConfig("DB_PASSWORD", config.Config.Database.Password)
+        dbname := getEnvOrConfig("DB_NAME", config.Config.Database.DBName)
+        charset := getEnvOrConfig("DB_CHARSET", "utf8mb4")
+        
+        dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?charset=%s&parseTime=True&loc=Local",
+            user, password, host, port, dbname, charset)
+        DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{})
+
+    default:
         return fmt.Errorf("不支持的数据库类型: %s", dbType)
     }
 
