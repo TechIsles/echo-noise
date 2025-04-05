@@ -258,6 +258,7 @@ docker buildx build --platform linux/amd64,linux/arm64 -t noise233/echo-noise:la
 
 可以，database.go中修改增加即可，自己调整即可，但目前db文件的一键下载存储及一键上传恢复是目前体验最佳的！
 
+👉建议：不要和我一样在同一个文件里修改添加，造成一个文件上千行代码...请尽量使用父子层级来添加代码
 
 ## To do
 
