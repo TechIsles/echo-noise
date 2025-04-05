@@ -278,10 +278,10 @@ docker run -d \
   --platform linux/amd64 \
   -p 1314:1314 \
   -e DB_TYPE=postgres \
-  -e DB_HOST=ep-old-recipe-a1sf8u4h-pooler.ap-southeast-1.aws.neon.tech \
+  -e DB_HOST=ep-old-reci-1.aws.neon.tech \
   -e DB_PORT=5432 \
   -e DB_USER=noise_owner \
-  -e DB_PASSWORD=npg_NGOpjvP1DyX5 \
+  -e DB_PASSWORD=npg_NGOpDyX5 \
   -e DB_NAME=noise \
   -e DB_SSL_MODE=require \
   -v /opt/data/images:/app/data/images \
