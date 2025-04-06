@@ -4,7 +4,7 @@
 
 ## 介绍
 
-这是基于Ech0基本框架的二次开发、魔改及完善，属于个人的自定化使用，会加入定制化的一些功能，由于代码已重构，不同步于原版
+这是基于Ech0基本框架的二次开发、魔改及完善，类似朋友圈样式风格，支持后台配置修改如背景图、个性签名等，支持对b站视频、网易云音乐、youtube等的解析添加、支持一键复制，一键生成内容图片、支持api post 发送内容到平台，支持内容热力图组件等个性化组件，它完全属于个人的自定化使用，会加入定制化的一些功能，由于代码已重构，不同步于原版
 
 原版介绍
 
@@ -59,81 +59,14 @@ Ech0 是一款专为轻量级分享而设计的开源自托管平台，支持快
 
 - 除了session 认证外增加Token认证，后台可设置更改，方便使用api发布信息
 
-  （获取信息是get,发布是post）
-
   ![1743847126537](https://s2.loli.net/2025/04/05/QqLEC1HUw2J9XO8.png)
 
-  ```
-  # 发送纯文本信息
-  curl -X POST 'https://my-app.ech0-noise.orb.local/api/token/messages' \
-  -H 'Content-Type: application/json' \
-  -H 'Authorization: c721249bd66e1133fba430ea9e3c32f1' \
-  -d '{
-    "content": "测试信息",
-    "type": "text"
-  }'
-  ```
-
-  ```
-  # 方式1：使用 Markdown 语法发送文本
-  curl -X POST 'https://my-app.ech0-noise.orb.local/api/token/messages' \
-  -H 'Content-Type: application/json' \
-  -H 'Authorization: c721249bd66e1133fba430ea9e3c32f1' \
-  -d '{
-    "content": "# 标题\n这是一段文字\n![图片描述](https://example.com/image.jpg)",
-    "type": "text"
-  }'
-  
-  # 方式2：使用 type: image 发送图片消息
-  curl -X POST 'https://my-app.ech0-noise.orb.local/api/token/messages' \
-  -H 'Content-Type: application/json' \
-  -H 'Authorization: c721249bd66e1133fba430ea9e3c32f1' \
-  -d '{
-    "content": "图片描述文字",
-    "type": "image",
-    "image": "https://example.com/image.jpg"
-  }'
-  ```
-
-  如果你想使用session 认证方式
-
-  ```
-  curl -v -X POST 'https://my-app.ech0-noise.orb.local/api/messages' \
-  -H 'Content-Type: application/json' \
-  --cookie "your_session_cookie" \
-  -d '{
-    "content": "测试信息",
-    "type": "text"
-  }'
-  ```
-
-  对于图文混合消息，可以这样发送：
-
-  ```bash
-  curl -X POST 'https://my-app.ech0-noise.orb.local/api/token/messages' \
-  -H 'Content-Type: application/json' \
-  -H 'Authorization: c721249bd66e1133fba430ea9e3c32f1' \
-  -d '{
-    "content": "# 这是标题\n\n这是一段文字说明\n\n![图片描述](https://example.com/image.jpg)\n\n继续写文字内容",
-    "type": "text"
-  }'
-  ```
-  ```
-  
-  或者使用 multipart 类型：
-  
-  curl -X POST 'https://my-app.ech0-noise.orb.local/api/token/messages' \
-  -H 'Content-Type: application/json' \
-  -H 'Authorization: c721249bd66e1133fba430ea9e3c32f1' \
-  -d '{
-    "content": "# 这是标题\n\n这是一段文字说明",
-    "type": "multipart",
-    "image": "https://example.com/image.jpg"
-  }'
-  ```
-
   
 
+  
+  
+  
+  
 - 增加搜索功能组件
 
   ![1743816024503](https://s2.loli.net/2025/04/05/wcJSRFktmrxTpui.png)
@@ -192,7 +125,7 @@ Ech0 是一款专为轻量级分享而设计的开源自托管平台，支持快
 
 ------
 
-
+## 安装部署
 
 > 💡 部署完成后访问 ip:1314 即可使用
 > 
@@ -208,10 +141,10 @@ docker run -d \
   --platform linux/amd64 \
   -p 1314:1314 \
   -v /opt/data/noise.db:/app/data/noise.db \
-  noise233/echo-noise:last
+  noise233/echo-noise
 ```
 
-`/opt/data/noise.db`是你本地的数据库文件，如果没有会自动创建
+`/opt/data/noise.db`是你本地的原有数据库文件，如果没有，可以去掉这个挂载命令，它也会自动创建
 
 默认用户名：admin
 
@@ -227,7 +160,7 @@ docker-compose up -d
 
 ## 数据库连接
 
-直接通过环境变量连接到已有的远程数据库服务。以下是连接示例：
+可以直接通过环境变量连接到已有的远程数据库服务
 
 连接远程 PostgreSQL：
 ```bash
@@ -242,7 +175,7 @@ docker run -d \
   -e DB_PASSWORD=your_password \
   -e DB_NAME=noise \
   -v /opt/data/images:/app/data/images \
-  noise233/echo-noise:last
+  noise233/echo-noise
 ```
 
 连接远程 MySQL：
@@ -258,7 +191,7 @@ docker run -d \
   -e DB_PASSWORD=your_password \
   -e DB_NAME=noise \
   -v /opt/data/images:/app/data/images \
-  noise233/echo-noise:last
+  noise233/echo-noise
 ```
 
 注意事项：
@@ -276,41 +209,29 @@ docker run -d \
   --platform linux/amd64 \
   -p 1314:1314 \
   -e DB_TYPE=postgres \
-  -e DB_HOST=ep-old-reci-1.aws.neon.tech \
+  -e DB_HOST=your.host \
   -e DB_PORT=5432 \
-  -e DB_USER=noise_owner \
-  -e DB_PASSWORD=npg_NGOpDyX5 \
-  -e DB_NAME=noise \
+  -e DB_USER=user_owner \
+  -e DB_PASSWORD=password \
+  -e DB_NAME=yourname \
   -e DB_SSL_MODE=require \
   -v /opt/data/images:/app/data/images \
-  noise233/echo-noise:last
+  noise233/echo-noise
 ```
 
 注意事项：
 1. 添加了 `DB_SSL_MODE=require` 环境变量，因为 Neon 要求 SSL 连接
 2. 使用了连接 URL 中提供的主机名、用户名、密码和数据库名
-3. 确保数据库已创建相应的表结构
 4. 保持图片目录的挂载
 
 ## 数据的备份恢复
 
-对于所有数据库类型（SQLite/PostgreSQL/MySQL），点击数据库下载按钮后，都会先备份数据库文件
+对于所有数据库类型（SQLite/PostgreSQL/MySQL），点击后台数据库下载按钮后，都会先备份数据库文件
 
-- 然后通过 createBackupZip 函数将整个 tempDir（包含数据库备份和图片）打包成 zip 文件
+- 然后会将包含数据库备份和图片打包成 zip 文件
 - zip 文件中会包含：
   - 数据库备份文件（.db/.sql）
   - images 目录下的所有图片
-
-对于 PostgreSQL：
-
-- 备份：使用 pg_dump 命令将数据库导出为 .sql 或 .dump 文件
-- 恢复：使用 pg_restore 或 psql 命令将备份文件导入到数据库
-
-对于 MySQL：
-
-- 备份：使用 mysqldump 命令将数据库导出为 .sql 文件
-- 恢复：使用 mysql 命令将备份文件导入到数据库
-工作流程：
 
 ```plaintext
 备份过程：
@@ -320,30 +241,120 @@ docker run -d \
 上传备份文件 -> 解压缩 -> 执行恢复命令 -> 导入到云数据库
 ```
 
-整体恢复：
+恢复要求：
 
-- 根据数据库类型恢复数据库,非本地数据库请命名为database.sql并放入database.zip来恢复
-- 同时会恢复 images 目录下的所有图片
+- SQLite本地数据库备份和上传时默认使用的文件名是一致为noise.db
+- 非本地数据库PostgreSQL/MySQL请命名为database.sql并放入database.zip来恢复
+- 如果备份时zip中有图片文件夹则同时会恢复 images 目录下的所有图片
 
-## 说明
+⚠️ ：因PostgreSQL/MySQL云服务会有SSL连接、兼容版本号、数据表格式等要求，后台一键备份恢复不一定能满足你需要连接的远程数据库，请尽量前往服务商处下载备份
 
-目前会构建两个版本，稳定版：last  实验版：v3.0及之后的版本
+## API指南🧭
+
+*因api众多...需待更新完善...*
+
+先给出发布信息类的使用
+
+（获取信息是get,发布是post）
+
+先到后台获取api token,然后可以参考下面的命令运行或使用其它服务（记得将https://your.localhost.com 更改为你自己的服务地址）
+
+![1743847126537](https://s2.loli.net/2025/04/05/QqLEC1HUw2J9XO8.png)
+
+```
+# 发送纯文本信息
+curl -X POST 'https://your.localhost.com/api/token/messages' \
+-H 'Content-Type: application/json' \
+-H 'Authorization: c721249bd66e1133fba430ea9e3c32f1' \
+-d '{
+  "content": "测试信息",
+  "type": "text"
+}'
+```
+
+```
+# 方式1：使用 Markdown 语法发送文本
+curl -X POST 'https://your.localhost.com/api/token/messages' \
+-H 'Content-Type: application/json' \
+-H 'Authorization: c721249bd66e1133fba430ea9e3c32f1' \
+-d '{
+  "content": "# 标题\n这是一段文字\n![图片描述](https://example.com/image.jpg)",
+  "type": "text"
+}'
+
+# 方式2：使用 type: image 发送图片消息
+curl -X POST 'https://your.localhost.com/api/token/messages' \
+-H 'Content-Type: application/json' \
+-H 'Authorization: c721249bd66e1133fba430ea9e3c32f1' \
+-d '{
+  "content": "图片描述文字",
+  "type": "image",
+  "image": "https://example.com/image.jpg"
+}'
+```
+
+如果你想使用session 认证方式
+
+```
+curl -v -X POST 'https://your.localhost.com/api/messages' \
+-H 'Content-Type: application/json' \
+--cookie "your_session_cookie" \
+-d '{
+  "content": "测试信息",
+  "type": "text"
+}'
+```
+
+对于图文混合消息，可以这样发送：
+
+```bash
+curl -X POST 'https://your.localhost.com/api/token/messages' \
+-H 'Content-Type: application/json' \
+-H 'Authorization: c721249bd66e1133fba430ea9e3c32f1' \
+-d '{
+  "content": "# 这是标题\n\n这是一段文字说明\n\n![图片描述](https://example.com/image.jpg)\n\n继续写文字内容",
+  "type": "text"
+}'
+```
+
+```
+或者使用 multipart 类型：
+
+curl -X POST 'https://your.localhost.com/api/token/messages' \
+-H 'Content-Type: application/json' \
+-H 'Authorization: c721249bd66e1133fba430ea9e3c32f1' \
+-d '{
+  "content": "# 这是标题\n\n这是一段文字说明",
+  "type": "multipart",
+  "image": "https://example.com/image.jpg"
+}
+```
+
+
+
+## 发布说明
+
+目前会构建两个版本，
+
+稳定版：latest镜像  
+
+实验版：last镜像
 
 如果你需要构建自己的镜像发布-示例：
 
 ```
-docker buildx build --platform linux/amd64,linux/arm64 -t noise233/echo-noise:last --push --no-cache .
+docker buildx build --platform linux/amd64,linux/arm64 -t noise233/echo-noise:latest --push --no-cache .
 ```
 
 ## 问题🙋
 
-有之前别的数据库可以直接迁移吗
+数据库可以直接迁移吗
 
-1、直接上传至部署时挂载的路径中，重新部署，或者在容器文件夹/app/data/noise.db直接替换即可
+1、直接上传至部署时挂载的路径中，重新启用，或者在容器文件夹/app/data/noise.db直接替换即可
 
 2、使用后台数据库管理备份功能，支持一键下载、上传
 
-​    数据库文件下载为zip格式，上传也必须为zip，且包中必须有noise.db文件
+​    数据库文件下载为zip格式，上传也必须为zip，本地数据库恢复包中必须有noise.db文件
 
 ## 关于魔改指南🌈
 
@@ -367,7 +378,7 @@ docker buildx build --platform linux/amd64,linux/arm64 -t noise233/echo-noise:la
 - [x] post发布认证
 - [x] 后台和前端数据的匹配完善
 - [ ] 加入一键推送
-- [ ] 数据库的同步
+- [ ] 其它组件的添加
 
 ## 致谢
 
