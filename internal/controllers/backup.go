@@ -177,37 +177,31 @@ func HandleBackupRestore(c *gin.Context) {
         "shouldRefresh": true,
     })
 }
-
 func backupPostgres(tempDir string) error {
-    dumpFile := filepath.Join(tempDir, "database.dump")
+    dumpFile := filepath.Join(tempDir, "database.sql")
     
-    // 检查 pg_dump 是否可用
-    if _, err := exec.LookPath("pg_dump"); err != nil {
-        return fmt.Errorf("pg_dump 命令不可用: %v", err)
-    }
-
     args := []string{
         "-h", os.Getenv("DB_HOST"),
         "-p", os.Getenv("DB_PORT"),
         "-U", os.Getenv("DB_USER"),
-        "-F", "c",
+        "-d", os.Getenv("DB_NAME"),
         "-f", dumpFile,
         "--no-owner",
         "--no-privileges",
+        "--no-password",
+        "--clean",
+        "--if-exists",
+        "--no-tablespaces",
+        "--schema=public",      // 只备份 public schema
+        "--no-comments",        // 跳过注释
+        "--no-publications",    // 跳过发布
+        "--no-subscriptions",   // 跳过订阅
+        "--no-security-labels", // 跳过安全标签
     }
-
-    // 修改 SSL 模式参数的添加方式
-    sslMode := os.Getenv("DB_SSL_MODE")
-    if sslMode != "" {
-        args = append(args, fmt.Sprintf("--ssl-mode=%s", sslMode))
-    }
-
-    // 添加数据库名称
-    args = append(args, os.Getenv("DB_NAME"))
 
     cmd := exec.Command("pg_dump", args...)
     cmd.Env = append(os.Environ(), fmt.Sprintf("PGPASSWORD=%s", os.Getenv("DB_PASSWORD")))
-
+    
     var stderr bytes.Buffer
     cmd.Stderr = &stderr
 
@@ -218,35 +212,66 @@ func backupPostgres(tempDir string) error {
     return nil
 }
 func backupMySQL(tempDir string) error {
-    // 检查 mysqldump 是否可用
-    if _, err := exec.LookPath("mysqldump"); err != nil {
-        return fmt.Errorf("mysqldump 命令不可用: %v", err)
-    }
-
     dumpFile := filepath.Join(tempDir, "database.sql")
+    
     args := []string{
         "-h", os.Getenv("DB_HOST"),
         "-P", os.Getenv("DB_PORT"),
         "-u", os.Getenv("DB_USER"),
         fmt.Sprintf("-p%s", os.Getenv("DB_PASSWORD")),
-        "--set-gtid-purged=OFF",
-        "--no-tablespaces",
-        "--databases", os.Getenv("DB_NAME"),
+        "--skip-opt",              // 禁用所有优化选项
+        "--skip-comments",         // 跳过注释
+        "--skip-triggers",         // 跳过触发器
+        "--skip-extended-insert",  // 单行插入
+        "--compact",               // 最简输出
+        "--skip-ssl",
+        os.Getenv("DB_NAME"),
     }
 
-    cmd := exec.Command("mysqldump", args...)
+    // 先尝试使用 mariadb-dump
+    cmd := exec.Command("mariadb-dump", args...)
     outFile, err := os.Create(dumpFile)
     if err != nil {
         return err
     }
     defer outFile.Close()
 
+    cmd.Stdout = outFile
     var stderr bytes.Buffer
     cmd.Stderr = &stderr
-    cmd.Stdout = outFile
 
     if err := cmd.Run(); err != nil {
-        return fmt.Errorf("mysqldump 执行失败: %v, 错误输出: %s", err, stderr.String())
+        // 如果失败，尝试最基础的备份方式
+        args = []string{
+            "-h", os.Getenv("DB_HOST"),
+            "-P", os.Getenv("DB_PORT"),
+            "-u", os.Getenv("DB_USER"),
+            fmt.Sprintf("-p%s", os.Getenv("DB_PASSWORD")),
+            "--skip-opt",
+            "--compact",
+            "--skip-ssl",
+            os.Getenv("DB_NAME"),
+        }
+        cmd = exec.Command("mariadb-dump", args...)
+        outFile.Seek(0, 0)
+        outFile.Truncate(0)
+        cmd.Stdout = outFile
+        cmd.Stderr = &stderr
+        err = cmd.Run()
+
+        if err != nil {
+            // 最后尝试使用 mysqldump
+            cmd = exec.Command("mysqldump", args...)
+            outFile.Seek(0, 0)
+            outFile.Truncate(0)
+            cmd.Stdout = outFile
+            cmd.Stderr = &stderr
+            err = cmd.Run()
+            
+            if err != nil {
+                return fmt.Errorf("数据库备份失败: %v, 错误输出: %s", err, stderr.String())
+            }
+        }
     }
 
     return nil
@@ -259,63 +284,104 @@ func backupSQLite(tempDir string) error {
 
     return copyFile(dbPath, filepath.Join(tempDir, "database.db"))
 }
-
 func restorePostgres(tempDir string) error {
-    dumpFile := filepath.Join(tempDir, "database.dump")
+    dumpFile := filepath.Join(tempDir, "database.sql")
+    
+    // 先清理现有连接并重建数据库
+    cleanCmd := exec.Command("psql",
+        "-h", os.Getenv("DB_HOST"),
+        "-p", os.Getenv("DB_PORT"),
+        "-U", os.Getenv("DB_USER"),
+        "-d", "postgres",
+        "-c", fmt.Sprintf(`
+            SELECT pg_terminate_backend(pid) 
+            FROM pg_stat_activity 
+            WHERE datname = '%s' 
+            AND pid <> pg_backend_pid();
+            DROP DATABASE IF EXISTS %s;
+            CREATE DATABASE %s WITH ENCODING='UTF8';
+        `, os.Getenv("DB_NAME"), os.Getenv("DB_NAME"), os.Getenv("DB_NAME")),
+    )
+    cleanCmd.Env = append(os.Environ(), fmt.Sprintf("PGPASSWORD=%s", os.Getenv("DB_PASSWORD")))
+    if err := cleanCmd.Run(); err != nil {
+        return fmt.Errorf("清理数据库失败: %v", err)
+    }
+
+    // 恢复数据
     args := []string{
         "-h", os.Getenv("DB_HOST"),
         "-p", os.Getenv("DB_PORT"),
         "-U", os.Getenv("DB_USER"),
         "-d", os.Getenv("DB_NAME"),
-        "-c",
+        "-f", dumpFile,
+        "--single-transaction",
         "--no-owner",
         "--no-privileges",
     }
-
-    // 修改 SSL 模式参数的添加方式
-    sslMode := os.Getenv("DB_SSL_MODE")
-    if sslMode != "" {
-        args = append(args, fmt.Sprintf("--ssl-mode=%s", sslMode))
-    }
-
-    args = append(args, dumpFile)
     
-    cmd := exec.Command("pg_restore", args...)
+    cmd := exec.Command("psql", args...)
     cmd.Env = append(os.Environ(), fmt.Sprintf("PGPASSWORD=%s", os.Getenv("DB_PASSWORD")))
-    return cmd.Run()
-}
-
-func restoreMySQL(tempDir string) error {
-    // 检查 mysql 命令是否可用
-    if _, err := exec.LookPath("mysql"); err != nil {
-        return fmt.Errorf("mysql 命令不可用: %v", err)
-    }
-
-    dumpFile := filepath.Join(tempDir, "database.sql")
-    cmd := exec.Command("mysql",
-        "-h", os.Getenv("DB_HOST"),
-        "-P", os.Getenv("DB_PORT"),
-        "-u", os.Getenv("DB_USER"),
-        fmt.Sprintf("-p%s", os.Getenv("DB_PASSWORD")),
-        os.Getenv("DB_NAME"))
-
-    inFile, err := os.Open(dumpFile)
-    if err != nil {
-        return err
-    }
-    defer inFile.Close()
-
+    
     var stderr bytes.Buffer
     cmd.Stderr = &stderr
-    cmd.Stdin = inFile
-
+    
     if err := cmd.Run(); err != nil {
-        return fmt.Errorf("mysql 恢复失败: %v, 错误输出: %s", err, stderr.String())
+        return fmt.Errorf("psql 执行失败: %v, 错误输出: %s", err, stderr.String())
     }
 
     return nil
 }
+func restoreMySQL(tempDir string) error {
+    dumpFile := filepath.Join(tempDir, "database.sql")
+    
+    // 先尝试使用 mariadb
+    client := "mariadb"
+    args := []string{
+        "-h", os.Getenv("DB_HOST"),
+        "-P", os.Getenv("DB_PORT"),
+        "-u", os.Getenv("DB_USER"),
+        fmt.Sprintf("-p%s", os.Getenv("DB_PASSWORD")),
+        "--skip-ssl",
+    }
 
+    // 测试连接
+    testCmd := exec.Command(client, append(args, "-e", "SELECT 1")...)
+    if err := testCmd.Run(); err != nil {
+        // 如果 mariadb 失败，尝试 mysql
+        client = "mysql"
+        testCmd = exec.Command(client, append(args, "-e", "SELECT 1")...)
+        if err := testCmd.Run(); err != nil {
+            return fmt.Errorf("数据库连接失败: %v", err)
+        }
+    }
+
+    // 重置数据库
+    resetCmd := exec.Command(client, append(args, 
+        "-e", fmt.Sprintf("DROP DATABASE IF EXISTS %s; CREATE DATABASE %s CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;", 
+            os.Getenv("DB_NAME"), os.Getenv("DB_NAME")))...)
+    if err := resetCmd.Run(); err != nil {
+        return fmt.Errorf("重置数据库失败: %v", err)
+    }
+
+    // 恢复数据
+    restoreArgs := append(args, os.Getenv("DB_NAME"))
+    cmd := exec.Command(client, restoreArgs...)
+    inFile, err := os.Open(dumpFile)
+    if err != nil {
+        return fmt.Errorf("打开备份文件失败: %v", err)
+    }
+    defer inFile.Close()
+
+    cmd.Stdin = inFile
+    var stderr bytes.Buffer
+    cmd.Stderr = &stderr
+
+    if err := cmd.Run(); err != nil {
+        return fmt.Errorf("数据库恢复失败: %v, 错误输出: %s", err, stderr.String())
+    }
+
+    return nil
+}
 func restoreSQLite(tempDir string) error {
     dbPath := os.Getenv("DB_PATH")
     if dbPath == "" {

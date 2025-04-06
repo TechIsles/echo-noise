@@ -304,7 +304,7 @@ docker run -d \
 
 - 然后通过 createBackupZip 函数将整个 tempDir（包含数据库备份和图片）打包成 zip 文件
 - zip 文件中会包含：
-  - 数据库备份文件（.db/.dump/.sql）
+  - 数据库备份文件（.db/.sql）
   - images 目录下的所有图片
 
 对于 PostgreSQL：
@@ -328,7 +328,7 @@ docker run -d \
 
 整体恢复：
 
-- 根据数据库类型恢复数据库
+- 根据数据库类型恢复数据库,非本地数据库请命名为database.sql并放入database.zip来恢复
 - 同时会恢复 images 目录下的所有图片
 
 ## 说明
@@ -361,10 +361,6 @@ docker buildx build --platform linux/amd64,linux/arm64 -t noise233/echo-noise:la
 - migrate.go 用于数据库迁移和数据初始化
 
 👉前端基本在web目录下，目前模版文件为components目录文件，pages下index.vue为父级模版
-
-👉可以增加如mysql的在线数据库的存储功能吗？
-
-可以，database.go中修改增加即可，自己调整即可，但目前db文件的一键下载存储及一键上传恢复是目前体验最佳的！
 
 👉建议：不要和我一样在同一个文件里修改添加，造成一个文件上千行代码...请尽量使用父子层级来添加代码
 

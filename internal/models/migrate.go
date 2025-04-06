@@ -5,16 +5,20 @@ import (
 )
 
 func MigrateDB(db *gorm.DB) error {
-    // 获取数据库类型并设置对应的迁移选项
     dbType := db.Dialector.Name()
     var err error
     switch dbType {
     case "postgres":
-        err = db.Set("gorm:table_options", "").AutoMigrate(&User{}, &Message{}, &Setting{}, &SiteConfig{})
+        err = db.Set("gorm:table_options", "").
+            Set("gorm:varchar_size", 255).  // PostgreSQL 可以使用更长的字符串
+            AutoMigrate(&User{}, &Message{}, &Setting{}, &SiteConfig{})
     case "mysql":
-        err = db.Set("gorm:table_options", "ENGINE=InnoDB CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci").AutoMigrate(&User{}, &Message{}, &Setting{}, &SiteConfig{})
+        err = db.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci").
+            Set("gorm:varchar_size", 191).  // MySQL 使用较短的长度以适应索引限制
+            AutoMigrate(&User{}, &Message{}, &Setting{}, &SiteConfig{})
     default: // sqlite
-        err = db.AutoMigrate(&User{}, &Message{}, &Setting{}, &SiteConfig{})
+        err = db.Set("gorm:varchar_size", 255).  // SQLite 可以使用更长的字符串
+            AutoMigrate(&User{}, &Message{}, &Setting{}, &SiteConfig{})
     }
     
     if err != nil {

@@ -18,21 +18,22 @@ type UserStatus struct {
 }
 
 type Message struct {
-	ID        uint      `gorm:"primaryKey" json:"id"`
-	Content   string    `gorm:"type:text;not null" json:"content"`
-	Username  string    `gorm:"type:varchar(100)" json:"username,omitempty"`
-	ImageURL  string    `gorm:"type:text" json:"image_url,omitempty"`
-	Private   bool      `gorm:"default:false" json:"private"`
-	UserID    uint      `gorm:"not null;index" json:"user_id"`
-	CreatedAt time.Time `json:"created_at"`
+    ID        uint      `gorm:"primaryKey" json:"id"`
+    Content   string    `gorm:"type:text;not null" json:"content"`
+    Username  string    `gorm:"type:varchar(100)" json:"username,omitempty"`
+    ImageURL  string    `gorm:"type:text" json:"image_url,omitempty"`
+    Private   bool      `gorm:"default:false" json:"private"`
+    UserID    uint      `gorm:"not null;index" json:"user_id"`
+    CreatedAt time.Time `json:"created_at"`
 }
 
+
 type User struct {
-	ID       uint   `gorm:"primaryKey" json:"id"`
-	Username string `gorm:"size:255;not null;unique" json:"username"`
-	Password string `gorm:"size:255;not null" json:"password"`
-	IsAdmin  bool   `json:"is_admin"`
-	Token    string `gorm:"type:varchar(255)" json:"token"`
+    ID       uint   `gorm:"primaryKey" json:"id"`
+    Username string `gorm:"type:varchar(191);not null;uniqueIndex" json:"username"`
+    Password string `gorm:"type:varchar(191);not null" json:"password"`
+    IsAdmin  bool   `json:"is_admin"`
+    Token    string `gorm:"type:varchar(191)" json:"token"`
 }
 // 生成 Token 的工具函数
 func GenerateToken(length int) string {
@@ -60,22 +61,22 @@ type Setting struct {
 }
 
 type SiteConfig struct {
-	gorm.Model
-	SiteTitle        string `gorm:"type:varchar(100)"`
-	SubtitleText     string `gorm:"type:varchar(200)"`
-	AvatarURL        string `gorm:"type:varchar(500)"`
-	Username         string `gorm:"type:varchar(50)"`
-	Description      string `gorm:"type:varchar(200)"`
-	Backgrounds      string `gorm:"type:text"`
-	CardFooterTitle  string `gorm:"type:varchar(100)"`
-	CardFooterLink   string `gorm:"type:varchar(100)"`
-	PageFooterHTML   string `gorm:"type:text"`
-	RSSTitle         string `gorm:"type:varchar(100)"`
-	RSSDescription   string `gorm:"type:varchar(200)"`
-	RSSAuthorName    string `gorm:"type:varchar(50)"`
-	RSSFaviconURL    string `gorm:"type:varchar(500)"`
-	WalineServerURL  string `gorm:"type:varchar(500)"`
-	Version          int    `json:"version"`
+    gorm.Model
+    SiteTitle        string `gorm:"type:varchar(100)"`
+    SubtitleText     string `gorm:"type:varchar(191)"`
+    AvatarURL        string `gorm:"type:varchar(191)"`
+    Username         string `gorm:"type:varchar(50)"`
+    Description      string `gorm:"type:varchar(191)"`
+    Backgrounds      string `gorm:"type:text"`
+    CardFooterTitle  string `gorm:"type:varchar(100)"`
+    CardFooterLink   string `gorm:"type:varchar(100)"`
+    PageFooterHTML   string `gorm:"type:text"`
+    RSSTitle         string `gorm:"type:varchar(100)"`
+    RSSDescription   string `gorm:"type:varchar(191)"`
+    RSSAuthorName    string `gorm:"type:varchar(50)"`
+    RSSFaviconURL    string `gorm:"type:varchar(191)"`
+    WalineServerURL  string `gorm:"type:varchar(191)"`
+    Version          int    `json:"version"`
 }
 
 func (s *SiteConfig) GetBackgroundsList() []string {

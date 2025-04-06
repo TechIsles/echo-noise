@@ -267,6 +267,9 @@
                 恢复数据库
             </UButton>
         </div>
+        <div class="text-yellow-400 text-sm max-h-16 overflow-y-auto bg-gray-800/50 rounded p-2">
+            🔔：SQLite一键备份恢复，因兼容问题，如果你在使用云端的PostgreSQL/MySQL数据库，可以尝试，但最好前往云服务端来备份和恢复
+        </div>
         <input
             type="file"
             ref="databaseFileInput"
