@@ -22,38 +22,16 @@ export const useMessageStore = defineStore("messageStore", () => {
   };
 
   // 分页获取笔记列表
-  const getMessages = async (query: PageQuery) => {
-    if (loading.value) return;
-    loading.value = true;
+const getMessages = async (query: PageQuery) => {
+  if (loading.value) return;
+  loading.value = true;
 
-    try {
-      const response = await postRequest<PageQueryResult>("messages/page", query, {
-        credentials: 'include'
-      });
-      
-      if (!response) {
-        toast.add({
-          title: "获取笔记列表失败",
-          description: "请稍后重试",
-          icon: "i-fluent-error-circle-16-filled",
-          color: "red",
-          timeout: 2000,
-        });
-        return null;
-      }
-
-      if (query.page === 1) {
-        messages.value = response.data.items;
-      } else {
-        messages.value = [...messages.value, ...response.data.items];
-      }
-
-      total.value = response.data.total;
-      page.value = query.page;
-      hasMore.value = messages.value.length < total.value;
-
-    } catch (error) {
-      console.error("获取笔记列表失败:", error);
+  try {
+    const response = await postRequest<PageQueryResult>("messages/page", query, {
+      credentials: 'include'
+    });
+    
+    if (!response) {
       toast.add({
         title: "获取笔记列表失败",
         description: "请稍后重试",
@@ -61,10 +39,39 @@ export const useMessageStore = defineStore("messageStore", () => {
         color: "red",
         timeout: 2000,
       });
-    } finally {
-      loading.value = false;
+      return null;
     }
-  };
+
+    // 过滤重复数据
+    const newItems = response.data.items.filter(newMsg => 
+      !messages.value.some(existingMsg => existingMsg.id === newMsg.id)
+    );
+
+    if (query.page === 1) {
+      messages.value = response.data.items;
+    } else {
+      messages.value = [...messages.value, ...newItems];
+    }
+
+    total.value = response.data.total;
+    page.value = query.page;
+    pageSize.value = query.pageSize;
+    hasMore.value = messages.value.length < total.value;
+
+    return response.data;
+  } catch (error) {
+    console.error("获取笔记列表失败:", error);
+    toast.add({
+      title: "获取笔记列表失败",
+      description: "请稍后重试",
+      icon: "i-fluent-error-circle-16-filled",
+      color: "red",
+      timeout: 2000,
+    });
+  } finally {
+    loading.value = false;
+  }
+};
 
   // 删除笔记
   const deleteMessage = async (id: number) => {

@@ -93,14 +93,14 @@
         <!-- 加载更多按钮 -->
       <div v-if="!isSearchMode && message.hasMore" class="flex justify-center w-full my-4">
         <UButton 
-          color="gray" 
-          variant="outline" 
-          size="sm" 
-          class="rounded-full px-6 py-2 bg-[rgba(36,43,50,0.95)] text-white hover:text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm"
-          @click="message.getMessages({ page: message.page + 1, pageSize: 10 })"
-        >
-          加载更多...
-        </UButton>
+  color="gray" 
+  variant="outline" 
+  size="sm" 
+  class="rounded-full px-6 py-2 bg-[rgba(36,43,50,0.95)] text-white hover:text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm"
+  @click="loadMore"
+>
+  加载更多...
+</UButton>
       </div>
       <!-- 加载完毕提示~ -->
       <div v-else-if="message.messages.length > 0" class="text-center text-gray-500 mt-4">
@@ -382,7 +382,33 @@ onMounted(async () => {
     console.error('初始化失败:', error);
   }
 });
-
+// 添加 loadMore 方法
+const loadMore = async () => {
+  try {
+    // 使用相同的 pageSize
+    const result = await message.getMessages({
+      page: message.page + 1,
+      pageSize: 15,
+    });
+    
+    // 检查是否有重复数据
+    if (result && result.items) {
+      const newMessages = result.items.filter(newMsg => 
+        !message.messages.some(existingMsg => existingMsg.id === newMsg.id)
+      );
+      
+      // 只添加非重复的消息
+      message.messages.push(...newMessages);
+    }
+  } catch (error) {
+    console.error('加载更多失败:', error);
+    useToast().add({
+      title: '加载失败',
+      color: 'red',
+      timeout: 2000
+    });
+  }
+};
 // 添加登录状态变化监听
 watch(
   () => userStore.isLogin,

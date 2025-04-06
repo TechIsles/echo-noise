@@ -97,65 +97,78 @@ func GenerateRSS(c *gin.Context) (string, error) {
         return "", err
     }
 
+    // 获取站点配置
+    config, err := GetFrontendConfig()
+    if err != nil {
+        return "", err
+    }
+    frontendSettings := config["frontendSettings"].(map[string]interface{})
+
     schema := "http"
     if c.Request.TLS != nil {
         schema = "https"
     }
     host := c.Request.Host
 
+    // 使用配置值，如果为空则使用默认值
+    rssTitle := "noise说说笔记"
+    rssDescription := "一个说说笔记~"
+    rssAuthorName := "noise"
+    rssFaviconURL := "/favicon.ico"
+
+    if title, ok := frontendSettings["rssTitle"].(string); ok && title != "" {
+        rssTitle = title
+    }
+    if desc, ok := frontendSettings["rssDescription"].(string); ok && desc != "" {
+        rssDescription = desc
+    }
+    if author, ok := frontendSettings["rssAuthorName"].(string); ok && author != "" {
+        rssAuthorName = author
+    }
+    if favicon, ok := frontendSettings["rssFaviconURL"].(string); ok && favicon != "" {
+        rssFaviconURL = favicon
+    }
+
     feed := &feeds.Feed{
-        Title: "Noise的说说笔记",
+        Title: rssTitle,
         Link: &feeds.Link{
             Href: fmt.Sprintf("%s://%s/", schema, host),
         },
         Image: &feeds.Image{
-            Url: fmt.Sprintf("%s://%s/favicon.ico", schema, host),
+            Url:   fmt.Sprintf("%s://%s%s", schema, host, rssFaviconURL),
+            Title: rssTitle,
+            Link:  fmt.Sprintf("%s://%s/", schema, host),
         },
-        Description: "一个说说笔记~",
+        Description: rssDescription,
         Author: &feeds.Author{
-            Name: "Noise",
+            Name: rssAuthorName,
         },
         Updated: time.Now(),
     }
 
     for _, msg := range messages {
-        // 处理内容
-        content := msg.Content
-        if msg.ImageURL != "" {
-            imageURL := fmt.Sprintf("%s://%s/api%s", schema, host, msg.ImageURL)
-            content = fmt.Sprintf("![图片](%s)\n\n%s", imageURL, content)
-        }
+        // 渲染 Markdown 内容
+        renderedContent := pkg.MdToHTML([]byte(msg.Content))
 
-        // 渲染 Markdown
-        htmlContent := pkg.MdToHTML([]byte(content))
-
-        // 生成标题
-        title := msg.Username
-        if firstLine := pkg.GetFirstLine(msg.Content); firstLine != "" {
-            title = firstLine
-        }
-
-        // 生成前端页面 URL
-        pageURL := fmt.Sprintf("%s://%s/#/messages/%d", schema, host, msg.ID)
+        title := msg.Username + " - " + msg.CreatedAt.Format("2006-01-02")
 
         item := &feeds.Item{
             Title:       title,
-            Link:        &feeds.Link{Href: pageURL},
-            Description: string(htmlContent),
+            Link:        &feeds.Link{Href: fmt.Sprintf("%s://%s/api/messages/%d", schema, host, msg.ID)},
+            Description: string(renderedContent),
             Author:      &feeds.Author{Name: msg.Username},
             Created:     msg.CreatedAt,
-            Id:         pageURL,
         }
 
         feed.Items = append(feed.Items, item)
     }
 
-    rss, err := feed.ToRss()
+    atom, err := feed.ToAtom()
     if err != nil {
         return "", err
     }
 
-    return rss, nil
+    return atom, nil
 }
 // UpdateMessage 更新消息内容
 func UpdateMessage(messageID uint, content string) error {

@@ -219,6 +219,10 @@ docker run -d \
 
 `/opt/data/noise.db`是你本地的数据库文件，如果没有会自动创建
 
+默认用户名：admin
+
+默认用户密码：admin
+
 ### docker-componse构建部署
 
 在该目录下执行以下命令启动服务：
@@ -270,7 +274,7 @@ docker run -d \
 4. 建议使用加密连接
 5. 注意数据库的字符集设置
 
-对于 Neon PostgreSQL 这样的云数据库服务，需要使用特定的连接参数。以下是连接命令：
+对于 [Neon PostgreSQL](https://console.neon.tech/) 这样的云数据库服务，需要使用特定的连接参数。以下是连接命令：
 
 ```bash
 docker run -d \

@@ -75,15 +75,5 @@ COPY ./data/noise.db /app/data/
 # 暴露应用端口
 EXPOSE 1314
 
-# 设置默认环境变量
-ENV DB_TYPE=sqlite \
-    DB_PATH=/app/data/noise.db \
-    DB_HOST="" \
-    DB_PORT="" \
-    DB_USER="" \
-    DB_PASSWORD="" \
-    DB_NAME="" \
-    DB_SSL_MODE="disable"
-
 # 启动应用
 CMD ["/app/noise"]

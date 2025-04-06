@@ -3,6 +3,7 @@ package controllers
 import (
     "archive/zip"
     "fmt"
+    "bytes"
     "github.com/gin-contrib/sessions"
     "github.com/gin-gonic/gin"
     "github.com/lin-snow/ech0/internal/database"
@@ -178,49 +179,52 @@ func HandleBackupRestore(c *gin.Context) {
 }
 
 func backupPostgres(tempDir string) error {
-    host := os.Getenv("DB_HOST")
-    port := os.Getenv("DB_PORT")
-    user := os.Getenv("DB_USER")
-    password := os.Getenv("DB_PASSWORD")
-    dbname := os.Getenv("DB_NAME")
-    sslMode := os.Getenv("DB_SSL_MODE")
-    if sslMode == "" {
-        sslMode = "disable"
+    dumpFile := filepath.Join(tempDir, "database.dump")
+    
+    // 检查 pg_dump 是否可用
+    if _, err := exec.LookPath("pg_dump"); err != nil {
+        return fmt.Errorf("pg_dump 命令不可用: %v", err)
     }
 
-    dumpFile := filepath.Join(tempDir, "database.dump")
-    cmd := exec.Command("pg_dump",
-        "-h", host,
-        "-p", port,
-        "-U", user,
+    args := []string{
+        "-h", os.Getenv("DB_HOST"),
+        "-p", os.Getenv("DB_PORT"),
+        "-U", os.Getenv("DB_USER"),
         "-F", "c",
         "-f", dumpFile,
         "--no-owner",
         "--no-privileges",
-        fmt.Sprintf("--ssl-mode=%s", sslMode),
-        dbname)
-    
-    cmd.Env = append(os.Environ(), fmt.Sprintf("PGPASSWORD=%s", password))
-    return cmd.Run()
+        fmt.Sprintf("--ssl-mode=%s", os.Getenv("DB_SSL_MODE")),
+        os.Getenv("DB_NAME"),
+    }
+
+    cmd := exec.Command("pg_dump", args...)
+    cmd.Env = append(os.Environ(), fmt.Sprintf("PGPASSWORD=%s", os.Getenv("DB_PASSWORD")))
+
+    var stderr bytes.Buffer
+    cmd.Stderr = &stderr
+
+    if err := cmd.Run(); err != nil {
+        return fmt.Errorf("pg_dump 执行失败: %v, 错误输出: %s", err, stderr.String())
+    }
+
+    return nil
 }
 
-func backupMySQL(tempDir string) error {
-    host := os.Getenv("DB_HOST")
-    port := os.Getenv("DB_PORT")
-    user := os.Getenv("DB_USER")
-    password := os.Getenv("DB_PASSWORD")
-    dbname := os.Getenv("DB_NAME")
 
+func backupMySQL(tempDir string) error {
     dumpFile := filepath.Join(tempDir, "database.sql")
-    cmd := exec.Command("mysqldump",
-        "-h", host,
-        "-P", port,
-        "-u", user,
-        fmt.Sprintf("-p%s", password),
+    args := []string{
+        "-h", os.Getenv("DB_HOST"),
+        "-P", os.Getenv("DB_PORT"),
+        "-u", os.Getenv("DB_USER"),
+        fmt.Sprintf("-p%s", os.Getenv("DB_PASSWORD")),
         "--set-gtid-purged=OFF",
         "--no-tablespaces",
-        "--databases", dbname)
+        "--databases", os.Getenv("DB_NAME"),
+    }
 
+    cmd := exec.Command("mysqldump", args...)
     outFile, err := os.Create(dumpFile)
     if err != nil {
         return err
@@ -241,46 +245,30 @@ func backupSQLite(tempDir string) error {
 }
 
 func restorePostgres(tempDir string) error {
-    host := os.Getenv("DB_HOST")
-    port := os.Getenv("DB_PORT")
-    user := os.Getenv("DB_USER")
-    password := os.Getenv("DB_PASSWORD")
-    dbname := os.Getenv("DB_NAME")
-    sslMode := os.Getenv("DB_SSL_MODE")
-    if sslMode == "" {
-        sslMode = "disable"
-    }
-
     dumpFile := filepath.Join(tempDir, "database.dump")
     cmd := exec.Command("pg_restore",
-        "-h", host,
-        "-p", port,
-        "-U", user,
-        "-d", dbname,
+        "-h", os.Getenv("DB_HOST"),
+        "-p", os.Getenv("DB_PORT"),
+        "-U", os.Getenv("DB_USER"),
+        "-d", os.Getenv("DB_NAME"),
         "-c",
         "--no-owner",
         "--no-privileges",
-        fmt.Sprintf("--ssl-mode=%s", sslMode),
+        fmt.Sprintf("--ssl-mode=%s", os.Getenv("DB_SSL_MODE")),
         dumpFile)
     
-    cmd.Env = append(os.Environ(), fmt.Sprintf("PGPASSWORD=%s", password))
+    cmd.Env = append(os.Environ(), fmt.Sprintf("PGPASSWORD=%s", os.Getenv("DB_PASSWORD")))
     return cmd.Run()
 }
 
 func restoreMySQL(tempDir string) error {
-    host := os.Getenv("DB_HOST")
-    port := os.Getenv("DB_PORT")
-    user := os.Getenv("DB_USER")
-    password := os.Getenv("DB_PASSWORD")
-    dbname := os.Getenv("DB_NAME")
-
     dumpFile := filepath.Join(tempDir, "database.sql")
     cmd := exec.Command("mysql",
-        "-h", host,
-        "-P", port,
-        "-u", user,
-        fmt.Sprintf("-p%s", password),
-        dbname)
+        "-h", os.Getenv("DB_HOST"),
+        "-P", os.Getenv("DB_PORT"),
+        "-u", os.Getenv("DB_USER"),
+        fmt.Sprintf("-p%s", os.Getenv("DB_PASSWORD")),
+        os.Getenv("DB_NAME"))
 
     inFile, err := os.Open(dumpFile)
     if err != nil {
