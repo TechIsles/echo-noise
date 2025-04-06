@@ -190,12 +190,12 @@ func getDefaultConfig() map[string]interface{} {
             },
             "cardFooterTitle":    "Noise·说说·笔记~",
             "cardFooterLink":     "note.noisework.cn",
-            "pageFooterHTML":     `<div class="text-center text-xs text-gray-400 py-4">来自<a href="https://www.noisework.cn" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Noise</a> 使用<a href="https://github.com/lin-snow/Ech0" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Ech0</a>发布</div>`,
+            "pageFooterHTML":     `<div class="text-center text-xs text-gray-400 py-4">来自<a href="https://www.noisework.cn" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Noise</a> 使用<a href="https://github.com/rcy1314/echo-noise" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Ech0-Noise</a>发布</div>`,
             "rssTitle":          "Noise的说说笔记",
             "rssDescription":    "一个说说笔记~",
             "rssAuthorName":     "Noise",
             "rssFaviconURL":     "/favicon.ico",
-            "walineServerURL":   "https://app-production-80c1.up.railway.app",
+            "walineServerURL":   "请前往waline官网https://waline.js.org查看部署配置",
         },
     }
 }
