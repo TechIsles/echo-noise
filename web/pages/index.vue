@@ -31,7 +31,11 @@
     <!-- 添加表单 -->
     <AddForm @search-result="handleSearchResult" />
         <!-- 确保 MessageList 有足够的 z-index -->
-        <MessageList ref="messageList" class="message-list-container" />
+        <MessageList 
+  ref="messageList" 
+  class="message-list-container" 
+  :site-config="frontendConfig"
+/>
       </UContainer>
       <Notification />
       <!-- 添加搜索模态框组件 -->
@@ -104,23 +108,14 @@ const headerImageStyle = computed(() => ({
 }))
 // 修改 fetchConfig 方法
 
-const fetchConfig = async () => {
-    try {
-        const response = await fetch('/api/frontend/config');
-        if (!response.ok) throw new Error('Network response was not ok');
-        
-        const data = await response.json();
-        console.log('获取到的配置数据:', data); // 添加调试日志
-        
-        if (data && data.frontendSettings) {
-            const settings = data.frontendSettings;
-            frontendConfig.value = {
-                siteTitle: settings.siteTitle || 'Noise的说说笔记',
-                subtitleText: settings.subtitleText || '欢迎访问，点击头像可更换封面背景！',
-                avatarURL: settings.avatarURL || 'https://s2.loli.net/2025/03/24/HnSXKvibAQlosIW.png',
-                username: settings.username || 'Noise',
-                description: settings.description || '执迷不悟',
-                backgrounds: settings.backgrounds || [
+// 首先添加默认配置对象
+const defaultConfig = {
+    siteTitle: 'Noise的说说笔记',
+    subtitleText: '欢迎访问，点击头像可更换封面背景！',
+    avatarURL: 'https://s2.loli.net/2025/03/24/HnSXKvibAQlosIW.png',
+    username: 'Noise',
+    description: '执迷不悟',
+    backgrounds: [
                 'https://s2.loli.net/2025/03/27/KJ1trnU2ksbFEYM.jpg',
                 'https://s2.loli.net/2025/03/27/MZqaLczCvwjSmW7.jpg',
                 'https://s2.loli.net/2025/03/27/UMijKXwJ9yTqSeE.jpg',
@@ -134,63 +129,72 @@ const fetchConfig = async () => {
                 'https://s2.loli.net/2025/03/26/d7iyuPYA8cRqD1K.jpg',
                 'https://s2.loli.net/2025/03/27/wYy12qDMH6bGJOI.jpg',
                 'https://s2.loli.net/2025/03/27/y67m2k5xcSdTsHN.jpg',
-                ],
-                rssTitle: settings.rssTitle || 'Noise的说说笔记',
-                rssDescription: settings.rssDescription || '一个说说笔记~',
-                rssAuthorName: settings.rssAuthorName || 'Noise',
-                rssFaviconURL: settings.rssFaviconURL || '/favicon.ico',
-              };
-            // 设置初始背景图并标记为已加载
-            if (frontendConfig.value.backgrounds.length > 0) {
-                currentImage.value = frontendConfig.value.backgrounds[0];
-                const img = new Image();
-                img.src = currentImage.value;
-                img.onload = () => {
-                    isLoaded.value = true;
-                };
-            } else {
-                isLoaded.value = true; // 如果没有背景图也要设置为已加载
-            }
-        } else {
-            throw new Error('Invalid response format');
-        }
-    } catch (error) {
-        console.error('获取配置失败:', error);
-        // 设置默认值
-        frontendConfig.value = {
-            siteTitle: 'Noise的说说笔记',
-            subtitleText: '欢迎访问，点击头像可更换封面背景！',
-            avatarURL: 'https://s2.loli.net/2025/03/24/HnSXKvibAQlosIW.png',
-            username: 'Noise',
-            description: '执迷不悟',
-            backgrounds: [
-                'https://s2.loli.net/2025/03/27/KJ1trnU2ksbFEYM.jpg',
-                'https://s2.loli.net/2025/03/27/MZqaLczCvwjSmW7.jpg',
-                'https://s2.loli.net/2025/03/27/UMijKXwJ9yTqSeE.jpg',
-                'https://s2.loli.net/2025/03/27/WJQIlkXvBg2afcR.jpg',
-                'https://s2.loli.net/2025/03/27/oHNQtf4spkq2iln.jpg',
-                'https://s2.loli.net/2025/03/27/PMRuX5loc6Uaimw.jpg',
-                'https://s2.loli.net/2025/03/27/U2WIslbNyTLt4rD.jpg',
-                'https://s2.loli.net/2025/03/27/xu1jZL5Og4pqT9d.jpg',
-                'https://s2.loli.net/2025/03/27/OXqwzZ6v3PVIns9.jpg',
-                'https://s2.loli.net/2025/03/27/HGuqlE6apgNywbh.jpg',
-                'https://s2.loli.net/2025/03/26/d7iyuPYA8cRqD1K.jpg',
-                'https://s2.loli.net/2025/03/27/7Zck3y6XTzhYPs5.jpg',
-                'https://s2.loli.net/2025/03/27/y67m2k5xcSdTsHN.jpg',
-            ],
-            cardFooterTitle: 'Noise·说说·笔记~',
-            cardFooterSubtitle: 'note.noisework.cn',
-            pageFooterHTML: '<div class="text-center text-xs text-gray-400 py-4">来自<a href="https://www.noisework.cn" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Noise</a> 使用<a href="https://github.com/lin-snow/Ech0" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Ech0</a>发布</div>',
-            rssTitle: 'Noise的说说笔记',
-            rssDescription: '一个说说笔记~',
-            rssAuthorName: 'Noise',
-            rssFaviconURL: '/favicon.ico'
-        };
-        isLoaded.value = true; // 错误时也要设置为已加载
-    }
+    ],
+    cardFooterTitle: 'Noise·说说·笔记~',
+    cardFooterSubtitle: 'note.noisework.cn',
+    pageFooterHTML: '<div class="text-center text-xs text-gray-400 py-4">来自<a href="https://www.noisework.cn" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Noise</a> 使用<a href="https://github.com/lin-snow/Ech0" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Ech0</a>发布</div>',
+    rssTitle: 'Noise的说说笔记',
+    rssDescription: '一个说说笔记~',
+    rssAuthorName: 'Noise',
+    rssFaviconURL: '/favicon.ico',
+    walineServerURL: 'https://app-production-80c1.up.railway.app'
 };
 
+// 修改 fetchConfig 方法
+const fetchConfig = async () => {
+    try {
+        // 先设置默认值
+        frontendConfig.value = { ...defaultConfig };
+        
+        const response = await fetch('/api/frontend/config', {
+            credentials: 'include',
+            headers: {
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        
+        const data = await response.json();
+        console.log('获取到的配置数据:', data);
+        
+        if (data?.data?.frontendSettings) {
+            const settings = data.data.frontendSettings;
+            // 更新配置
+            Object.keys(frontendConfig.value).forEach(key => {
+                if (settings[key] !== null && settings[key] !== undefined) {
+                    if (key === 'backgrounds' && Array.isArray(settings[key])) {
+                        // 特殊处理背景图片数组
+                        frontendConfig.value.backgrounds = [...settings[key]];
+                    } else {
+                        frontendConfig.value[key] = settings[key];
+                    }
+                }
+            });
+        }
 
+        // 确保背景图片数组存在且有效
+        if (!frontendConfig.value.backgrounds?.length) {
+            frontendConfig.value.backgrounds = [...defaultConfig.backgrounds];
+        }
+
+        // 设置初始背景图
+        if (frontendConfig.value.backgrounds.length > 0) {
+            const randomIndex = Math.floor(Math.random() * frontendConfig.value.backgrounds.length);
+            currentImage.value = frontendConfig.value.backgrounds[randomIndex];
+        }
+        
+        isLoaded.value = true;
+    } catch (error) {
+        console.error('获取配置失败:', error);
+        // 发生错误时保持默认配置
+        frontendConfig.value = { ...defaultConfig };
+        isLoaded.value = true;
+    }
+};
 const currentImage = ref('')
 const isLoaded = ref(false)
 const imageLoading = ref(false)
@@ -208,6 +212,27 @@ const preloadImages = async (images: string[]) => {
   // 并行预加载所有图片
   await Promise.all(images.map(src => loadImage(src)))
 }
+// 添加配置更新事件监听
+onMounted(() => {
+    window.addEventListener('frontend-config-updated', async (event: CustomEvent) => {
+        // 获取最新配置
+        await fetchConfig();
+        
+        // 如果背景图片列表已更新，随机选择一张新图片
+        if (frontendConfig.value.backgrounds?.length > 0) {
+            const randomIndex = Math.floor(Math.random() * frontendConfig.value.backgrounds.length);
+            const newImage = frontendConfig.value.backgrounds[randomIndex];
+            
+            // 更新当前显示的图片
+            currentImage.value = newImage;
+        }
+    });
+});
+
+onUnmounted(() => {
+    // 移除事件监听
+    window.removeEventListener('frontend-config-updated', fetchConfig);
+});
 // 优化背景切换函数
 const changeBackground = async () => {
   if (imageLoading.value) return

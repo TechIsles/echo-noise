@@ -605,7 +605,7 @@ const configLabels = {
     description: '个人描述',
     backgrounds: '背景图片',
     cardFooterTitle: '卡片页脚标题',
-    cardFooterSubtitle: '卡片页脚副标题',
+    cardFooterLink: '卡片页脚链接',
     pageFooterHTML: '页面底部HTML',
     rssTitle: 'RSS 标题',
     rssDescription: 'RSS 描述',
@@ -622,7 +622,7 @@ const frontendConfig = reactive({
     description: '',
     backgrounds: [] as string[],
     cardFooterTitle: '',
-    cardFooterSubtitle: '',
+    cardFooterLink: '',
     pageFooterHTML: '',
     rssTitle: '',
     rssDescription: '',
@@ -644,7 +644,7 @@ const editItem = reactive({
     description: false,
     backgrounds: false,
     cardFooterTitle: false,
-    cardFooterSubtitle: false,
+    cardFooterLink: false, 
     pageFooterHTML: false,
     rssTitle: false,
     rssDescription: false,
@@ -676,7 +676,7 @@ const defaultConfig = {
         "https://s2.loli.net/2025/03/27/y67m2k5xcSdTsHN.jpg",
         ],
         cardFooterTitle: "Noise·说说·笔记~",
-    cardFooterSubtitle: "note.noisework.cn",
+        cardFooterLink: "note.noisework.cn",
     pageFooterHTML: `<div class="text-center text-xs text-gray-400 py-4">来自<a href="https://www.noisework.cn" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Noise</a> 使用<a href="https://github.com/lin-snow/Ech0" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Ech0</a>发布</div>`,
     rssTitle: 'Noise的说说笔记',
     rssDescription: '一个说说笔记~',
@@ -685,65 +685,14 @@ const defaultConfig = {
     walineServerURL: 'https://app-production-80c1.up.railway.app' 
 }
 // 添加单个配置项保存方法
-const saveConfigItem = async (key: string) => {
-    try {
-        const response = await fetch('/api/settings', {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            credentials: 'include',
-            body: JSON.stringify({
-                allow_registration: true,
-                frontendSettings: frontendConfig
-            })
-        });
-        
-        if (!response.ok) {
-            const errorData = await response.json();
-            throw new Error(errorData.msg || '请求失败');
-        }
-        
-        const data = await response.json();
-        if (data.code === 1) {
-            editItem[key] = false;
-            
-            // 更新前端配置
-            await fetchConfig();
-            
-            // 触发前端配置更新事件
-            window.dispatchEvent(new CustomEvent('frontend-config-updated'));
-            
-            // 如果更新的是 RSS 相关配置，则刷新 RSS
-            if (key.startsWith('rss')) {
-                await fetch('/api/rss/refresh', {
-                    method: 'POST',
-                    credentials: 'include'
-                });
-            }
-            
-            useToast().add({
-                title: '成功',
-                description: `${configLabels[key]}已更新`,
-                color: 'green'
-            });
-        } else {
-            throw new Error(data.msg || '保存失败');
-        }
-    } catch (error: any) {
-        useToast().add({
-            title: '错误',
-            description: error.message || '配置更新失败',
-            color: 'red'
-        });
-    }
-};
+
 // 添加单个配置项重置方法
 const resetConfigItem = (key: string) => {
     frontendConfig[key] = defaultConfig[key]
     editItem[key] = false
 }
-// 修改 fetchConfig 方法
+// 修改 fetchConfig 方法// ... existing code ...
+
 const fetchConfig = async () => {
     try {
         const response = await fetch('/api/frontend/config', {
@@ -755,78 +704,73 @@ const fetchConfig = async () => {
         });
         
         const data = await response.json();
-        console.log('获取到的配置数据:', data);
         
-        if (data && data.frontendSettings) {
-            // 使用解构合并，保持配置一致性
-            Object.assign(frontendConfig, {
-                ...defaultConfig,  // 默认值作为基础
-                ...data.frontendSettings  // 服务器配置覆盖默认值
+        if (data?.data?.frontendSettings) {
+            const settings = data.data.frontendSettings;
+            
+            // 遍历配置项进行更新
+            Object.keys(frontendConfig).forEach(key => {
+                if (key === 'backgrounds') {
+                    // 确保背景图片数组正确更新
+                    const serverBackgrounds = settings[key];
+                    if (Array.isArray(serverBackgrounds)) {
+                        frontendConfig[key] = [...serverBackgrounds];
+                    }
+                } else {
+                    frontendConfig[key] = settings[key] ?? defaultConfig[key];
+                }
             });
-            
-            // 特殊处理背景图片数组
-            if (!data.frontendSettings.backgrounds?.length) {
-                frontendConfig.backgrounds = [...defaultConfig.backgrounds];
-            }
-            
-            // 触发前端配置更新事件
-            window.dispatchEvent(new CustomEvent('frontend-config-updated'));
-        } else {
-            // 使用默认配置
-            Object.assign(frontendConfig, defaultConfig);
         }
     } catch (error) {
         console.error('获取配置失败:', error);
-        // 发生错误时使用默认配置
-        Object.assign(frontendConfig, defaultConfig);
     }
 };
-const saveConfig = async () => {
+const saveConfigItem = async (key: string) => {
     try {
+        // 特殊处理背景图片数组
+        if (key === 'backgrounds') {
+            const validBackgrounds = frontendConfig.backgrounds.filter(url => url && url.trim() !== '');
+            frontendConfig.backgrounds = validBackgrounds;
+        }
+
+        const settingsToSave = {
+            frontendSettings: frontendConfig  // 直接发送整个配置对象
+        };
+
         const response = await fetch('/api/settings', {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json'
             },
             credentials: 'include',
-            body: JSON.stringify({
-                frontendSettings: frontendConfig
-            })
+            body: JSON.stringify(settingsToSave)
         });
-
+        
         if (!response.ok) {
             const errorData = await response.json();
             throw new Error(errorData.msg || '请求失败');
         }
-
+        
         const data = await response.json();
         if (data.code === 1) {
-            editMode.value = false;
+            editItem[key] = false;
             
-            // 更新前端配置
-            await fetchConfig();
-            
-            // 触发前端配置更新事件
+            // 触发配置更新事件
             window.dispatchEvent(new CustomEvent('frontend-config-updated'));
             
-            // 刷新 RSS
-            await fetch('/api/rss/refresh', {
-                method: 'POST',
-                credentials: 'include'
-            });
-            
-            // 刷新用户状态
-            await userStore.getStatus();
+            // 重新获取配置
+            await fetchConfig();
             
             useToast().add({
                 title: '成功',
-                description: '配置已更新',
+                description: `${configLabels[key]}已更新`,
                 color: 'green'
             });
         } else {
             throw new Error(data.msg || '保存失败');
         }
     } catch (error: any) {
+        console.error('保存配置失败:', error);
         useToast().add({
             title: '错误',
             description: error.message || '配置更新失败',
@@ -834,23 +778,8 @@ const saveConfig = async () => {
         });
     }
 };
-const resetConfig = () => {
-    fetchConfig()
-    editMode.value = false
-}
 
-const addBackground = () => {
-    frontendConfig.backgrounds.push('')
-}
-
-const removeBackground = (index: number) => {
-    frontendConfig.backgrounds.splice(index, 1)
-}
-
-const triggerFileInput = () => {
-    fileInput.value?.click()
-}
-
+// 修改文件上传处理
 const handleFileUpload = async (event: Event) => {
     const files = (event.target as HTMLInputElement).files
     if (!files) return
@@ -866,13 +795,6 @@ const handleFileUpload = async (event: Event) => {
             const formData = new FormData()
             formData.append('image', file)
 
-            const toast = useToast().add({
-                title: `正在上传 ${file.name}`,
-                description: '请稍候...',
-                color: 'blue',
-                timeout: 0
-            })
-
             const response = await fetch('/api/images/upload', {
                 method: 'POST',
                 credentials: 'include',
@@ -886,41 +808,63 @@ const handleFileUpload = async (event: Event) => {
             }
 
             if (data.code === 1 && data.data) {
-                const fullImageUrl = data.data.startsWith('http') 
+                const imageUrl = data.data.startsWith('http') 
                     ? data.data 
-                    : `${window.location.origin}${data.data}`
+                    : `/api${data.data}`
                 
-                if (!frontendConfig.backgrounds.includes(fullImageUrl)) {
-                    frontendConfig.backgrounds.push(fullImageUrl)
-                    await saveConfig()
-                }
+                // 更新背景图片列表并保存
+                const newBackgrounds = [...frontendConfig.backgrounds, imageUrl];
+                frontendConfig.backgrounds = newBackgrounds;
+                await saveConfigItem('backgrounds');
 
                 useToast().add({
                     title: '上传成功',
-                    description: `${file.name} 已添加`,
+                    description: `${file.name} 已添加到背景图片列表`,
                     color: 'green'
                 })
             }
         } catch (error: any) {
             useToast().add({
-                title: `上传失败: ${file.name}`,
+                title: '上传失败',
                 description: error.message || '文件上传失败',
                 color: 'red'
             })
-        } finally {
-            if (toast) {
-                useToast().remove(toast.id)
-            }
         }
     }
 
-    new Audio('/sound/success.mp3').play().catch(() => {})
-    
+    // 清空文件输入框
     if (fileInput.value) {
         fileInput.value.value = ''
     }
 }
 
+// 添加配置更新监听器
+onMounted(() => {
+    window.addEventListener('frontend-config-updated', (event: any) => {
+        const { key, value } = event.detail;
+        if (key && value !== undefined) {
+            frontendConfig[key] = value;
+        }
+    });
+});
+// ... existing code ...
+const resetConfig = () => {
+    fetchConfig()
+    editMode.value = false
+}
+
+const addBackground = async () => {
+    frontendConfig.backgrounds.push(''); 
+}
+
+const removeBackground = async (index: number) => {
+    frontendConfig.backgrounds.splice(index, 1);
+    await saveConfigItem('backgrounds');
+}
+
+const triggerFileInput = () => {
+    fileInput.value?.click()
+}
 const previewImage = (url: string) => {
     window.open(url, '_blank')
 }

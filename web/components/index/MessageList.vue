@@ -109,12 +109,12 @@
       </div>
     </div>
     <!-- 来源信息 - 固定在底部 -->
-    <div v-if="!message.siteConfig?.pageFooterHTML" class="text-center text-xs text-gray-400 py-4">
-      来自<a href="https://www.noisework.cn" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Noise</a> 
-      使用<a href="https://github.com/lin-snow/Ech0" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Ech0</a>发布
-    </div>
-    <div v-else v-html="message.siteConfig.pageFooterHTML"></div>
+    <div v-if="!siteConfig.pageFooterHTML" class="text-center text-xs text-gray-400 py-4">
+    来自<a href="https://www.noisework.cn" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Noise</a> 
+    使用<a href="https://github.com/lin-snow/Ech0" target="_blank" rel="noopener noreferrer" class="text-orange-400 hover:text-orange-500">Ech0</a>发布
   </div>
+  <div v-else v-html="siteConfig.pageFooterHTML"></div>
+</div>
   <!-- 编辑对话框 -->
   <UModal v-model="showEditModal" :ui="{ width: 'sm:max-w-2xl' }">
     <UCard>
@@ -168,7 +168,13 @@ const message = useMessageStore();
 const activeCommentId = ref<number | null>(null);
 const userStore = useUserStore();
 const isLogin = computed(() => userStore.isLogin);
-
+// 添加 props 定义
+const props = defineProps({
+  siteConfig: {
+    type: Object,
+    required: true
+  }
+});
 const deleteMsg = async (id: number) => {
   const confirmDelete = confirm("确定要删除这条消息吗？");
   if (confirmDelete) {
@@ -247,16 +253,12 @@ const toggleComment = async (msgId: number) => {
   } else {
     activeCommentId.value = msgId;
     await nextTick();
-    // 在评论加载后重新初始化 Fancybox
-    initFancybox();
-    // 确保 Waline 初始化
     if (window.Waline) {
-      // 检查元素是否存在
       const el = document.querySelector(`#waline-${msgId}`);
       if (el) {
         window.Waline.init({
           el: `#waline-${msgId}`,
-          serverURL: message.siteConfig?.walineServerURL || "https://app-production-80c1.up.railway.app",
+          serverURL: props.siteConfig.walineServerURL,
           path: `/message/${msgId}`,
           reaction: false,
           meta: ["nick", "mail", "link"],
@@ -695,25 +697,24 @@ await processImages();
 
     // 添加 footer
     const footer = document.createElement('div');
-    footer.style.cssText = `
-      margin-top: 12px;
-      padding-top: 12px;
-      text-align: center;
-      font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-      background: transparent;
-    `;
-    footer.innerHTML = `
-      <div style="color: #fb923c; font-size: 13px; margin-bottom: 4px; font-weight: 500;">
-     ${message.siteConfig?.cardFooterTitle || 'Noise·说说·笔记~'}
-  </div>
-  <a href="${message.siteConfig?.cardFooterLink || 'https://note.noisework.cn'}" 
-           target="_blank" 
-           rel="noopener noreferrer" 
-           style="color: rgba(255,255,255,0.5); text-decoration: none;">
-          ${message.siteConfig?.cardFooterLink || 'note.noisework.cn'}
-        </a>
-      </div>
-`;
+  footer.style.cssText = `
+    margin-top: 12px;
+    padding-top: 12px;
+    text-align: center;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    background: transparent;
+  `;
+  footer.innerHTML = `
+    <div style="color: #fb923c; font-size: 13px; margin-bottom: 4px; font-weight: 500;">
+      ${props.siteConfig.cardFooterTitle}
+    </div>
+    <a href="https://note.noisework.cn" 
+       target="_blank" 
+       rel="noopener noreferrer" 
+       style="color: rgba(255,255,255,0.5); text-decoration: none;">
+      ${props.siteConfig.cardFooterSubtitle}
+    </a>
+  `;
     tempContainer.appendChild(footer);
 
     // 生成图片
@@ -928,6 +929,14 @@ const optimizeImage = (url: string) => {
   // 添加图片压缩参数
   return `${url}?imageView2/2/w/800/q/85`;
 }
+// 确保在模板中使用正确的配置数据
+const footerConfig = computed(() => ({
+  cardFooterTitle: props.siteConfig.cardFooterTitle,
+  cardFooterSubtitle: props.siteConfig.cardFooterSubtitle,
+  pageFooterHTML: props.siteConfig.pageFooterHTML,
+  walineServerURL: props.siteConfig.walineServerURL
+}));
+
 </script>
 
 <style scoped>

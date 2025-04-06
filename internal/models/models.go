@@ -4,8 +4,8 @@ import (
 	"crypto/rand"
     "encoding/hex"
     "errors"
-    "strings"
     "time"
+	"encoding/json"
     "gorm.io/gorm"
 )
 
@@ -80,10 +80,16 @@ type SiteConfig struct {
 }
 
 func (s *SiteConfig) GetBackgroundsList() []string {
-	if s.Backgrounds == "" {
-		return []string{}
-	}
-	return strings.Split(s.Backgrounds, ",")
+    if s.Backgrounds == "" {
+        return []string{}
+    }
+    
+    var backgrounds []string
+    if err := json.Unmarshal([]byte(s.Backgrounds), &backgrounds); err != nil {
+        // 如果解析失败，返回空数组
+        return []string{}
+    }
+    return backgrounds
 }
 func UpdateMessage(id string, content string) error {
     // 先查询消息是否存在

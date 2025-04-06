@@ -54,68 +54,113 @@ func UpdateFrontendSetting(userID uint, settingMap map[string]interface{}) error
     if !ok {
         return fmt.Errorf("无效的前端配置格式")
     }
-    
-    // 类型检查
-    for key, value := range frontendSettings {
-        if value == nil {
-            return fmt.Errorf("配置项 %s 不能为空", key)
+
+    // 开启事务
+    tx := db.Begin()
+    defer func() {
+        if r := recover(); r != nil {
+            tx.Rollback()
         }
-        if _, ok := value.(string); !ok && key != "backgrounds" {
-            return fmt.Errorf("配置项 %s 必须为字符串类型", key)
-        }
+    }()
+
+    var config models.SiteConfig
+    // 先尝试获取现有配置
+    if err := tx.Table("site_configs").First(&config).Error; err != nil {
+        config.ID = 1 // 设置默认ID
     }
 
-    config := models.SiteConfig{
-        SiteTitle:       frontendSettings["siteTitle"].(string),
-        SubtitleText:    frontendSettings["subtitleText"].(string),
-        AvatarURL:       frontendSettings["avatarURL"].(string),
-        Username:        frontendSettings["username"].(string),
-        Description:     frontendSettings["description"].(string),
-        CardFooterTitle: frontendSettings["cardFooterTitle"].(string),
-        CardFooterLink:  frontendSettings["cardFooterLink"].(string),
-        PageFooterHTML:  frontendSettings["pageFooterHTML"].(string),
-        RSSTitle:        frontendSettings["rssTitle"].(string),
-        RSSDescription:  frontendSettings["rssDescription"].(string),
-        RSSAuthorName:   frontendSettings["rssAuthorName"].(string),
-        RSSFaviconURL:   frontendSettings["rssFaviconURL"].(string),
-        WalineServerURL: frontendSettings["walineServerURL"].(string),
+    // 更新配置字段
+    if v, ok := frontendSettings["siteTitle"].(string); ok {
+        config.SiteTitle = v
+    }
+    if v, ok := frontendSettings["subtitleText"].(string); ok {
+        config.SubtitleText = v
+    }
+    if v, ok := frontendSettings["avatarURL"].(string); ok {
+        config.AvatarURL = v
+    }
+    if v, ok := frontendSettings["username"].(string); ok {
+        config.Username = v
+    }
+    if v, ok := frontendSettings["description"].(string); ok {
+        config.Description = v
+    }
+    if v, ok := frontendSettings["cardFooterTitle"].(string); ok {
+        config.CardFooterTitle = v
+    }
+    if v, ok := frontendSettings["cardFooterLink"].(string); ok {
+        config.CardFooterLink = v
+    }
+    if v, ok := frontendSettings["pageFooterHTML"].(string); ok {
+        config.PageFooterHTML = v
+    }
+    if v, ok := frontendSettings["rssTitle"].(string); ok {
+        config.RSSTitle = v
+    }
+    if v, ok := frontendSettings["rssDescription"].(string); ok {
+        config.RSSDescription = v
+    }
+    if v, ok := frontendSettings["rssAuthorName"].(string); ok {
+        config.RSSAuthorName = v
+    }
+    if v, ok := frontendSettings["rssFaviconURL"].(string); ok {
+        config.RSSFaviconURL = v
+    }
+    if v, ok := frontendSettings["walineServerURL"].(string); ok {
+        config.WalineServerURL = v
     }
 
     // 处理背景图片列表
     if backgrounds, ok := frontendSettings["backgrounds"].([]interface{}); ok {
         backgroundsList := make([]string, 0, len(backgrounds))
         for _, bg := range backgrounds {
-            if bgStr, ok := bg.(string); ok {
+            if bgStr, ok := bg.(string); ok && bgStr != "" {
                 backgroundsList = append(backgroundsList, bgStr)
             }
         }
+        // 确保至少保留一个默认背景
+        if len(backgroundsList) == 0 {
+            backgroundsList = getDefaultConfig()["frontendSettings"].(map[string]interface{})["backgrounds"].([]string)
+        }
         backgroundsJSON, err := json.Marshal(backgroundsList)
         if err != nil {
+            tx.Rollback()
+            return fmt.Errorf("背景图片列表序列化失败: %v", err)
+        }
+        config.Backgrounds = string(backgroundsJSON)
+    } else if backgrounds, ok := frontendSettings["backgrounds"].([]string); ok {
+        // 直接处理字符串数组
+        if len(backgrounds) == 0 {
+            backgrounds = getDefaultConfig()["frontendSettings"].(map[string]interface{})["backgrounds"].([]string)
+        }
+        backgroundsJSON, err := json.Marshal(backgrounds)
+        if err != nil {
+            tx.Rollback()
             return fmt.Errorf("背景图片列表序列化失败: %v", err)
         }
         config.Backgrounds = string(backgroundsJSON)
     }
+    
 
-    tx := db.Begin()
-    if err := tx.Error; err != nil {
-        return fmt.Errorf("开启事务失败: %v", err)
-    }
-
-    result := tx.Table("site_configs").Where("id = ?", 1).Updates(&config)
-    if result.Error != nil {
-        tx.Rollback()
-        return fmt.Errorf("更新配置失败: %v", result.Error)
-    }
-
-    if result.RowsAffected == 0 {
-        config.ID = 1
+    // 保存或更新配置
+    if config.ID == 0 {
         if err := tx.Table("site_configs").Create(&config).Error; err != nil {
             tx.Rollback()
             return fmt.Errorf("创建配置失败: %v", err)
         }
+    } else {
+        if err := tx.Table("site_configs").Save(&config).Error; err != nil {
+            tx.Rollback()
+            return fmt.Errorf("更新配置失败: %v", err)
+        }
     }
 
-    return tx.Commit().Error
+    // 提交事务
+    if err := tx.Commit().Error; err != nil {
+        return fmt.Errorf("提交配置更新失败: %v", err)
+    }
+
+    return nil
 }
 
 // 获取默认配置

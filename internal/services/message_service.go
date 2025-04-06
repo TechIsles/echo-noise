@@ -97,16 +97,18 @@ func GenerateRSS(c *gin.Context) (string, error) {
         return "", fmt.Errorf("获取消息失败: %v", err)
     }
 
-    // 获取前端配置并设置默认值
+    // 获取前端配置
     config, err := GetFrontendConfig()
     if err != nil {
         return "", fmt.Errorf("获取配置失败: %v", err)
     }
 
-    // 安全地获取配置值，提供默认值
-    getConfigString := func(key, defaultValue string) string {
-        if value, ok := config[key].(string); ok && value != "" {
-            return value
+    // 从配置中安全获取值
+    getConfigValue := func(key string, defaultValue string) string {
+        if settings, ok := config["frontendSettings"].(map[string]interface{}); ok {
+            if value, exists := settings[key].(string); exists && value != "" {
+                return value
+            }
         }
         return defaultValue
     }
@@ -116,17 +118,18 @@ func GenerateRSS(c *gin.Context) (string, error) {
         schema = "https"
     }
     host := c.Request.Host
+
     feed := &feeds.Feed{
-        Title: getConfigString("rss_title", "说说笔记"),
+        Title: getConfigValue("rssTitle", "说说笔记"),
         Link: &feeds.Link{
             Href: fmt.Sprintf("%s://%s/", schema, host),
         },
         Image: &feeds.Image{
-            Url: fmt.Sprintf("%s://%s/favicon.ico", schema, host),
+            Url: fmt.Sprintf("%s://%s%s", schema, host, getConfigValue("rssFaviconURL", "/favicon.ico")),
         },
-        Description: getConfigString("rss_description", "一个说说笔记~"),
+        Description: getConfigValue("rssDescription", "一个说说笔记~"),
         Author: &feeds.Author{
-            Name: getConfigString("rss_author_name", "Noise"),
+            Name: getConfigValue("rssAuthorName", "Noise"),
         },
         Updated: time.Now(),
     }

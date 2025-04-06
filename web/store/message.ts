@@ -11,6 +11,7 @@ export const useMessageStore = defineStore("messageStore", () => {
   const pageSize = ref(10);
   const toast = useToast();
   const loading = ref<boolean>(false);
+  const siteConfig = ref<any>(null);  // 添加网站配置状态
 
   // 重置状态
   const reset = () => {
@@ -20,6 +21,63 @@ export const useMessageStore = defineStore("messageStore", () => {
     page.value = 1;
     loading.value = false;
   };
+ // 获取网站配置
+ const getSiteConfig = async () => {
+  try {
+    const response = await getRequest<any>("site/config", {
+      credentials: 'include'
+    });
+    
+    if (!response || response.code !== 1) {
+      toast.add({
+        title: "获取网站配置失败",
+        description: response?.msg || "请稍后重试",
+        icon: "i-fluent-error-circle-16-filled",
+        color: "red",
+        timeout: 2000,
+      });
+      return null;
+    }
+
+    // 确保更新状态
+    siteConfig.value = response.data;
+    
+    // 触发响应式更新
+    nextTick();
+    
+    return response.data;
+  } catch (error) {
+    console.error("获取网站配置失败:", error);
+    throw error;
+  }
+};
+
+// 更新网站配置
+const updateSiteConfig = async (key: string, value: any) => {
+  try {
+    const response = await putRequest<any>("site/config", { [key]: value }, {
+      credentials: 'include'
+    });
+
+    if (!response || response.code !== 1) {
+      toast.add({
+        title: "更新配置失败",
+        description: response?.msg,
+        icon: "i-fluent-error-circle-16-filled",
+        color: "red",
+        timeout: 2000,
+      });
+      return null;
+    }
+
+    // 更新本地配置状态
+    siteConfig.value = { ...siteConfig.value, [key]: value };
+    return response.data;
+  } catch (error) {
+    console.error("更新配置失败:", error);
+    throw error;
+  }
+};
 
   // 分页获取笔记列表
 const getMessages = async (query: PageQuery) => {
@@ -138,9 +196,12 @@ const getMessages = async (query: PageQuery) => {
     page,
     pageSize,
     loading,
+    siteConfig,  // 导出配置状态
     reset,
     getMessages,
     deleteMessage,
     updateMessage,
+    getSiteConfig,  // 导出获取配置方法
+    updateSiteConfig,  // 导出更新配置方法
   };
 });
