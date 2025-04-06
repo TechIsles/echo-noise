@@ -922,7 +922,12 @@ watch(isSearchMode, (newVal) => {
     initFancybox();
   });
 });
-
+// 优化图片加载
+const optimizeImage = (url: string) => {
+  if (!url) return url;
+  // 添加图片压缩参数
+  return `${url}?imageView2/2/w/800/q/85`;
+}
 </script>
 
 <style scoped>

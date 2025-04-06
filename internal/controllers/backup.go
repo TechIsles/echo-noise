@@ -194,9 +194,16 @@ func backupPostgres(tempDir string) error {
         "-f", dumpFile,
         "--no-owner",
         "--no-privileges",
-        fmt.Sprintf("--ssl-mode=%s", os.Getenv("DB_SSL_MODE")),
-        os.Getenv("DB_NAME"),
     }
+
+    // 修改 SSL 模式参数的添加方式
+    sslMode := os.Getenv("DB_SSL_MODE")
+    if sslMode != "" {
+        args = append(args, fmt.Sprintf("--ssl-mode=%s", sslMode))
+    }
+
+    // 添加数据库名称
+    args = append(args, os.Getenv("DB_NAME"))
 
     cmd := exec.Command("pg_dump", args...)
     cmd.Env = append(os.Environ(), fmt.Sprintf("PGPASSWORD=%s", os.Getenv("DB_PASSWORD")))
@@ -210,9 +217,12 @@ func backupPostgres(tempDir string) error {
 
     return nil
 }
-
-
 func backupMySQL(tempDir string) error {
+    // 检查 mysqldump 是否可用
+    if _, err := exec.LookPath("mysqldump"); err != nil {
+        return fmt.Errorf("mysqldump 命令不可用: %v", err)
+    }
+
     dumpFile := filepath.Join(tempDir, "database.sql")
     args := []string{
         "-h", os.Getenv("DB_HOST"),
@@ -231,10 +241,16 @@ func backupMySQL(tempDir string) error {
     }
     defer outFile.Close()
 
+    var stderr bytes.Buffer
+    cmd.Stderr = &stderr
     cmd.Stdout = outFile
-    return cmd.Run()
-}
 
+    if err := cmd.Run(); err != nil {
+        return fmt.Errorf("mysqldump 执行失败: %v, 错误输出: %s", err, stderr.String())
+    }
+
+    return nil
+}
 func backupSQLite(tempDir string) error {
     dbPath := os.Getenv("DB_PATH")
     if dbPath == "" {
@@ -246,7 +262,7 @@ func backupSQLite(tempDir string) error {
 
 func restorePostgres(tempDir string) error {
     dumpFile := filepath.Join(tempDir, "database.dump")
-    cmd := exec.Command("pg_restore",
+    args := []string{
         "-h", os.Getenv("DB_HOST"),
         "-p", os.Getenv("DB_PORT"),
         "-U", os.Getenv("DB_USER"),
@@ -254,14 +270,27 @@ func restorePostgres(tempDir string) error {
         "-c",
         "--no-owner",
         "--no-privileges",
-        fmt.Sprintf("--ssl-mode=%s", os.Getenv("DB_SSL_MODE")),
-        dumpFile)
+    }
+
+    // 修改 SSL 模式参数的添加方式
+    sslMode := os.Getenv("DB_SSL_MODE")
+    if sslMode != "" {
+        args = append(args, fmt.Sprintf("--ssl-mode=%s", sslMode))
+    }
+
+    args = append(args, dumpFile)
     
+    cmd := exec.Command("pg_restore", args...)
     cmd.Env = append(os.Environ(), fmt.Sprintf("PGPASSWORD=%s", os.Getenv("DB_PASSWORD")))
     return cmd.Run()
 }
 
 func restoreMySQL(tempDir string) error {
+    // 检查 mysql 命令是否可用
+    if _, err := exec.LookPath("mysql"); err != nil {
+        return fmt.Errorf("mysql 命令不可用: %v", err)
+    }
+
     dumpFile := filepath.Join(tempDir, "database.sql")
     cmd := exec.Command("mysql",
         "-h", os.Getenv("DB_HOST"),
@@ -276,8 +305,15 @@ func restoreMySQL(tempDir string) error {
     }
     defer inFile.Close()
 
+    var stderr bytes.Buffer
+    cmd.Stderr = &stderr
     cmd.Stdin = inFile
-    return cmd.Run()
+
+    if err := cmd.Run(); err != nil {
+        return fmt.Errorf("mysql 恢复失败: %v, 错误输出: %s", err, stderr.String())
+    }
+
+    return nil
 }
 
 func restoreSQLite(tempDir string) error {

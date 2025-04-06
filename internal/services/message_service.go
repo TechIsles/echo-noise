@@ -94,81 +94,81 @@ func DeleteMessageByAdmin(id uint) error {
 func GenerateRSS(c *gin.Context) (string, error) {
     messages, err := GetAllMessages(false)
     if err != nil {
-        return "", err
+        return "", fmt.Errorf("获取消息失败: %v", err)
     }
 
-    // 获取站点配置
+    // 获取前端配置并设置默认值
     config, err := GetFrontendConfig()
     if err != nil {
-        return "", err
+        return "", fmt.Errorf("获取配置失败: %v", err)
     }
-    frontendSettings := config["frontendSettings"].(map[string]interface{})
+
+    // 安全地获取配置值，提供默认值
+    getConfigString := func(key, defaultValue string) string {
+        if value, ok := config[key].(string); ok && value != "" {
+            return value
+        }
+        return defaultValue
+    }
 
     schema := "http"
     if c.Request.TLS != nil {
         schema = "https"
     }
     host := c.Request.Host
-
-    // 使用配置值，如果为空则使用默认值
-    rssTitle := "noise说说笔记"
-    rssDescription := "一个说说笔记~"
-    rssAuthorName := "noise"
-    rssFaviconURL := "/favicon.ico"
-
-    if title, ok := frontendSettings["rssTitle"].(string); ok && title != "" {
-        rssTitle = title
-    }
-    if desc, ok := frontendSettings["rssDescription"].(string); ok && desc != "" {
-        rssDescription = desc
-    }
-    if author, ok := frontendSettings["rssAuthorName"].(string); ok && author != "" {
-        rssAuthorName = author
-    }
-    if favicon, ok := frontendSettings["rssFaviconURL"].(string); ok && favicon != "" {
-        rssFaviconURL = favicon
-    }
-
     feed := &feeds.Feed{
-        Title: rssTitle,
+        Title: getConfigString("rss_title", "说说笔记"),
         Link: &feeds.Link{
             Href: fmt.Sprintf("%s://%s/", schema, host),
         },
         Image: &feeds.Image{
-            Url:   fmt.Sprintf("%s://%s%s", schema, host, rssFaviconURL),
-            Title: rssTitle,
-            Link:  fmt.Sprintf("%s://%s/", schema, host),
+            Url: fmt.Sprintf("%s://%s/favicon.ico", schema, host),
         },
-        Description: rssDescription,
+        Description: getConfigString("rss_description", "一个说说笔记~"),
         Author: &feeds.Author{
-            Name: rssAuthorName,
+            Name: getConfigString("rss_author_name", "Noise"),
         },
         Updated: time.Now(),
     }
 
     for _, msg := range messages {
-        // 渲染 Markdown 内容
-        renderedContent := pkg.MdToHTML([]byte(msg.Content))
+        // 处理内容
+        content := msg.Content
+        if msg.ImageURL != "" {
+            imageURL := fmt.Sprintf("%s://%s/api%s", schema, host, msg.ImageURL)
+            content = fmt.Sprintf("![图片](%s)\n\n%s", imageURL, content)
+        }
 
-        title := msg.Username + " - " + msg.CreatedAt.Format("2006-01-02")
+        // 渲染 Markdown
+        htmlContent := pkg.MdToHTML([]byte(content))
+
+        // 生成标题
+        title := msg.Username
+        if firstLine := pkg.GetFirstLine(msg.Content); firstLine != "" {
+            title = firstLine
+        }
+
+        // 生成前端页面 URL
+        pageURL := fmt.Sprintf("%s://%s/#/messages/%d", schema, host, msg.ID)
 
         item := &feeds.Item{
             Title:       title,
             Link:        &feeds.Link{Href: fmt.Sprintf("%s://%s/api/messages/%d", schema, host, msg.ID)},
-            Description: string(renderedContent),
+            Description: string(htmlContent),
             Author:      &feeds.Author{Name: msg.Username},
             Created:     msg.CreatedAt,
+            Id:         pageURL,
         }
 
         feed.Items = append(feed.Items, item)
     }
 
-    atom, err := feed.ToAtom()
+    rss, err := feed.ToRss()
     if err != nil {
         return "", err
     }
 
-    return atom, nil
+    return rss, nil
 }
 // UpdateMessage 更新消息内容
 func UpdateMessage(messageID uint, content string) error {
