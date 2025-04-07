@@ -144,7 +144,7 @@ const defaultConfig = {
     rssDescription: '一个说说笔记~',
     rssAuthorName: 'Noise',
     rssFaviconURL: '/favicon.ico',
-    walineServerURL: 'https://app-production-80c1.up.railway.app'
+    walineServerURL: 'https://s9cewscb.lc-cn-n1-shared.com'
 };
 
 // 修改 fetchConfig 方法
