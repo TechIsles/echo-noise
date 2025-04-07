@@ -398,6 +398,7 @@ docker buildx build --platform linux/amd64,linux/arm64 -t noise233/echo-noise:la
 - [x] 加入搜索功能
 - [x] post发布认证
 - [x] 后台和前端数据的匹配完善
+- [x] 加入标签路由及组件
 - [ ] 加入一键推送
 - [ ] 其它组件的添加
 

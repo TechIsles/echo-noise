@@ -1,26 +1,41 @@
 <template>
   <div class="tags-container mx-auto w-full sm:max-w-2xl">
-    <div class="tags-wrapper">
-      <div class="tags-scroll">
-        <span
-          v-for="tag in tags"
-          :key="tag.name"
-          class="tag-item"
-          @click="handleTagClick(tag.name)"
-        >
-          #{{ tag.name }}
-          <span class="tag-count">({{ tag.count }})</span>
-        </span>
+    <div class="relative">
+      <div class="tags-wrapper">
+        <div class="tags-scroll">
+          <span
+            v-for="tag in filteredTags"
+            :key="tag.name + timestamp"
+            class="tag-item"
+            @click="handleTagClick(tag.name)"
+          >
+            #{{ tag.name }}
+            <span class="tag-count">({{ tag.count }})</span>
+          </span>
+        </div>
       </div>
+      <div 
+        class="absolute -right-1 top-1/2 -translate-y-1/2 p-2 cursor-pointer transition-all duration-200 hover:scale-110 z-10"
+        @click="refreshTags"
+        title="刷新标签"
+      >
+        <UIcon 
+          name="i-mdi-refresh" 
+          class="w-5 h-5 text-gray-400 hover:text-orange-500"
+          :class="{ 'animate-spin': isRefreshing }"
+        />
+      </div>
+      <div class="scroll-fade"></div>
     </div>
-    <div class="scroll-fade"></div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 
-const emit = defineEmits(['tagClick'])
+const emit = defineEmits(['tagClick', 'updateTags'])
+const isRefreshing = ref(false)
+const timestamp = ref(Date.now())
 
 const props = defineProps({
   tags: {
@@ -28,18 +43,29 @@ const props = defineProps({
     default: () => []
   }
 })
-// 过滤掉非正常标签
+
 const filteredTags = computed(() => {
   return props.tags.filter(tag => {
-    // 过滤掉包含特殊字符的标签
     const invalidChars = /[/?=&]/;
-    // 过滤掉数字ID和媒体链接
     const isMediaLink = /^(song|video|playlist)\?id=\d+$/;
     return !invalidChars.test(tag.name) && !isMediaLink.test(tag.name);
   });
 });
+
 const handleTagClick = (tagName: string) => {
   emit('tagClick', tagName)
+}
+
+const refreshTags = async () => {
+  if (isRefreshing.value) return
+  
+  isRefreshing.value = true
+  timestamp.value = Date.now()
+  emit('updateTags')
+  
+  setTimeout(() => {
+    isRefreshing.value = false
+  }, 1000)
 }
 </script>
 
@@ -103,7 +129,6 @@ const handleTagClick = (tagName: string) => {
   top: 0;
   height: 100%;
   width: 32px;
-  background: linear-gradient(to left, transparent, transparent);
   pointer-events: none;
 }
 </style>

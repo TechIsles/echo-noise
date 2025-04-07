@@ -35,6 +35,7 @@
       v-if="tags && tags.length > 0"
       :tags="tags"
       @tagClick="handleTagClick"
+      @updateTags="handleTagsUpdate" 
     />
         <!-- 确保 MessageList 有足够的 z-index -->
       <MessageList 
@@ -276,19 +277,25 @@ const changeBackground = async () => {
 
 const subtitleEl = ref<HTMLElement | null>(null)
   const tags = ref([])
-
+// 添加标签更新处理函数
+const handleTagsUpdate = async () => {
+  await fetchTags()
+}
 // 获取所有标签
 const fetchTags = async () => {
   try {
-    const response = await fetch(`${useRuntimeConfig().public.baseApi}/messages/tags`)
+    const response = await fetch(`${useRuntimeConfig().public.baseApi}/messages/tags`, {
+      headers: {
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache'
+      }
+    })
     const data = await response.json()
     if (data.code === 1) {
-      // 确保即使没有标签也初始化为空数组
       tags.value = data.data || []
     }
   } catch (error) {
     console.error('获取标签失败:', error)
-    // 出错时也初始化为空数组
     tags.value = []
   }
 }

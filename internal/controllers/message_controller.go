@@ -51,28 +51,23 @@ func GetAllTags(c *gin.Context) {
         return
     }
 
-    // 首先检查是否有任何消息
-    var messageCount int64
-    if err := db.Model(&models.Message{}).Count(&messageCount).Error; err != nil {
-        c.JSON(http.StatusOK, gin.H{"code": 1, "data": []map[string]interface{}{}})
-        return
-    }
-    // 如果没有消息，返回空数组
-    if messageCount == 0 {
-        c.JSON(http.StatusOK, gin.H{"code": 1, "data": []map[string]interface{}{}})
-        return
-    }
+    // 添加缓存控制头
+    c.Header("Cache-Control", "no-cache, no-store, must-revalidate")
+    c.Header("Pragma", "no-cache")
+    c.Header("Expires", "0")
+
     var messages []models.Message
-    if err := db.Select("content").Find(&messages).Error; err != nil {
+    // 修改查询，按创建时间倒序排列并限制数量
+    if err := db.Select("content").Order("created_at DESC").Find(&messages).Error; err != nil {
         c.JSON(http.StatusOK, gin.H{"code": 1, "data": []map[string]interface{}{}})
         return
     }
+
     // 提取并统计标签
     tagMap := make(map[string]int)
     invalidTagPattern := regexp.MustCompile(`[/?=&]|^(song|video|playlist)\?id=\d+$`)
     
     for _, msg := range messages {
-        // 使用正则表达式匹配 #标签
         tags := regexp.MustCompile(`#([^\s#]+)`).FindAllStringSubmatch(msg.Content, -1)
         for _, tag := range tags {
             if len(tag) > 1 && !invalidTagPattern.MatchString(tag[1]) {
@@ -81,7 +76,7 @@ func GetAllTags(c *gin.Context) {
         }
     }
 
-    // 转换为数组格式
+    // 转换为数组格式并按计数倒序排序
     var tagList []map[string]interface{}
     for tag, count := range tagMap {
         tagList = append(tagList, map[string]interface{}{
@@ -90,9 +85,12 @@ func GetAllTags(c *gin.Context) {
         })
     }
 
-    c.JSON(http.StatusOK, gin.H{"code": 1, "data": tagList})
+    c.JSON(http.StatusOK, gin.H{
+        "code": 1, 
+        "data": tagList,
+        "timestamp": time.Now().Unix(), // 添加时间戳
+    })
 }
-
 // GetAllImages 获取所有图片列表.
 func GetAllImages(c *gin.Context) {
     db, err := database.GetDB()
