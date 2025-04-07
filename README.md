@@ -52,9 +52,9 @@ Ech0 是一款专为轻量级分享而设计的开源自托管平台，支持快
 
 <details>
 <summary><h2>✅ 更新状况【点击查看】</h2></summary>
-
-
 - 增加了标签系统和图片api 路由
+
+- 增加后台系统版本检测
 
 - 增加远程数据库PostgreSQL、MySQL的连接支持，默认SQLite
 

@@ -54,6 +54,7 @@ func SetupRouter() *gin.Engine {
     api.POST("/messages/page", controllers.GetMessagesByPage)
     api.GET("/messages/calendar", controllers.GetMessagesCalendar) // 新增热力图专用路由
     api.GET("/messages/search", controllers.SearchMessages)  // 新增搜索消息路由
+    api.GET("/version/check", controllers.CheckVersion)  // 添加版本检查路由
 
     // 添加标签和图像相关路由
     api.GET("/messages/tags/:tag", controllers.GetMessagesByTag)  // 获取指定标签的消息

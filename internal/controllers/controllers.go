@@ -2,8 +2,10 @@ package controllers
 
 import (
     "fmt"
+    "time"
     "net/http"
     "strconv"
+    "encoding/json"
     "github.com/gin-contrib/sessions"
     "github.com/gin-gonic/gin"
     "github.com/lin-snow/ech0/internal/dto"
@@ -544,5 +546,72 @@ func RefreshRSS(c *gin.Context) {
     c.JSON(http.StatusOK, gin.H{
         "code": 1,
         "msg":  "RSS 已刷新",
+    })
+}
+// 检查版本更新
+func CheckVersion(c *gin.Context) {
+    client := &http.Client{
+        Timeout: 10 * time.Second,
+    }
+
+    resp, err := client.Get("https://hub.docker.com/v2/repositories/noise233/echo-noise/tags")
+    if err != nil {
+        c.JSON(http.StatusOK, gin.H{
+            "code": 0,
+            "msg":  "检查更新失败",
+        })
+        return
+    }
+    defer resp.Body.Close()
+
+    var result struct {
+        Results []struct {
+            Name        string    `json:"name"`
+            LastUpdated string    `json:"last_updated"`
+        } `json:"results"`
+    }
+
+    if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+        c.JSON(http.StatusOK, gin.H{
+            "code": 0,
+            "msg":  "解析版本信息失败",
+        })
+        return
+    }
+
+    var lastUpdateTime string
+    for _, tag := range result.Results {
+        if tag.Name == "latest" {
+            lastUpdateTime = tag.LastUpdated
+            break
+        }
+    }
+
+    if lastUpdateTime == "" {
+        c.JSON(http.StatusOK, gin.H{
+            "code": 0,
+            "msg":  "未找到版本信息",
+        })
+        return
+    }
+
+    updateTime, err := time.Parse(time.RFC3339, lastUpdateTime)
+    if err != nil {
+        c.JSON(http.StatusOK, gin.H{
+            "code": 0,
+            "msg":  "解析时间失败",
+        })
+        return
+    }
+
+    // 判断是否在24小时内更新
+    hasUpdate := time.Since(updateTime) <= 24*time.Hour
+
+    c.JSON(http.StatusOK, gin.H{
+        "code": 1,
+        "data": gin.H{
+            "hasUpdate":     hasUpdate,
+            "lastUpdateTime": lastUpdateTime,
+        },
     })
 }

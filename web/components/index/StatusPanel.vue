@@ -3,6 +3,33 @@
         <div class="min-h-screen p-4 flex items-center justify-center">
             <div class="w-[800px] max-w-[95%] bg-[#1a1b2e]/80 backdrop-blur-md rounded-lg shadow-xl p-6">
                 <h1 class="text-3xl font-bold text-center text-white mb-8">系统管理面板</h1>
+                 <!-- 添加版本信息和检测按钮 -->
+                 <div class="text-center mb-6 flex items-center justify-center gap-2">
+                    <span class="text-gray-300">当前版本: latest</span>
+                    <UButton
+                        size="xs"
+                        color="gray"
+                        variant="ghost"
+                        :loading="versionInfo.checking"
+                        @click="checkVersion"
+                    >
+                        {{ versionInfo.checking ? '检测中...' : '检查更新' }}
+                    </UButton>
+                </div>
+                <!-- 更新提示 -->
+                <div v-if="versionInfo.hasUpdate" class="text-center mb-6">
+                    <div class="flex items-center justify-center gap-2 text-orange-400">
+                        <UIcon name="i-heroicons-arrow-up-circle" class="w-5 h-5" />
+                        <span>发现新版本（发布于 {{ versionInfo.latestVersion }}）</span>
+                        <a 
+                            href="https://hub.docker.com/r/noise233/echo-noise/tags" 
+                            target="_blank"
+                            class="text-blue-400 hover:text-blue-300 ml-2"
+                        >
+                            查看详情
+                        </a>
+                    </div>
+                </div>
 
                 <!-- 系统状态卡片 -->
                 <div class="bg-gray-700 rounded-lg p-4 mb-6">
@@ -356,7 +383,63 @@ import { useToast } from '#ui/composables/useToast'
 const userStore = useUserStore()
 const { login, register, logout } = useUser()
 const userToken = ref('')
+const versionInfo = reactive({
+    checking: false,  // 改为默认不检查
+    hasUpdate: false,
+    currentVersion: 'latest',
+    latestVersion: ''
+})
+// 检查版本更新
+const checkVersion = async () => {
+    versionInfo.checking = true;
+    try {
+        const response = await fetch('/api/version/check', {
+            credentials: 'include',
+            headers: {
+                'Cache-Control': 'no-cache',
+                'Pragma': 'no-cache'
+            }
+        });
+        
+        const data = await response.json();
+        if (data.code === 1) {
+            const { hasUpdate, lastUpdateTime } = data.data;
+            versionInfo.hasUpdate = hasUpdate;
+            versionInfo.latestVersion = new Date(lastUpdateTime).toLocaleString('zh-CN', {
+                year: 'numeric',
+                month: '2-digit',
+                day: '2-digit',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
 
+            if (hasUpdate) {
+                useToast().add({
+                    title: '发现新版本',
+                    description: `最新版本发布于 ${versionInfo.latestVersion}`,
+                    color: 'orange'
+                });
+            } else {
+                useToast().add({
+                    title: '已是最新版本',
+                    description: `当前版本发布于 ${versionInfo.latestVersion}`,
+                    color: 'green'
+                });
+            }
+        } else {
+            throw new Error(data.msg || '检查更新失败');
+        }
+    } catch (error) {
+        console.error('检查版本更新失败:', error);
+        useToast().add({
+            title: '检查更新失败',
+            description: '请稍后重试',
+            color: 'red'
+        });
+    } finally {
+        versionInfo.checking = false;
+    }
+};
 // 重新生成 Token
 // 修改 regenerateToken 函数
 const regenerateToken = async () => {
@@ -843,7 +926,6 @@ const isLoading = ref(false) // 新增加载状态
 onMounted(async () => {
     try {
         isLoading.value = true;
-        
         // 先获取用户状态和配置
         await Promise.all([
             userStore.getStatus(),
