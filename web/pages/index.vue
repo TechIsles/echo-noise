@@ -30,6 +30,12 @@
     
     <!-- 添加表单 -->
     <AddForm @search-result="handleSearchResult" />
+    <!-- 移动标签墙到这里，并保持与 AddForm 相同宽度 -->
+    <TagList 
+  v-if="tags.length > 0"
+  :tags="tags"
+  @tagClick="handleTagClick"
+  />
         <!-- 确保 MessageList 有足够的 z-index -->
         <MessageList 
   ref="messageList" 
@@ -51,6 +57,7 @@ import MessageList from '@/components/index/MessageList.vue'
 import Notification from '~/components/widgets/Notification.vue';
 import HeatmapWidget from '~/components/widgets/heatmap.vue'
 import SearchMode from '~/components/index/Searchmode.vue' // 导入 SearchMode 组件
+import TagList from '~/components/index/TagList.vue'
 
 // 添加 messageList ref
 const messageList = ref(null)
@@ -268,7 +275,55 @@ const changeBackground = async () => {
 }
 
 const subtitleEl = ref<HTMLElement | null>(null)
+  const tags = ref([])
 
+// 获取所有标签
+const fetchTags = async () => {
+  try {
+    const response = await fetch(`${useRuntimeConfig().public.baseApi}/messages/tags`)
+    const data = await response.json()
+    if (data.code === 1) {
+      tags.value = data.data
+    }
+  } catch (error) {
+    console.error('获取标签失败:', error)
+  }
+}
+// 标签点击处理
+const handleTagClick = async (tag: string) => {
+  try {
+    const encodedTag = encodeURIComponent(tag.trim());
+    const response = await fetch(`${useRuntimeConfig().public.baseApi}/messages/tags/${encodedTag}`, {
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (data.code === 1 && Array.isArray(data.data)) {
+      // 直接调用 messageList 的处理方法
+      if (messageList.value) {
+        messageList.value.handleSearchResult(data.data);
+      }
+    } else {
+      throw new Error(data.msg || '获取标签内容失败');
+    }
+  } catch (error: any) {
+    console.error('获取标签消息失败:', error);
+    useToast().add({
+      title: '获取标签消息失败',
+      description: error.message || '服务器错误，请稍后重试',
+      color: 'red',
+      timeout: 3000
+    });
+  }
+};
 // 修改打字效果函数
 const startTypeEffect = () => {
   if (!subtitleEl.value) return
@@ -315,8 +370,11 @@ const startTypeEffect = () => {
 // 修改 onMounted 钩子
 onMounted(async () => {
   try {
-    await fetchConfig()
-    
+    // 并行执行配置和标签获取
+    await Promise.all([
+      fetchConfig(),
+      fetchTags()
+    ]);
     // 确保配置加载完成后再执行后续操作
     if (frontendConfig.value.backgrounds.length > 0) {
       const initialImage = frontendConfig.value.backgrounds[
@@ -346,9 +404,10 @@ onMounted(async () => {
       }
     })
   } catch (error) {
-    console.error('初始化失败:', error)
-    isLoaded.value = true // 即使出错也要设置加载完成
-  }
+console.error('初始化失败:', error)
+isLoaded.value = true
+}
+
 })
 </script>
 

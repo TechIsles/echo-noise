@@ -55,6 +55,12 @@ func SetupRouter() *gin.Engine {
     api.GET("/messages/calendar", controllers.GetMessagesCalendar) // 新增热力图专用路由
     api.GET("/messages/search", controllers.SearchMessages)  // 新增搜索消息路由
 
+    // 添加标签和图像相关路由
+    api.GET("/messages/tags/:tag", controllers.GetMessagesByTag)  // 获取指定标签的消息
+    api.GET("/messages/tags", controllers.GetAllTags)            // 获取所有标签列表
+    api.GET("/messages/images", controllers.GetAllImages)        // 获取所有图片列表
+
+
     // 需要鉴权的路由
     authRoutes := api.Group("")
     authRoutes.Use(middleware.SessionAuthMiddleware())

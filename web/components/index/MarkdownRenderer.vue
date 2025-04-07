@@ -14,10 +14,18 @@ const QQMUSIC_REG = /https:\/\/y\.qq\.com\/n\/yqq\/song(\w+)\.html/;
 const QQVIDEO_REG = /https:\/\/v\.qq\.com\/x\/cover\/\w+\/(\w+)\.html/;
 const SPOTIFY_REG = /https:\/\/open\.spotify\.com\/(track|album|playlist)\/([a-zA-Z0-9]+)/;
 const YOUKU_REG = /https:\/\/v\.youku\.com\/v_show\/id_([a-zA-Z0-9]+)\.html/;
-
+const emit = defineEmits(['tagClick'])
 const previewElement = ref<HTMLDivElement | null>(null);
 let zoom: any = null;
-
+// 添加 window 类型声明
+declare global {
+  interface Window {
+    handleTagClick: (tag: string) => void;
+    mediumZoom: any;
+    APlayer: any;
+    MetingJSElement: any;
+  }
+}
 const props = defineProps({
   content: {
     type: String,
@@ -64,8 +72,14 @@ const renderMarkdown = async (markdown: string) => {
     }
 
     const processedContent = processMediaLinks(markdown);
+    // 修改标签处理方式
+    const processedWithTags = processedContent.replace(
+      /#([^\s#]+)/g,
+      '<span class="clickable-tag" style="cursor: pointer; color: #fb923c;">#$1</span>'
+    );
 
-    Vditor.preview(previewElement.value, processedContent, {
+    // 使用处理后的内容
+    Vditor.preview(previewElement.value, processedWithTags, {
       mode: 'light',
       lang: 'zh_CN',
       theme: {
@@ -77,16 +91,23 @@ const renderMarkdown = async (markdown: string) => {
         enable: true
       },
       after: () => {
-        const links = previewElement.value?.getElementsByTagName('a');
-        if (links) {
-          Array.from(links).forEach(link => {
-            link.setAttribute('target', '_blank');
-            link.setAttribute('rel', 'noopener noreferrer');
+        // 添加标签点击事件监听
+        const tags = previewElement.value?.querySelectorAll('.clickable-tag');
+        tags?.forEach(tag => {
+          tag.addEventListener('click', () => {
+            const tagText = tag.textContent?.slice(1); // 移除 # 符号
+            if (tagText) {
+              emit('tagClick', tagText);
+            }
           });
-        }
+        });
         // 初始化图片缩放
         initializeZoom();
         console.log('Rendering complete.');
+     // 添加标签点击处理
+     window.handleTagClick = (tag: string) => {
+          emit('tagClick', tag);
+        };
       }
     });
   } catch (error) {
@@ -140,7 +161,17 @@ onBeforeUnmount(() => {
 .markdown-preview p {
   color: rgb(227, 220, 220);
 }
+.clickable-tag {
+  color: #fb923c !important; /* 修改为橙色，匹配暗色主题 */
+  cursor: pointer;
+  transition: color 0.2s ease;
+  padding: 0 2px;
+}
 
+.clickable-tag:hover {
+  color: #f97316 !important; /* 修改悬停颜色 */
+  text-decoration: underline;
+}
 .markdown-preview table thead tr {
   background-color: rgba(223, 226, 229, 0.49) !important;
 }

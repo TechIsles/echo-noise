@@ -1,19 +1,28 @@
 <template>
-   <div class="min-h-screen flex flex-col">
+  <div class="min-h-screen flex flex-col">
+    <!-- 空状态显示 -->
+    <div v-if="!displayMessages.length" class="text-center text-gray-500 py-8">
+      <UIcon name="i-heroicons-inbox" class="w-12 h-12 mx-auto mb-4" />
+      <p>暂无消息内容</p>
+    </div>
+    
     <div class="flex-grow mx-auto w-full sm:max-w-2xl px-2">
       <!-- 搜索模式提示 -->
-  <div v-if="isSearchMode" class="flex justify-between items-center mb-4 p-4 rounded-lg">
-  <p class="text-white">搜索结果 ({{ searchResults.length }} 条)</p>
-  <UButton
-    size="sm"
-    variant="ghost"
-    class="text-white hover:text-orange-500"
-    icon="i-heroicons-arrow-left"
-    @click="resetSearch"
-  >
-    返回完整列表
-  </UButton>
-</div>
+      <div 
+        v-if="isSearchMode" 
+        class="flex justify-between items-center mb-4 p-4 rounded-lg"
+      >
+        <p class="text-gray-400">搜索结果 ({{ searchResults.length }} 条)</p>
+        <UButton
+          size="sm"
+          variant="ghost"
+          class="text-gray-400 hover:text-orange-500"
+          icon="i-heroicons-arrow-left"
+          @click="resetList"
+        >
+          返回完整列表
+        </UButton>
+      </div>
       <!-- 消息列表 -->
       <div class="my-4">
          <!-- 无搜索结果提示 -->
@@ -69,7 +78,7 @@
               <div v-if="msg.image_url && msg.content" class="border-t border-gray-600 my-4"></div>
               <!-- 文本内容区域 -->
               <div class="overflow-y-hidden relative" :class="{ 'max-h-[700px]': !isExpanded[msg.id] }">
-                <MarkdownRenderer :content="msg.content" />
+                <MarkdownRenderer :content="msg.content" @tagClick="handleTagClick" />
                 <div v-if="shouldShowExpandButton[msg.id] && !isExpanded[msg.id]"
                   class="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[rgba(36,43,50,1)] via-[rgba(36,43,50,0.8)] to-transparent">
                 </div>
@@ -161,6 +170,7 @@ import { useUserStore } from "~/store/user";
 import MarkdownRenderer from "~/components/index/MarkdownRenderer.vue";
 
 
+
 const BASE_API = useRuntimeConfig().public.baseApi;
 const { deleteMessage } = useMessage();
 const message = useMessageStore();
@@ -168,6 +178,61 @@ const message = useMessageStore();
 const activeCommentId = ref<number | null>(null);
 const userStore = useUserStore();
 const isLogin = computed(() => userStore.isLogin);
+
+// 修改标签点击处理函数
+const handleTagClick = async (tag: string) => {
+  try {
+    // 确保 tag 被正确编码
+    const encodedTag = encodeURIComponent(tag.trim());
+    const response = await fetch(`${BASE_API}/messages/tags/${encodedTag}`, {
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    
+    if (data.code === 1 && Array.isArray(data.data)) {
+      isSearchMode.value = true;
+      searchResults.value = data.data;
+      
+      await nextTick();
+      checkContentHeight();
+      initFancybox();
+    } else {
+      throw new Error(data.msg || '获取标签内容失败');
+    }
+  } catch (error: any) {
+    console.error('获取标签消息失败:', error);
+    useToast().add({
+      title: '获取标签消息失败',
+      description: error.message || '服务器错误，请稍后重试',
+      color: 'red',
+      timeout: 3000
+    });
+  }
+};
+// 修改重置搜索函数名称，使其更通用
+// 修改 resetList 函数
+const resetList = async () => {
+  searchResults.value = [];
+  isSearchMode.value = false;
+  
+  // 重新获取完整消息列表
+  await message.getMessages({
+    page: 1,
+    pageSize: 15,
+  });
+  
+  await nextTick();
+  checkContentHeight();
+  initFancybox();
+};
 // 添加 props 定义
 const props = defineProps({
   siteConfig: {
@@ -349,7 +414,7 @@ watch(
 
 onMounted(async () => {
   try {
-    // 获取消息列表，不等待登录状态检查
+    // 获取消息列表
     await message.getMessages({
       page: 1,
       pageSize: 15,
@@ -382,6 +447,11 @@ onMounted(async () => {
     
   } catch (error) {
     console.error('初始化失败:', error);
+    useToast().add({
+      title: '加载失败',
+      color: 'red',
+      timeout: 2000
+    });
   }
 });
 // 添加 loadMore 方法
@@ -779,67 +849,41 @@ const searchResults = ref([]);
 // 添加搜索结果处理函数
 const handleSearchResult = async (results: any) => {
   try {
-    console.debug('API返回的原始数据:', JSON.stringify(results, null, 2));
+    // 如果当前不是搜索模式，记录滚动位置
+    const scrollPosition = !isSearchMode.value ? window.scrollY : null;
     
-    // 先重置搜索状态
-    resetSearch();
+    console.debug('API返回的原始数据:', results);
     
-    // 数据验证 - 更宽松的验证
     if (!results) {
       throw new Error('API返回数据为空');
     }
     
-    // 尝试多种可能的数据结构
     let items = [];
     let total = 0;
     
-    // 打印完整的数据结构以便调试
-    console.debug('完整数据结构:', results);
-    
-    // 情况1: {code: 1, data: {items: [...], total: n}, msg: '...'}
-    if (results.code === 1 && results.data && Array.isArray(results.data.items)) {
-      items = results.data.items;
-      total = results.data.total || items.length;
-      console.debug('使用标准数据结构');
-    } 
-    // 情况2: {code: 1, data: [...], msg: '...'}
-    else if (results.code === 1 && Array.isArray(results.data)) {
-      items = results.data;
-      total = items.length;
-      console.debug('使用简化数据结构 - 数组');
-    }
-    // 情况3: 直接返回数组
-    else if (Array.isArray(results)) {
+    // 统一数据处理逻辑
+    if (results.code === 1) {
+      if (Array.isArray(results.data)) {
+        items = results.data;
+      } else if (results.data?.items) {
+        items = results.data.items;
+      }
+    } else if (Array.isArray(results)) {
       items = results;
-      total = items.length;
-      console.debug('使用直接数组结构');
-    }
-    // 无法识别的结构
-    else {
-      console.error('无法识别的数据结构:', results);
-      throw new Error('API返回数据结构无法识别');
     }
     
-    // 确保items是数组
     if (!Array.isArray(items)) {
-      console.error('处理后的items不是数组:', items);
-      throw new Error('处理后的数据不是有效数组');
+      throw new Error('无效的数据格式');
     }
     
-    console.debug('解析后的items:', JSON.stringify(items, null, 2));
-    console.debug('items数组长度:', items.length);
+    total = items.length;
     
-    // 确保searchResults被正确设置 - 使用reactive方式更新
-    searchResults.value = [...items];
-    
-    // 强制设置搜索模式
+    // 更新搜索状态和结果
     isSearchMode.value = true;
+    searchResults.value = items;
     
-    console.log('设置后的searchResults:', searchResults.value);
-    console.log('设置后的isSearchMode:', isSearchMode.value);
-    
-    // 根据结果数量显示不同提示
-    if (items.length === 0) {
+    // 显示结果提示
+    if (total === 0) {
       useToast().add({
         title: '未找到相关内容',
         color: 'orange',
@@ -853,7 +897,11 @@ const handleSearchResult = async (results: any) => {
       });
     }
     
-    // 更新DOM后检查内容高度
+    // 如果是从非搜索模式切换来的，滚动到顶部
+    if (scrollPosition !== null) {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    
     await nextTick();
     checkContentHeight();
     initFancybox();
@@ -869,7 +917,6 @@ const handleSearchResult = async (results: any) => {
     resetSearch();
   }
 };
-
 // 添加重置搜索函数
 const resetSearch = () => {
   // 先清空结果数组
@@ -893,10 +940,10 @@ const displayMessages = computed(() => {
   console.log('计算displayMessages - 搜索模式:', isSearchMode.value);
   console.log('计算displayMessages - 搜索结果数量:', searchResults.value?.length);
   
-  if (isSearchMode.value && searchResults.value?.length >= 0) {
+  if (isSearchMode.value && Array.isArray(searchResults.value)) {
     return searchResults.value;
   }
-  return message.messages || [];
+  return Array.isArray(message.messages) ? message.messages : [];
 });
 
 // 添加事件监听
