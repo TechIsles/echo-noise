@@ -12,6 +12,8 @@ export const useMessageStore = defineStore("messageStore", () => {
   const toast = useToast();
   const loading = ref<boolean>(false);
   const siteConfig = ref<any>(null);  // 添加网站配置状态
+  const tags = ref<any[]>([]);  // 添加标签状态
+  const images = ref<any[]>([]); // 添加图片状态
 
   // 重置状态
   const reset = () => {
@@ -188,7 +190,79 @@ const getMessages = async (query: PageQuery) => {
       throw error;
     }
   };
+ // 获取所有标签
+ const getAllTags = async () => {
+  try {
+    const response = await getRequest<any>("messages/tags", {
+      credentials: 'include'
+    });
+    
+    if (!response || response.code !== 1) {
+      toast.add({
+        title: "获取标签列表失败",
+        description: response?.msg || "请稍后重试",
+        color: "red",
+        timeout: 2000,
+      });
+      return null;
+    }
 
+    tags.value = response.data;
+    return response.data;
+  } catch (error) {
+    console.error("获取标签列表失败:", error);
+    throw error;
+  }
+};
+
+// 根据标签获取消息
+const getMessagesByTag = async (tag: string) => {
+  try {
+    const response = await getRequest<any>(`messages/tags/${encodeURIComponent(tag)}`, {
+      credentials: 'include'
+    });
+    
+    if (!response || response.code !== 1) {
+      toast.add({
+        title: "获取标签消息失败",
+        description: response?.msg || "请稍后重试",
+        color: "red",
+        timeout: 2000,
+      });
+      return null;
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error("获取标签消息失败:", error);
+    throw error;
+  }
+};
+
+// 获取所有图片
+const getAllImages = async () => {
+  try {
+    const response = await getRequest<any>("messages/images", {
+      credentials: 'include'
+    });
+    
+    if (!response || response.code !== 1) {
+      toast.add({
+        title: "获取图片列表失败",
+        description: response?.msg || "请稍后重试",
+        color: "red",
+        timeout: 2000,
+      });
+      return null;
+    }
+
+    images.value = response.data;
+    return response.data;
+  } catch (error) {
+    console.error("获取图片列表失败:", error);
+    throw error;
+  }
+};
   return {
     messages,
     total,
@@ -203,5 +277,10 @@ const getMessages = async (query: PageQuery) => {
     updateMessage,
     getSiteConfig,  // 导出获取配置方法
     updateSiteConfig,  // 导出更新配置方法
+    tags,
+    images,
+    getAllTags,
+    getMessagesByTag,
+    getAllImages,
   };
 });

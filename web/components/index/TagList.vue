@@ -28,7 +28,16 @@ const props = defineProps({
     default: () => []
   }
 })
-
+// 过滤掉非正常标签
+const filteredTags = computed(() => {
+  return props.tags.filter(tag => {
+    // 过滤掉包含特殊字符的标签
+    const invalidChars = /[/?=&]/;
+    // 过滤掉数字ID和媒体链接
+    const isMediaLink = /^(song|video|playlist)\?id=\d+$/;
+    return !invalidChars.test(tag.name) && !isMediaLink.test(tag.name);
+  });
+});
 const handleTagClick = (tagName: string) => {
   emit('tagClick', tagName)
 }

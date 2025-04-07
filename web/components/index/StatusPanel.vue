@@ -125,24 +125,7 @@
                             </div>
                         </div>
 
-                        <!-- 管理员权限设置（仅管理员可见） -->
-                        <div v-if="isAdmin" class="bg-gray-800 rounded p-3">
-                            <h3 class="text-white font-semibold mb-3">用户权限管理</h3>
-                            <div class="space-y-2">
-                                <div v-for="user in userStore?.status?.users" :key="user.userID" 
-                                     class="flex justify-between items-center">
-                                    <span class="text-gray-300">{{ user.userName }}</span>
-                                    <UButton
-                                        v-if="user.userID !== 1"
-                                        size="sm"
-                                        :color="user.isAdmin ? 'yellow' : 'primary'"
-                                        @click="toggleAdmin(user.userID)"
-                                    >
-                                        {{ user.isAdmin ? '取消管理员' : '设为管理员' }}
-                                    </UButton>
-                                </div>
-                            </div>
-                        </div>
+                        
 
                     </div>
                 </div>
@@ -571,31 +554,7 @@ const updatePassword = async () => {
     }
 }
 
-const toggleAdmin = async (userId: number) => {
-    try {
-        const response = await fetch(`/api/user/admin?id=${userId}`, {
-            method: 'PUT',
-            credentials: 'include'
-        })
-        const data = await response.json()
-        if (data.code === 1) {
-            await userStore.getStatus()
-            useToast().add({
-                title: '成功',
-                description: '权限已更新',
-                color: 'green'
-            })
-        } else {
-            throw new Error(data.msg)
-        }
-    } catch (error) {
-        useToast().add({
-            title: '错误',
-            description: error.message || '更新失败',
-            color: 'red'
-        })
-    }
-}
+
 // 配置相关
 const configLabels = {
     siteTitle: '站点标题',

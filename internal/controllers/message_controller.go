@@ -13,13 +13,13 @@ import (
 func GetMessagesByTag(c *gin.Context) {
     tag := c.Param("tag")
     if tag == "" {
-        c.JSON(http.StatusBadRequest, gin.H{"code": 0, "msg": "标签不能为空"})
+        c.JSON(http.StatusOK, gin.H{"code": 1, "data": []models.Message{}})
         return
     }
 
     db, err := database.GetDB()
     if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": "数据库连接失败"})
+        c.JSON(http.StatusOK, gin.H{"code": 1, "data": []models.Message{}})
         return
     }
 
@@ -27,7 +27,7 @@ func GetMessagesByTag(c *gin.Context) {
     // 使用 LIKE 进行初步筛选
     tagPattern := "%#" + tag + "%"
     if err := db.Where("content LIKE ?", tagPattern).Order("created_at DESC").Find(&messages).Error; err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": "获取消息失败"})
+        c.JSON(http.StatusOK, gin.H{"code": 1, "data": []models.Message{}})
         return
     }
 
@@ -47,23 +47,35 @@ func GetMessagesByTag(c *gin.Context) {
 func GetAllTags(c *gin.Context) {
     db, err := database.GetDB()
     if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": "数据库连接失败"})
+        c.JSON(http.StatusOK, gin.H{"code": 1, "data": []map[string]interface{}{}})
         return
     }
 
+    // 首先检查是否有任何消息
+    var messageCount int64
+    if err := db.Model(&models.Message{}).Count(&messageCount).Error; err != nil {
+        c.JSON(http.StatusOK, gin.H{"code": 1, "data": []map[string]interface{}{}})
+        return
+    }
+    // 如果没有消息，返回空数组
+    if messageCount == 0 {
+        c.JSON(http.StatusOK, gin.H{"code": 1, "data": []map[string]interface{}{}})
+        return
+    }
     var messages []models.Message
     if err := db.Select("content").Find(&messages).Error; err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": "获取消息失败"})
+        c.JSON(http.StatusOK, gin.H{"code": 1, "data": []map[string]interface{}{}})
         return
     }
-
     // 提取并统计标签
     tagMap := make(map[string]int)
+    invalidTagPattern := regexp.MustCompile(`[/?=&]|^(song|video|playlist)\?id=\d+$`)
+    
     for _, msg := range messages {
         // 使用正则表达式匹配 #标签
         tags := regexp.MustCompile(`#([^\s#]+)`).FindAllStringSubmatch(msg.Content, -1)
         for _, tag := range tags {
-            if len(tag) > 1 {
+            if len(tag) > 1 && !invalidTagPattern.MatchString(tag[1]) {
                 tagMap[tag[1]]++
             }
         }
@@ -85,13 +97,13 @@ func GetAllTags(c *gin.Context) {
 func GetAllImages(c *gin.Context) {
     db, err := database.GetDB()
     if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": "数据库连接失败"})
+        c.JSON(http.StatusOK, gin.H{"code": 1, "data": []map[string]interface{}{}})
         return
     }
 
     var messages []models.Message
     if err := db.Select("id", "content", "image_url", "created_at").Order("created_at DESC").Find(&messages).Error; err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": "获取图片列表失败"})
+        c.JSON(http.StatusOK, gin.H{"code": 1, "data": []map[string]interface{}{}})
         return
     }
 

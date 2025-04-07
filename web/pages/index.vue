@@ -32,16 +32,16 @@
     <AddForm @search-result="handleSearchResult" />
     <!-- 移动标签墙到这里，并保持与 AddForm 相同宽度 -->
     <TagList 
-  v-if="tags.length > 0"
-  :tags="tags"
-  @tagClick="handleTagClick"
-  />
+      v-if="tags && tags.length > 0"
+      :tags="tags"
+      @tagClick="handleTagClick"
+    />
         <!-- 确保 MessageList 有足够的 z-index -->
-        <MessageList 
-  ref="messageList" 
-  class="message-list-container" 
-  :site-config="frontendConfig"
-/>
+      <MessageList 
+      ref="messageList" 
+      class="message-list-container" 
+      :site-config="frontendConfig"
+    />
       </UContainer>
       <Notification />
       <!-- 添加搜索模态框组件 -->
@@ -283,10 +283,13 @@ const fetchTags = async () => {
     const response = await fetch(`${useRuntimeConfig().public.baseApi}/messages/tags`)
     const data = await response.json()
     if (data.code === 1) {
-      tags.value = data.data
+      // 确保即使没有标签也初始化为空数组
+      tags.value = data.data || []
     }
   } catch (error) {
     console.error('获取标签失败:', error)
+    // 出错时也初始化为空数组
+    tags.value = []
   }
 }
 // 标签点击处理
