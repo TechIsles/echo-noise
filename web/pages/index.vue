@@ -4,7 +4,7 @@
       <div class="rainbow-spinner"></div>
       <div class="loading-text">加载中...</div>
     </div>
-    <div class="content-wrapper">
+    <div class="content-wrapper" :class="{ 'gpu-accelerated': true }">
       <UContainer class="container-fixed py-2 pb-4 my-4">
         <div class="moments-header">
           <div class="header-image" :style="headerImageStyle">
@@ -251,28 +251,27 @@ const changeBackground = async () => {
   
   if (newImage === currentImage.value) {
     imageLoading.value = false
-    changeBackground()
     return
   }
 
-  // 桌面端和移动端都使用低质量图片作为占位
-  const isMobile = window.innerWidth <= 768
-  const lowQualityImage = isMobile 
-    ? `${newImage}?imageView2/2/w/400/q/50`  // 移动端更低质量
-    : `${newImage}?imageView2/2/w/800/q/70`  // 桌面端较高质量但仍低于原图
-  
-  currentImage.value = lowQualityImage
+  // 使用更小的缩略图
+  const thumbnailImage = `${newImage}?imageView2/2/w/10/blur/1/q/10`
+  currentImage.value = thumbnailImage
 
-  // 加载原图
-  const img = new Image()
-  img.src = newImage
-  img.onload = () => {
-    currentImage.value = newImage
-    imageLoading.value = false
-  }
-  img.onerror = () => {
-    imageLoading.value = false
-  }
+  // 使用 requestAnimationFrame 优化渲染
+  requestAnimationFrame(() => {
+    const img = new Image()
+    img.src = newImage
+    img.onload = () => {
+      requestAnimationFrame(() => {
+        currentImage.value = newImage
+        imageLoading.value = false
+      })
+    }
+    img.onerror = () => {
+      imageLoading.value = false
+    }
+  })
 }
 
 const subtitleEl = ref<HTMLElement | null>(null)
@@ -380,11 +379,18 @@ const startTypeEffect = () => {
 // 修改 onMounted 钩子
 onMounted(async () => {
   try {
-    // 并行执行配置和标签获取
-    await Promise.all([
-      fetchConfig(),
-      fetchTags()
-    ]);
+    // 使用 requestIdleCallback 延迟加载非关键组件
+    window.requestIdleCallback = window.requestIdleCallback || ((cb) => setTimeout(cb, 1))
+    
+    // 关键内容优先加载
+    await fetchConfig()
+    
+    // 非关键内容延迟加载
+    requestIdleCallback(async () => {
+      await fetchTags()
+      await preloadImages(frontendConfig.value.backgrounds)
+    })
+
     // 确保配置加载完成后再执行后续操作
     if (frontendConfig.value.backgrounds.length > 0) {
       const initialImage = frontendConfig.value.backgrounds[
@@ -397,27 +403,42 @@ onMounted(async () => {
       isLoaded.value = true
 
       // 后台预加载其他图片
-      preloadImages(frontendConfig.value.backgrounds)
+      requestIdleCallback(async () => {
+        await preloadImages(frontendConfig.value.backgrounds)
+      })
       
       // 加载高质量初始图片
       const img = new Image()
       img.src = initialImage
       img.onload = () => {
-        currentImage.value = initialImage
+        requestAnimationFrame(() => {
+          currentImage.value = initialImage
+        })
       }
     }
     
+    // 启动打字效果
     const typeInterval = startTypeEffect()
     onUnmounted(() => {
       if (typeInterval) {
         clearInterval(typeInterval)
       }
     })
-  } catch (error) {
-console.error('初始化失败:', error)
-isLoaded.value = true
-}
 
+    // 添加事件监听
+    window.addEventListener('frontend-config-updated', async (event: CustomEvent) => {
+      await fetchConfig()
+      if (frontendConfig.value.backgrounds?.length > 0) {
+        const randomIndex = Math.floor(Math.random() * frontendConfig.value.backgrounds.length)
+        const newImage = frontendConfig.value.backgrounds[randomIndex]
+        currentImage.value = newImage
+      }
+    })
+
+  } catch (error) {
+    console.error('初始化失败:', error)
+    isLoaded.value = true
+  }
 })
 </script>
 
@@ -477,9 +498,6 @@ html, body {
   background-repeat: no-repeat;
   filter: blur(8px);
   z-index: -1;
-  transform: scale(1.1);
-  transition: background-image 0.5s ease;
-  will-change: transform;
   background-color: black; /* 确保模糊层也有黑色背景 */
 }
 
@@ -492,7 +510,9 @@ html, body {
   box-sizing: border-box;
   padding: 1rem;  /* 使用固定内边距 */
   /* 优化内容层性能 */
-  transform: translate3d(0, 0, 0);
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  contain: content;
   will-change: transform;
   z-index: 1;
 }
@@ -543,7 +563,7 @@ html, body {
 }
 @media screen and (max-width: 768px) {
   .content-wrapper {
-    padding: 0.2rem 0.2rem 0; /* 上左右0.2rem，底部0 */
+   padding: 0.5rem; 
   }
   /* 优化移动端滚动性能 */
   .message-list-container {
@@ -557,8 +577,8 @@ html, body {
     padding-bottom: 0.2rem; /* 底部内边距 */
   }
   .background-container::before {
+    filter: blur(2px);  /* 减少模糊度 */
     transform: scale(1); /* 移除放大效果 */
-    filter: blur(4px); /* 减少模糊度 */
   }
   .header-image {
     height: 250px;
@@ -566,6 +586,14 @@ html, body {
     background-position: center;
   }
 }
+/* 禁用移动端的一些动画效果 */
+.avatar {
+    transition: none;
+  }
+  
+  .header-image {
+    transition: none;
+  }
 @media screen and (max-width: 768px) {
   .header-title {
     font-size: 1.8rem;

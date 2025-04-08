@@ -8,7 +8,7 @@ export const useMessageStore = defineStore("messageStore", () => {
   const total = ref(0);
   const hasMore = ref(true);
   const page = ref<number>(1);
-  const pageSize = ref(10);
+  const pageSize = ref(15);
   const toast = useToast();
   const loading = ref<boolean>(false);
   const siteConfig = ref<any>(null);  // 添加网站配置状态

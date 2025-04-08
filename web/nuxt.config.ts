@@ -55,6 +55,13 @@ export default defineNuxtConfig({
   // 添加以下配置
   nitro: {
     preset: 'node-server',
+    routeRules: {
+      '/**': {
+        headers: {
+          'Content-Security-Policy': "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https: http:; font-src 'self' https:; connect-src 'self' https:; frame-src 'self' https:;"
+        }
+      }
+    }
   },
   build: {
     transpile: ['@heroicons/vue'],

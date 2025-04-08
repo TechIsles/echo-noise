@@ -18,6 +18,9 @@ RUN cp -r .output/public /app/public/
 # 后端构建阶段
 FROM golang:1.24.1-alpine AS backend-build
 
+# 设置 Go 代理
+ENV GOPROXY=https://goproxy.cn,direct
+
 # 设置工作目录
 WORKDIR /app
 
@@ -74,6 +77,9 @@ COPY ./data/noise.db /app/data/
 
 # 暴露应用端口
 EXPOSE 1314
+
+# 在最终阶段添加
+ENV IMAGE_DIGEST=${TARGETPLATFORM}
 
 # 启动应用
 CMD ["/app/noise"]

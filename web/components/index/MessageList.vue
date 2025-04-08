@@ -67,13 +67,17 @@
             </div>
           </div>
 
-          <div class="border-l-2 border-gray-300 p-6 ml-1">
+          <div class="border-l-2 border-gray-300 p-4 ml-1">
             <div class="content-container" v-if="msg.image_url || msg.content" :data-msg-id="msg.id">
               <!-- 图片内容 -->
-              <a v-if="msg.image_url" :href="`${BASE_API}${msg.image_url}`" data-fancybox="uploaded-image">
-                <img :src="`${BASE_API}${msg.image_url}`" alt="Image" class="max-w-full object-cover rounded-lg mb-4"
-                  loading="lazy" />
-              </a>
+              <img 
+  v-if="msg.image_url" 
+  :src="`${BASE_API}${msg.image_url}`" 
+  alt="Image" 
+  class="max-w-full object-cover rounded-lg mb-4"
+  loading="lazy"
+  :fetchpriority="index < 3 ? 'high' : 'low'"
+/>
               <!-- 分隔线 -->
               <div v-if="msg.image_url && msg.content" class="border-t border-gray-600 my-4"></div>
               <!-- 文本内容区域 -->
@@ -99,20 +103,57 @@
           </div>
         </div>
       </div>
-        <!-- 加载更多按钮 -->
-      <div v-if="!isSearchMode && message.hasMore" class="flex justify-center w-full my-4">
-        <UButton 
-  color="gray" 
-  variant="outline" 
-  size="sm" 
-  class="rounded-full px-6 py-2 bg-[rgba(36,43,50,0.95)] text-white hover:text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm"
-  @click="loadMore"
->
-  加载更多...
-</UButton>
-      </div>
-      <!-- 加载完毕提示~ -->
-      <div v-else-if="message.messages.length > 0" class="text-center text-gray-500 mt-4">
+      <!-- 分页控制区域 -->
+<div v-if="!isSearchMode" class="flex justify-center items-center space-x-4 w-full my-4">
+  <UButton 
+    v-if="message.page > 1"
+    color="gray" 
+    variant="outline" 
+    size="xs" 
+    class="rounded-full px-4 py-1.5 bg-[rgba(36,43,50,0.95)] text-white hover:text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm"
+    @click="loadPreviousPage"
+  >
+    <UIcon name="i-heroicons-arrow-left" class="mr-1 w-4 h-4" /> 
+    上一页
+  </UButton>
+
+  <!-- 页码显示和跳转 -->
+  <div class="flex items-center space-x-2">
+    <span class="text-gray-500 text-shadow-sm text-sm">第 {{ message.page }} 页</span> 
+    <UInput
+      v-model="targetPage"
+      type="number"
+      min="1"
+      :max="totalPages"
+      class="w-12 text-center text-sm" 
+      placeholder="#"
+      @keyup.enter="jumpToPage"
+    />
+    <UButton
+      size="xs" 
+      color="gray"
+      variant="ghost"
+      class="text-gray-400 hover:text-orange-500 text-sm"  
+      @click="jumpToPage"
+    >
+      跳转
+    </UButton>
+  </div>
+
+  <UButton 
+    v-if="message.hasMore"
+    color="gray" 
+    variant="outline" 
+    size="xs" 
+    class="rounded-full px-4 py-1.5 bg-[rgba(36,43,50,0.95)] text-white hover:text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm"
+    @click="loadNextPage"
+  >
+    下一页
+    <UIcon name="i-heroicons-arrow-right" class="ml-1 w-4 h-4" />
+  </UButton>
+</div>
+      <!-- 加载完毕提示 -->
+      <div v-if="!isSearchMode && message.messages.length > 0 && !message.hasMore" class="text-center text-gray-500 mt-4">
         <UIcon name="i-fluent-emoji-flat-confetti-ball" size="lg" />
         加载完毕~
       </div>
@@ -169,7 +210,41 @@ import { useMessageStore } from "~/store/message";
 import { useUserStore } from "~/store/user";
 import MarkdownRenderer from "~/components/index/MarkdownRenderer.vue";
 
+const targetPage = ref('');
+const totalPages = computed(() => Math.ceil(message.total / 15));
+const jumpToPage = async () => {
+  const page = parseInt(targetPage.value);
+  if (!page || page < 1 || page > totalPages.value || message.loading) {
+    useToast().add({
+      title: '页码无效',
+      description: `请输入 1-${totalPages.value} 之间的数字`,
+      color: 'orange',
+      timeout: 2000
+    });
+    return;
+  }
 
+  try {
+    const result = await message.getMessages({
+      page,
+      pageSize: 15,
+    });
+    
+    if (!result) {
+      throw new Error('跳转页面失败');
+    }
+    
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    targetPage.value = ''; // 清空输入框
+  } catch (error) {
+    console.error('跳转页面失败:', error);
+    useToast().add({
+      title: '跳转失败',
+      color: 'red',
+      timeout: 2000
+    });
+  }
+};
 
 const BASE_API = useRuntimeConfig().public.baseApi;
 const { deleteMessage } = useMessage();
@@ -400,26 +475,25 @@ const checkContentHeight = () => {
 };
 
 // 确保在内容变化时重新检查高度
-watch(
-  () => message.messages,
-  () => {
-    nextTick(async () => {
-      await new Promise(resolve => setTimeout(resolve, 100)); // 添加短暂延迟
+watch(() => message.messages, () => {
+  nextTick(() => {
+    requestAnimationFrame(() => {
       checkContentHeight();
       initFancybox();
     });
-  },
-  { deep: true, immediate: true }
-);
+  });
+}, { deep: true });
 
 onMounted(async () => {
   try {
     // 获取消息列表
-    await message.getMessages({
+    const result = await message.getMessages({
       page: 1,
       pageSize: 15,
     });
-
+    if (!result) {
+      throw new Error('加载消息失败');
+    }
     // 异步检查登录状态
     userStore.checkLoginStatus();
 
@@ -449,31 +523,69 @@ onMounted(async () => {
     console.error('初始化失败:', error);
     useToast().add({
       title: '加载失败',
+      description: '请刷新页面重试',
       color: 'red',
       timeout: 2000
     });
   }
 });
-// 添加 loadMore 方法
-const loadMore = async () => {
+// 修改 loadMore 为 loadNextPage
+const loadNextPage = async () => {
+  if (message.loading) return;
+  
   try {
-    // 使用相同的 pageSize
     const result = await message.getMessages({
       page: message.page + 1,
       pageSize: 15,
     });
     
-    // 检查是否有重复数据
-    if (result && result.items) {
-      const newMessages = result.items.filter(newMsg => 
-        !message.messages.some(existingMsg => existingMsg.id === newMsg.id)
-      );
-      
-      // 只添加非重复的消息
-      message.messages.push(...newMessages);
+    if (!result) {
+      throw new Error('加载下一页失败');
     }
+    
+    // 先更新内容
+    message.messages = result.items;
+    
+    // 等待 DOM 更新完成后再滚动
+    await nextTick();
+    window.scrollTo({ 
+      top: 0,
+      behavior: 'instant' // 改为即时滚动，避免动画
+    });
   } catch (error) {
-    console.error('加载更多失败:', error);
+    console.error('加载下一页失败:', error);
+    useToast().add({
+      title: '加载失败',
+      color: 'red',
+      timeout: 2000
+    });
+  }
+};
+// 添加加载上一页方法
+const loadPreviousPage = async () => {
+  if (message.page <= 1 || message.loading) return;
+  
+  try {
+    const result = await message.getMessages({
+      page: message.page - 1,
+      pageSize: 15,
+    });
+    
+    if (!result) {
+      throw new Error('加载上一页失败');
+    }
+    
+    // 先更新内容
+    message.messages = result.items;
+    
+    // 等待 DOM 更新完成后再滚动
+    await nextTick();
+    window.scrollTo({ 
+      top: 0,
+      behavior: 'instant' // 改为即时滚动，避免动画
+    });
+  } catch (error) {
+    console.error('加载上一页失败:', error);
     useToast().add({
       title: '加载失败',
       color: 'red',
@@ -553,7 +665,7 @@ const editMessage = (msg: any) => {
     contentWithImages += imageMarkdown;
   }
   
-  editingContent.value = contentWithImages;
+  editingContent.value = msg.content;
   showEditModal.value = true;
 };
 const saveEditedMessage = async () => {
@@ -936,14 +1048,10 @@ const resetSearch = () => {
 
 // 修改displayMessages计算属性以支持搜索模式
 const displayMessages = computed(() => {
-  // 添加调试日志
-  console.log('计算displayMessages - 搜索模式:', isSearchMode.value);
-  console.log('计算displayMessages - 搜索结果数量:', searchResults.value?.length);
-  
   if (isSearchMode.value && Array.isArray(searchResults.value)) {
     return searchResults.value;
   }
-  return Array.isArray(message.messages) ? message.messages : [];
+  return message.messages || []; // 确保返回数组，即使是空数组
 });
 
 // 添加事件监听
@@ -989,13 +1097,13 @@ const footerConfig = computed(() => ({
 <style scoped>
 /* 修改内容卡片样式 */
 .content-container {
-  padding: 16px;
+  padding: 12px;
   background: rgba(36, 43, 50, 0.95);
-  border-radius: 16px;
+  border-radius: 12px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
   transition: all 0.3s ease;
   border: 1px solid rgba(5, 5, 5, 0.2);
-  margin: 8px 0 0.2rem 0;
+  margin: 4px 0 0.2rem 0; /* 调整外边距 */
   width: 100%;
   box-sizing: border-box;
   position: relative;
@@ -1035,8 +1143,8 @@ const footerConfig = computed(() => ({
 /* 添加移动端适配 */
 @media screen and (max-width: 768px) {
   .content-container {
-    margin: 4px 0;
-    padding: 12px;
+    margin: 2px 0;
+    padding: 8px;
     box-shadow: none;
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
@@ -1044,8 +1152,7 @@ const footerConfig = computed(() => ({
   
   /* 调整内容区域的内边距 */
   .border-l-2 {
-    padding-left: 0.8rem; /* 减少左侧内边距 */
-    padding-right: 0.8rem;
+    padding: 0.8rem !important;
   }
   /* 优化移动端滚动 */
   .message-list-container {
@@ -1302,5 +1409,29 @@ button:hover {
 }
 .hide-scrollbar::-webkit-scrollbar {
   display: none;
+}
+/* ... 跳转页文本 ... */
+.text-shadow-sm {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1),
+               0 2px 4px rgba(0, 0, 0, 0.1);
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+/* 添加移动端分页按钮适配 */
+@media screen and (max-width: 768px) {
+  .UButton {
+    font-size: 0.875rem;
+    padding: 0.375rem 0.75rem;
+  }
+  
+  .UInput {
+    height: 2rem;
+    font-size: 0.875rem;
+  }
+  
+  /* 调整按钮间距 */
+  .space-x-4 > * + * {
+    margin-left: 0.5rem;
+  }
 }
 </style>

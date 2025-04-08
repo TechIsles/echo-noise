@@ -6,6 +6,7 @@ import (
     "net/http"
     "strconv"
     "encoding/json"
+    "os" 
     "github.com/gin-contrib/sessions"
     "github.com/gin-gonic/gin"
     "github.com/lin-snow/ech0/internal/dto"
@@ -556,10 +557,7 @@ func CheckVersion(c *gin.Context) {
 
     resp, err := client.Get("https://hub.docker.com/v2/repositories/noise233/echo-noise/tags")
     if err != nil {
-        c.JSON(http.StatusOK, gin.H{
-            "code": 0,
-            "msg":  "检查更新失败",
-        })
+        c.JSON(http.StatusOK, dto.Fail[any]("检查更新失败"))
         return
     }
     defer resp.Body.Close()
@@ -568,50 +566,46 @@ func CheckVersion(c *gin.Context) {
         Results []struct {
             Name        string    `json:"name"`
             LastUpdated string    `json:"last_updated"`
+            Digest      string    `json:"digest"`
         } `json:"results"`
     }
 
     if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-        c.JSON(http.StatusOK, gin.H{
-            "code": 0,
-            "msg":  "解析版本信息失败",
-        })
+        c.JSON(http.StatusOK, dto.Fail[any]("解析版本信息失败"))
         return
     }
 
-    var lastUpdateTime string
+    currentDigest := os.Getenv("IMAGE_DIGEST")
+    if currentDigest == "" {
+        currentDigest = "unknown"
+    }
+
+    // 修改这里的结构体定义，确保字段标签匹配
+    var latestTag = struct {
+        Name        string    `json:"name"`
+        LastUpdated string    `json:"last_updated"`
+        Digest      string    `json:"digest"`
+    }{}
+
     for _, tag := range result.Results {
         if tag.Name == "latest" {
-            lastUpdateTime = tag.LastUpdated
+            latestTag = tag
             break
         }
     }
 
-    if lastUpdateTime == "" {
-        c.JSON(http.StatusOK, gin.H{
-            "code": 0,
-            "msg":  "未找到版本信息",
-        })
+    if latestTag.Name == "" {
+        c.JSON(http.StatusOK, dto.Fail[any]("未找到版本信息"))
         return
     }
 
-    updateTime, err := time.Parse(time.RFC3339, lastUpdateTime)
-    if err != nil {
-        c.JSON(http.StatusOK, gin.H{
-            "code": 0,
-            "msg":  "解析时间失败",
-        })
-        return
-    }
+    // 判断是否有更新（通过对比 digest）
+    hasUpdate := currentDigest != "unknown" && currentDigest != latestTag.Digest
 
-    // 判断是否在24小时内更新
-    hasUpdate := time.Since(updateTime) <= 24*time.Hour
-
-    c.JSON(http.StatusOK, gin.H{
-        "code": 1,
-        "data": gin.H{
-            "hasUpdate":     hasUpdate,
-            "lastUpdateTime": lastUpdateTime,
-        },
-    })
+    c.JSON(http.StatusOK, dto.OK(gin.H{
+        "hasUpdate":      hasUpdate,
+        "currentDigest": currentDigest,
+        "latestDigest":  latestTag.Digest,
+        "lastUpdateTime": latestTag.LastUpdated,
+    }, "检查完成"))
 }
