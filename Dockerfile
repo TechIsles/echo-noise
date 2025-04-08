@@ -78,8 +78,5 @@ COPY ./data/noise.db /app/data/
 # 暴露应用端口
 EXPOSE 1314
 
-# 在最终阶段添加
-ENV IMAGE_DIGEST=${TARGETPLATFORM}
-
 # 启动应用
 CMD ["/app/noise"]

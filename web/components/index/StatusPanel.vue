@@ -5,8 +5,7 @@
                 <h1 class="text-3xl font-bold text-center text-white mb-8">系统管理面板</h1>
                  <!-- 添加版本信息和检测按钮 -->
                  <div class="text-center mb-6 flex items-center justify-center gap-2">
-    <span class="text-gray-300">当前版本: {{ versionInfo.currentVersion || '未知' }}</span>
-    <span class="text-gray-400 text-sm">(构建版本: {{ versionInfo.buildVersion || '未知' }})</span>
+    <span class="text-gray-300">当前版本: latest</span>
     <UButton
         size="xs"
         color="gray"
@@ -19,18 +18,18 @@
 </div>
                 <!-- 更新提示 -->
                 <div v-if="versionInfo.hasUpdate" class="text-center mb-6">
-                    <div class="flex items-center justify-center gap-2 text-orange-400">
-                        <UIcon name="i-heroicons-arrow-up-circle" class="w-5 h-5" />
-                        <span>发现新版本（发布于 {{ versionInfo.latestVersion }}）</span>
-                        <a 
-                            href="https://hub.docker.com/r/noise233/echo-noise/tags" 
-                            target="_blank"
-                            class="text-blue-400 hover:text-blue-300 ml-2"
-                        >
-                            查看详情
-                        </a>
-                    </div>
-                </div>
+    <div class="flex items-center justify-center gap-2 text-orange-400">
+        <UIcon name="i-heroicons-arrow-up-circle" class="w-5 h-5" />
+        <span>发现新版本（发布于 {{ versionInfo.latestVersion }}）</span>
+        <a 
+            href="https://hub.docker.com/r/noise233/echo-noise/tags" 
+            target="_blank"
+            class="text-blue-400 hover:text-blue-300 ml-2"
+        >
+            查看详情
+        </a>
+    </div>
+</div>
 
                 <!-- 系统状态卡片 -->
                 <div class="bg-gray-700 rounded-lg p-4 mb-6">
@@ -387,9 +386,7 @@ const userToken = ref('')
 const versionInfo = reactive({
     checking: false,
     hasUpdate: false,
-    currentVersion: '',  // 当前版本号
-    latestVersion: '',   // 最新版本发布时间
-    buildVersion: ''     // 构建版本号
+    latestVersion: ''
 })
 // 检查版本更新
 const checkVersion = async () => {
@@ -405,10 +402,8 @@ const checkVersion = async () => {
         
         const data = await response.json();
         if (data.code === 1) {
-            const { hasUpdate, lastUpdateTime, currentVersion, buildVersion } = data.data;
+            const { hasUpdate, lastUpdateTime } = data.data;
             versionInfo.hasUpdate = hasUpdate;
-            versionInfo.currentVersion = currentVersion;
-            versionInfo.buildVersion = buildVersion;
             versionInfo.latestVersion = new Date(lastUpdateTime).toLocaleString('zh-CN', {
                 year: 'numeric',
                 month: '2-digit',
@@ -420,13 +415,13 @@ const checkVersion = async () => {
             if (hasUpdate) {
                 useToast().add({
                     title: '发现新版本',
-                    description: `当前版本: ${versionInfo.currentVersion}, 最新版本发布于 ${versionInfo.latestVersion}`,
+                    description: `最新版本发布于 ${versionInfo.latestVersion}`,
                     color: 'orange'
                 });
             } else {
                 useToast().add({
                     title: '已是最新版本',
-                    description: `当前版本: ${versionInfo.currentVersion}`,
+                    description: '当前使用的是最新版本',
                     color: 'green'
                 });
             }
