@@ -98,7 +98,7 @@ Ech0 是一款专为轻量级分享而设计的开源自托管平台，支持快
 
 - 将管理员判断逻辑移到了 services 层
 
-- 调整后台界面（还未对接好）
+- 调整后台界面
 
   ![C8Yn4VJ96PgrioX](https://s2.loli.net/2025/03/31/C8Yn4VJ96PgrioX.png)
 

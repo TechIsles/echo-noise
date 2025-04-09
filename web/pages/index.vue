@@ -477,11 +477,10 @@ html, body {
   right: 0;
   bottom: 0;
   overflow-y: auto;  /* 允许内容滚动 */
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch; /* 优化移动端滚动 */
+  overflow: hidden; /* 禁止背景容器滚动 */
   background-color: black; 
+  z-index: -1; /* 确保背景在最底层 */
 }
-
 
 .background-container::before {
   content: '';
@@ -490,46 +489,29 @@ html, body {
   left: 0;
   right: 0;
   bottom: 0;
-  width: 100%;
-  height: 100%;
   background-image: var(--bg-image);
   background-size: cover;
   background-position: center;
-  background-repeat: no-repeat;
+  background-attachment: fixed; /* 确保背景固定 */
   filter: blur(8px);
   z-index: -1;
-  background-color: black; /* 确保模糊层也有黑色背景 */
 }
 
 .content-wrapper {
   position: relative;
-  width: 100%;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: auto;
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  box-sizing: border-box;
-  padding: 1rem;  /* 使用固定内边距 */
-  /* 优化内容层性能 */
-  transform: translateZ(0);
-  backface-visibility: hidden;
-  contain: content;
-  will-change: transform;
-  z-index: 1;
+  overflow-y: auto; /* 允许内容区域滚动 */
+  overscroll-behavior: contain; /* 防止滚动穿透 */
 }
 
 .container-fixed {
   backdrop-filter: blur(4px);
-  border-radius: 8px;
-  margin: 0 auto;
-  max-width: 1200px;
-  width: 100%;
-  position: relative;
-  z-index: 1;
-  box-sizing: border-box;
-  overflow: hidden;
-
+  /* 移除不必要的性能消耗属性 */
 }
-
 .moments-header {
   margin-bottom: 20px;
 }
@@ -569,7 +551,6 @@ html, body {
   .message-list-container {
     transform: translateZ(0);
     will-change: transform;
-    -webkit-overflow-scrolling: touch;
   }
   .container-fixed {
     width: 100%;
@@ -577,23 +558,21 @@ html, body {
     padding-bottom: 0.2rem; /* 底部内边距 */
   }
   .background-container::before {
-    filter: blur(2px);  /* 减少模糊度 */
-    transform: scale(1); /* 移除放大效果 */
-  }
-  .header-image {
-    height: 250px;
-    background-size: cover;
-    background-position: center;
-  }
-}
-/* 禁用移动端的一些动画效果 */
-.avatar {
-    transition: none;
+    filter: blur(4px); /* 减少模糊度提升性能 */
+    background-attachment: scroll; /* 移动端使用普通滚动 */
   }
   
-  .header-image {
-    transition: none;
+  .content-wrapper {
+    overscroll-behavior: contain;
+    position: relative; /* 移动端改为相对定位 */
+    height: auto;
+    min-height: 100vh;
   }
+  
+  .background-container {
+    position: absolute; /* 移动端改为绝对定位 */
+  }
+}
 @media screen and (max-width: 768px) {
   .header-title {
     font-size: 1.8rem;
@@ -749,5 +728,30 @@ white-space: nowrap;  /* 防止换行 */
   border-radius: 8px;
   padding: 1rem;
   margin-bottom: 1rem;
+}
+.background-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden; /* 禁止背景滚动 */
+  z-index: 0; /* 调整为0 */
+}
+
+.content-wrapper {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 100vh;
+  overflow-y: auto;
+  z-index: 1; /* 确保内容在背景之上 */
+  pointer-events: auto; /* 确保内容可点击 */
+}
+
+.container-fixed {
+  min-height: 100vh; /* 确保容器足够高 */
+  pointer-events: auto; /* 确保内容可点击 */
 }
 </style>

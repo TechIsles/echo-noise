@@ -13,14 +13,14 @@
         :loading="versionInfo.checking"
         @click="checkVersion"
     >
-        {{ versionInfo.checking ? '检测中...' : '检查更新' }}
+        {{ versionInfo.checking ? '检测中...' : '检查版本时间' }}
     </UButton>
 </div>
                 <!-- 更新提示 -->
                 <div v-if="versionInfo.hasUpdate" class="text-center mb-6">
     <div class="flex items-center justify-center gap-2 text-orange-400">
         <UIcon name="i-heroicons-arrow-up-circle" class="w-5 h-5" />
-        <span>发现新版本（发布于 {{ versionInfo.latestVersion }}）</span>
+        <span>发现版本最近更新（于 {{ versionInfo.latestVersion }}）</span>
         <a 
             href="https://hub.docker.com/r/noise233/echo-noise/tags" 
             target="_blank"
@@ -414,7 +414,7 @@ const checkVersion = async () => {
 
             if (hasUpdate) {
                 useToast().add({
-                    title: '发现新版本',
+                    title: '发现版本',
                     description: `最新版本发布于 ${versionInfo.latestVersion}`,
                     color: 'orange'
                 });
@@ -432,7 +432,7 @@ const checkVersion = async () => {
         console.error('检查版本更新失败:', error);
         useToast().add({
             title: '检查更新失败',
-            description: '请稍后重试',
+            description: '请科学上网后重试',
             color: 'red'
         });
     } finally {

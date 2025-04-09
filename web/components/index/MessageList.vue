@@ -104,21 +104,35 @@
         </div>
       </div>
       <!-- 分页控制区域 -->
-<div v-if="!isSearchMode" class="flex justify-center items-center space-x-4 w-full my-4">
-  <UButton 
-    v-if="message.page > 1"
-    color="gray" 
-    variant="outline" 
-    size="xs" 
-    class="rounded-full px-4 py-1.5 bg-[rgba(36,43,50,0.95)] text-white hover:text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm"
-    @click="loadPreviousPage"
-  >
-    <UIcon name="i-heroicons-arrow-left" class="mr-1 w-4 h-4" /> 
-    上一页
-  </UButton>
+      <div v-if="!isSearchMode" class="flex justify-center items-center space-x-4 w-full my-4 flex-wrap md:flex-nowrap">
+  <div class="flex justify-center items-center space-x-4 w-full md:w-auto">
+    <UButton 
+      v-if="message.page > 1"
+      color="gray" 
+      variant="outline" 
+      size="xs" 
+      class="rounded-full px-4 py-1.5 bg-[rgba(36,43,50,0.95)] text-white hover:text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm"
+      @click="loadPreviousPage"
+    >
+      <UIcon name="i-heroicons-arrow-left" class="mr-1 w-4 h-4" /> 
+      上一页
+    </UButton>
+
+    <UButton 
+      v-if="message.hasMore"
+      color="gray" 
+      variant="outline" 
+      size="xs" 
+      class="rounded-full px-4 py-1.5 bg-[rgba(36,43,50,0.95)] text-white hover:text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm"
+      @click="loadNextPage"
+    >
+      下一页
+      <UIcon name="i-heroicons-arrow-right" class="ml-1 w-4 h-4" />
+    </UButton>
+  </div>
 
   <!-- 页码显示和跳转 -->
-  <div class="flex items-center space-x-2">
+  <div class="flex items-center justify-center space-x-2 w-full md:w-auto mt-3 md:mt-0">
     <span class="text-gray-500 text-shadow-sm text-sm">第 {{ message.page }} 页</span> 
     <UInput
       v-model="targetPage"
@@ -139,18 +153,6 @@
       跳转
     </UButton>
   </div>
-
-  <UButton 
-    v-if="message.hasMore"
-    color="gray" 
-    variant="outline" 
-    size="xs" 
-    class="rounded-full px-4 py-1.5 bg-[rgba(36,43,50,0.95)] text-white hover:text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm"
-    @click="loadNextPage"
-  >
-    下一页
-    <UIcon name="i-heroicons-arrow-right" class="ml-1 w-4 h-4" />
-  </UButton>
 </div>
       <!-- 加载完毕提示 -->
       <div v-if="!isSearchMode && message.messages.length > 0 && !message.hasMore" class="text-center text-gray-500 mt-4">
@@ -539,8 +541,9 @@ const loadNextPage = async () => {
       pageSize: 15,
     });
     
-    if (!result) {
-      throw new Error('加载下一页失败');
+    if (!result || !result.items || result.items.length === 0) {
+      message.hasMore = false; // 确保没有更多数据时设置为false
+      return;
     }
     
     // 先更新内容
@@ -1100,19 +1103,12 @@ const footerConfig = computed(() => ({
   padding: 12px;
   background: rgba(36, 43, 50, 0.95);
   border-radius: 12px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
   transition: all 0.3s ease;
-  border: 1px solid rgba(5, 5, 5, 0.2);
   margin: 4px 0 0.2rem 0; /* 调整外边距 */
   width: 100%;
   box-sizing: border-box;
   position: relative;
   overflow: hidden;
-  /* 添加以下优化属性 */
-  will-change: transform;
-  transform: translateZ(0);
-  backface-visibility: hidden;
-  perspective: 1000px;
 }
 /* 优化图片渲染 */
 .content-container img {
@@ -1133,11 +1129,6 @@ const footerConfig = computed(() => ({
   html, body {
     -webkit-overflow-scrolling: touch;
     overflow-scrolling: touch;
-  }
-  
-  .content-container {
-    /* 减少阴影复杂度 */
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
   }
 }
 /* 添加移动端适配 */
@@ -1175,8 +1166,8 @@ const footerConfig = computed(() => ({
   right: 0;
   bottom: 0;
   background: rgba(36, 43, 50, 0.95);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(9px);
   z-index: -1;
   border-radius: inherit;
 }
@@ -1432,6 +1423,15 @@ button:hover {
   /* 调整按钮间距 */
   .space-x-4 > * + * {
     margin-left: 0.5rem;
+  }
+  
+  /* 优化移动端分页布局 */
+  .flex-wrap {
+    flex-wrap: wrap;
+  }
+  
+  .mt-3 {
+    margin-top: 0.75rem;
   }
 }
 </style>
