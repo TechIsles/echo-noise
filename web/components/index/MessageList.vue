@@ -236,7 +236,15 @@ const jumpToPage = async () => {
       throw new Error('跳转页面失败');
     }
     
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    // 更新消息列表
+    message.messages = result.items;
+    
+    // 滚动到顶部
+    window.scrollTo({ 
+      top: 0,
+      behavior: 'instant'
+    });
+    
     targetPage.value = ''; // 清空输入框
   } catch (error) {
     console.error('跳转页面失败:', error);
