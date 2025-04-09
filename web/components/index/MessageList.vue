@@ -1166,8 +1166,6 @@ const footerConfig = computed(() => ({
   right: 0;
   bottom: 0;
   background: rgba(36, 43, 50, 0.95);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(9px);
   z-index: -1;
   border-radius: inherit;
 }
@@ -1202,7 +1200,11 @@ button:hover {
 .content-container .overflow-y-hidden:not(.max-h-\[700px\]) {
   max-height: none;
 }
-
+/* 添加页脚固定样式 */
+:deep(.text-center.text-xs.text-gray-400.py-4) {
+  margin-top: auto;
+  padding-top: 2rem;
+}
 /* 修改评论区样式 */
 :deep(.wl-comment) {
   background: rgba(36, 43, 50, 0.95) !important;

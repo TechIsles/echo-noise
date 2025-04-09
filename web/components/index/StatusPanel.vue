@@ -13,7 +13,7 @@
         :loading="versionInfo.checking"
         @click="checkVersion"
     >
-        {{ versionInfo.checking ? '检测中...' : '检查版本时间' }}
+        {{ versionInfo.checking ? '检测中...' : '检查版本发布时间' }}
     </UButton>
 </div>
                 <!-- 更新提示 -->
@@ -310,12 +310,18 @@
                             退出登录
                         </UButton>
                     </div>
-                    <div v-else>
+                    <div v-else class="flex gap-2">
                         <UButton
                             color="primary"
-                            @click="showLoginModal = true"
+                            @click="showLoginModal = true; authmode = true"
                         >
                             登录
+                        </UButton>
+                        <UButton
+                            color="secondary"
+                            @click="showLoginModal = true; authmode = false"
+                        >
+                            注册
                         </UButton>
                     </div>
                 </div>
