@@ -657,20 +657,19 @@ const isSaving = ref(false);
 
 const editMessage = (msg: any) => {
   editingMessageId.value = msg.id;
-  let contentWithImages = msg.content;
   
-  // 检查内容中是否已经包含任何图片链接
-  const hasImageInContent = /!\[.*?\]\((.*?)\)/.test(contentWithImages);
+  // 保存原始内容，不包含附件图片
+  editingContent.value = msg.content;
   
-  // 如果存在附件图片且内容中没有任何图片，则添加附件图片
-  if (msg.image_url && !hasImageInContent) {
-    const imageMarkdown = `\n![图片附件](${BASE_API}${msg.image_url})\n`;
-    contentWithImages += imageMarkdown;
+  // 如果存在附件图片，添加到编辑器中以便用户可以看到和编辑
+  if (msg.image_url) {
+    const imageMarkdown = `\n\n<!-- 附件图片(编辑时可删除) -->\n![附件图片](${BASE_API}${msg.image_url})\n<!-- 附件图片结束 -->`;
+    editingContent.value += imageMarkdown;
   }
   
-  editingContent.value = msg.content;
   showEditModal.value = true;
 };
+
 const saveEditedMessage = async () => {
   if (!editingMessageId.value) return;
   
@@ -680,6 +679,23 @@ const saveEditedMessage = async () => {
     const currentMsg = message.messages.find(msg => msg.id === editingMessageId.value);
     if (!currentMsg) return;
 
+    // 处理编辑内容，移除附件图片的 Markdown 标记
+    let processedContent = editingContent.value;
+    
+    // 移除附件图片的 Markdown 标记
+    processedContent = processedContent.replace(/\n*<!-- 附件图片\(编辑时可删除\) -->\n!\[附件图片\]\(.*?\)\n<!-- 附件图片结束 -->\n*/g, '');
+    
+    // 检查内容是否有修改
+    if (processedContent === currentMsg.content) {
+      useToast().add({
+        title: '内容未修改',
+        description: '请修改内容后再保存',
+        color: 'orange',
+        timeout: 2000
+      });
+      isSaving.value = false;
+      return;
+    }
     // 直接使用编辑器中的内容，不做任何修改
     const response = await fetch(`${BASE_API}/messages/${editingMessageId.value}`, {
       method: 'PUT',
@@ -689,7 +705,7 @@ const saveEditedMessage = async () => {
       },
       credentials: 'include',
       body: JSON.stringify({
-        content: editingContent.value,
+        content: processedContent,
         image_url: currentMsg.image_url
       })
     });
