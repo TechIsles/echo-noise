@@ -54,7 +54,9 @@ Ech0 是一款专为轻量级分享而设计的开源自托管平台，支持快
 
 <details>
 <summary><h2>✅ 更新状况【点击查看】</h2></summary>
-- 增加了标签系统和图片api 路由
+
+
+-  增加了标签系统和图片api 路由
 
 - 增加后台系统版本检测
 
@@ -276,8 +278,6 @@ docker run -d \
 
 *因api众多...需待更新完善...*
 
-先给出发布信息类的使用
-
 （获取信息是get,发布是post）
 
 先到后台获取api token,然后可以参考下面的命令运行或使用其它服务（记得将https://your.localhost.com 更改为你自己的服务地址）
@@ -353,7 +353,339 @@ curl -X POST 'https://your.localhost.com/api/token/messages' \
 }
 ```
 
+<details>
+<summary><h2>✅ API详情【点击查看】</h2></summary>
 
+# API 文档（待增加）
+
+## 公共接口
+
+### 1. 获取前端配置
+- **路径**: `/api/frontend/config`
+- **方法**: GET
+- **描述**: 获取前端配置信息
+- **示例请求**:
+```bash
+curl http://localhost:8080/api/frontend/config
+```
+
+### 2. 用户登录
+- **路径**: `/api/login`
+- **方法**: POST
+- **描述**: 用户登录接口
+- **请求体**:
+```json
+{
+    "username": "admin",
+    "password": "password"
+}
+```
+- **示例请求**:
+```bash
+curl -X POST http://localhost:8080/api/login \
+     -H "Content-Type: application/json" \
+     -d '{"username":"admin","password":"password"}'
+```
+
+### 3. 用户注册
+- **路径**: `/api/register`
+- **方法**: POST
+- **描述**: 用户注册接口
+- **请求体**:
+```json
+{
+    "username": "newuser",
+    "password": "password",
+    "email": "user@example.com"
+}
+```
+- **示例请求**:
+```bash
+curl -X POST http://localhost:8080/api/register \
+     -H "Content-Type: application/json" \
+     -d '{"username":"newuser","password":"password","email":"user@example.com"}'
+```
+
+### 4. 获取系统状态
+- **路径**: `/api/status`
+- **方法**: GET
+- **描述**: 获取系统运行状态
+- **示例请求**:
+```bash
+curl http://localhost:8080/api/status
+```
+
+### 5. 消息相关公共接口
+
+#### 5.1 获取所有消息
+- **路径**: `/api/messages`
+- **方法**: GET
+- **描述**: 获取所有公开消息
+- **示例请求**:
+```bash
+curl http://localhost:8080/api/messages
+```
+
+#### 5.2 获取单条消息
+- **路径**: `/api/messages/:id`
+- **方法**: GET
+- **描述**: 获取指定ID的消息
+- **示例请求**:
+```bash
+curl http://localhost:8080/api/messages/1
+```
+
+#### 5.3 分页获取消息
+- **路径**: `/api/messages/page`
+- **方法**: POST
+- **描述**: 分页获取消息列表
+- **请求体**:
+```json
+{
+    "page": 1,
+    "pageSize": 10
+}
+```
+- **示例请求**:
+```bash
+curl -X POST http://localhost:8080/api/messages/page \
+     -H "Content-Type: application/json" \
+     -d '{"page":1,"pageSize":10}'
+```
+
+#### 5.4 获取消息日历数据
+- **路径**: `/api/messages/calendar`
+- **方法**: GET
+- **描述**: 获取消息发布热力图数据
+- **示例请求**:
+```bash
+curl http://localhost:8080/api/messages/calendar
+```
+
+#### 5.5 搜索消息
+- **路径**: `/api/messages/search`
+- **方法**: GET
+- **参数**: 
+  - keyword: 搜索关键词
+  - page: 页码
+  - pageSize: 每页数量
+- **示例请求**:
+```bash
+curl "http://localhost:8080/api/messages/search?keyword=测试&page=1&pageSize=10"
+```
+
+### 6. RSS 相关接口
+
+#### 6.1 获取 RSS 订阅
+- **路径**: `/rss`
+- **方法**: GET
+- **描述**: 获取 RSS 订阅内容
+- **示例请求**:
+```bash
+curl http://localhost:1314/rss
+```
+
+## 需要认证的接口
+
+### 1. 消息操作接口
+
+#### 1.1 发布消息
+- **路径**: `/api/messages`
+- **方法**: POST
+- **描述**: 发布新消息
+- **请求体**:
+```json
+{
+    "content": "消息内容",
+    "private": false,
+    "imageURL": ""
+}
+```
+- **示例请求**:
+```bash
+curl -X POST http://localhost:8080/api/messages \
+     -H "Content-Type: application/json" \
+     -H "Cookie: session=xxx" \
+     -d '{"content":"测试消息","private":false}'
+```
+
+#### 1.2 更新消息
+- **路径**: `/api/messages/:id`
+- **方法**: PUT
+- **描述**: 更新指定消息
+- **请求体**:
+```json
+{
+    "content": "更新后的内容"
+}
+```
+- **示例请求**:
+```bash
+curl -X PUT http://localhost:8080/api/messages/1 \
+     -H "Content-Type: application/json" \
+     -H "Cookie: session=xxx" \
+     -d '{"content":"更新后的内容"}'
+```
+
+#### 1.3 删除消息
+- **路径**: `/api/messages/:id`
+- **方法**: DELETE
+- **描述**: 删除指定消息
+- **示例请求**:
+```bash
+curl -X DELETE http://localhost:8080/api/messages/1 \
+     -H "Cookie: session=xxx"
+```
+
+### 2. 用户相关接口
+
+#### 2.1 获取用户信息
+- **路径**: `/api/user`
+- **方法**: GET
+- **描述**: 获取当前登录用户信息
+- **示例请求**:
+```bash
+curl http://localhost:8080/api/user \
+     -H "Cookie: session=xxx"
+```
+
+#### 2.2 修改密码
+- **路径**: `/api/user/change_password`
+- **方法**: PUT
+- **请求体**:
+```json
+{
+    "oldPassword": "旧密码",
+    "newPassword": "新密码"
+}
+```
+- **示例请求**:
+```bash
+curl -X PUT http://localhost:8080/api/user/change_password \
+     -H "Content-Type: application/json" \
+     -H "Cookie: session=xxx" \
+     -d '{"oldPassword":"old","newPassword":"new"}'
+```
+
+#### 2.3 更新用户信息
+- **路径**: `/api/user/update`
+- **方法**: PUT
+- **示例请求**:
+```bash
+curl -X PUT http://localhost:8080/api/user/update \
+     -H "Content-Type: application/json" \
+     -H "Cookie: session=xxx" \
+     -d '{"username":"newname"}'
+```
+
+#### 2.4 退出登录
+- **路径**: `/api/user/logout`
+- **方法**: POST
+- **示例请求**:
+```bash
+curl -X POST http://localhost:8080/api/user/logout \
+     -H "Cookie: session=xxx"
+```
+
+### 3. Token 相关接口
+
+#### 3.1 获取用户 Token
+- **路径**: `/api/user/token`
+- **方法**: GET
+- **示例请求**:
+```bash
+curl http://localhost:8080/api/user/token \
+     -H "Cookie: session=xxx"
+```
+
+#### 3.2 重新生成 Token
+- **路径**: `/api/user/token/regenerate`
+- **方法**: POST
+- **示例请求**:
+```bash
+curl -X POST http://localhost:8080/api/user/token/regenerate \
+     -H "Cookie: session=xxx"
+```
+
+### 4. 系统设置接口
+
+#### 4.1 更新系统设置
+- **路径**: `/api/settings`
+- **方法**: PUT
+- **请求体**:
+```json
+{
+    "allowRegistration": true,
+    "frontendSettings": {
+        "siteTitle": "网站标题",
+        "subtitleText": "副标题",
+        "avatarURL": "头像URL",
+        "username": "显示用户名",
+        "description": "描述",
+        "backgrounds": ["背景图URL"],
+        "cardFooterTitle": "页脚标题",
+        "cardFooterLink": "页脚链接",
+        "pageFooterHTML": "页脚HTML",
+        "rssTitle": "RSS标题",
+        "rssDescription": "RSS描述",
+        "rssAuthorName": "RSS作者",
+        "rssFaviconURL": "RSS图标URL",
+        "walineServerURL": "评论系统URL"
+    }
+}
+```
+- **示例请求**:
+```bash
+curl -X PUT http://localhost:8080/api/settings \
+     -H "Content-Type: application/json" \
+     -H "Cookie: session=xxx" \
+     -d '{"allowRegistration":true,"frontendSettings":{"siteTitle":"我的网站"}}'
+```
+
+### 5. 备份相关接口
+
+#### 5.1 下载备份
+- **路径**: `/api/backup/download`
+- **方法**: GET
+- **示例请求**:
+```bash
+curl http://localhost:8080/api/backup/download \
+     -H "Cookie: session=xxx" \
+     --output backup.sql
+```
+
+#### 5.2 恢复备份
+- **路径**: `/api/backup/restore`
+- **方法**: POST
+- **描述**: 从备份文件恢复数据
+- **示例请求**:
+```bash
+curl -X POST http://localhost:8080/api/backup/restore \
+     -H "Cookie: session=xxx" \
+     -F "file=@backup.sql"
+```
+
+### 6. 图片上传接口
+
+#### 6.1 上传图片
+- **路径**: `/api/images/upload`
+- **方法**: POST
+- **描述**: 上传图片文件
+- **示例请求**:
+```bash
+curl -X POST http://localhost:8080/api/images/upload \
+     -H "Cookie: session=xxx" \
+     -F "file=@image.jpg"
+```
+
+注意事项：
+1. 所有需要认证的接口都需要在请求头中携带有效的 session cookie
+2. 部分接口可能需要管理员权限
+3. 所有请求示例中的域名和端口号需要根据实际部署情况调整
+4. 文件上传接口需要使用 multipart/form-data 格式
+5. Token 认证接口可以使用 Token 替代 session 进行认证
+
+</details>
 
 ## 发布说明
 
