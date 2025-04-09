@@ -508,10 +508,6 @@ html, body {
   overscroll-behavior: contain; /* 防止滚动穿透 */
 }
 
-.container-fixed {
-  backdrop-filter: blur(4px);
-  /* 移除不必要的性能消耗属性 */
-}
 .moments-header {
   margin-bottom: 20px;
 }
