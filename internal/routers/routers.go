@@ -68,10 +68,10 @@ func SetupRouter() *gin.Engine {
 
     // 添加 token 认证的路由组
     tokenAuth := api.Group("/token")
-    tokenAuth.Use(middleware.TokenAuthMiddleware())
+    tokenAuth.Use(middleware.TokenAuthMiddleware())  // 使用 TokenAuthMiddleware
     {
-    tokenAuth.POST("/messages", controllers.PostMessage)
-   }
+        tokenAuth.POST("/messages", controllers.PostMessage)
+    }
     // 需要鉴权的消息操作路由
     messages := authRoutes.Group("/messages")
     {

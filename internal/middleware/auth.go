@@ -65,11 +65,19 @@ func AdminAuthMiddleware() gin.HandlerFunc {
 
 func TokenAuthMiddleware() gin.HandlerFunc {
     return func(c *gin.Context) {
-        token := c.GetHeader("Authorization")
-        if token == "" {
+        auth := c.GetHeader("Authorization")
+        if auth == "" {
             c.JSON(http.StatusOK, dto.Fail[any]("未提供认证信息"))
             c.Abort()
             return
+        }
+
+        // 提取 token
+        var token string
+        if strings.HasPrefix(auth, "Bearer ") {
+            token = strings.TrimPrefix(auth, "Bearer ")
+        } else {
+            token = auth
         }
 
         db, err := database.GetDB()

@@ -56,7 +56,15 @@ Ech0 是一款专为轻量级分享而设计的开源自托管平台，支持快
 <summary><h2>✅ 更新状况【点击查看】</h2></summary>
 
 
--  增加了标签系统和图片api 路由
+- 添加支持双格式认证
+
+  - Authorization: Bearer your_token_here
+  - Authorization: your_token_here
+
+   
+
+
+- 增加了标签系统和图片api 路由
 
 - 增加后台系统版本检测
 
@@ -288,7 +296,7 @@ docker run -d \
 # 发送纯文本信息
 curl -X POST 'https://your.localhost.com/api/token/messages' \
 -H 'Content-Type: application/json' \
--H 'Authorization: c721249bd66e1133fba430ea9e3c32f1' \
+-H 'Authorization: Bearer c721249bd66e1133fba430ea9e3c32f1' \
 -d '{
   "content": "测试信息",
   "type": "text"
