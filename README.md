@@ -369,7 +369,7 @@ docker buildx build --platform linux/amd64,linux/arm64 -t noise233/echo-noise:la
 
 # Memos数据库迁移示例
 
-其中，你需要设置设置源数据库和目标数据库的路径，源数据库为memos_prod.db（memos数据）目标数据库为database.db（本站数据库），你还需要修改构建插入的数据中的用户名为你自己的用户名，分别迁移了原文本内容、发布时间和标签信息，将代码保存为main.py
+其中，你需要设置设置源数据库和目标数据库的路径，源数据库为memos_prod.db（memos数据）目标数据库为database.db（本站数据库），你还需要修改构建插入的数据中的用户名为你自己的用户名，分别迁移了原文本内容、发布时间，将代码保存为main.py
 
 运行python3 main.py即可，
 
