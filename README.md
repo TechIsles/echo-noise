@@ -1,4 +1,6 @@
-# Ech0 - Noise
+# 说说笔记
+
+### Ech0 - Noise
 
 ![预览](https://s2.loli.net/2025/03/25/7gyEspef1ZhOtrH.png)
 
