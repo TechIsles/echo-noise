@@ -12,6 +12,7 @@ export interface MessageToSave {
     content: string;
     image_url?: string;
     private: boolean;
+    notify: boolean;
 }
 
 export interface PageQuery {

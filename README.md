@@ -6,7 +6,7 @@
 
 ## 介绍
 
-这是基于Ech0基本框架的二次开发、魔改及完善，类似朋友圈样式风格，支持后台配置修改如背景图、个性签名等，支持api 获取内容、更新操作等，支持对b站视频、网易云音乐、youtube等的解析添加、支持一键复制，一键生成内容图片、支持http post发送内容到平台，支持内容热力图组件等个性化组件，它完全属于个人的自定化使用，会加入定制化的一些功能，由于代码已重构，不同步于原版
+这是基于Ech0基本框架的二次开发、魔改及完善，类似朋友圈样式风格，支持后台配置修改如背景图、个性签名等，支持api 获取内容、更新操作等，支持对b站视频、网易云音乐、youtube等的解析添加、支持一键复制，一键生成内容图片、支持http post发送内容到平台，支持对接webhook、telegram、企业微信、飞书的一键推送，支持内容热力图组件等个性化组件，它完全属于个人的自定化使用，会加入定制化的一些功能，由于代码已重构，不同步于原版
 
 原版介绍
 
@@ -55,6 +55,8 @@ Ech0 是一款专为轻量级分享而设计的开源自托管平台，支持快
 <details>
 <summary><h2>✅ 更新状况【点击查看】</h2></summary>
 
+
+- 增加推送渠道（webhook、tg、企业微信、飞书）及实现一键推送-编辑器组件
 
 - 添加支持双格式认证
 
@@ -686,6 +688,100 @@ curl -X POST http://localhost:8080/api/images/upload \
      -F "file=@image.jpg"
 ```
 
+### 7.推送配置路由使用说明
+
+#### 获取推送配置
+
+- **路径**: `/api/notify/config`  
+- **方法**: GET  
+- **描述**: 获取当前推送渠道配置  
+- **示例请求**:
+
+```bash
+curl -X GET http://localhost:8080/api/notify/config \
+     -H "Cookie: session=xxx"
+```
+
+#### 保存推送配置
+
+- **路径**: `/api/notify/config`  
+- **方法**: PUT  
+- **描述**: 更新推送渠道配置  
+- **请求体示例**:
+
+```json
+{
+  "webhookEnabled": true,
+  "webhookURL": "https://webhook.example.com",
+  "telegramEnabled": true,
+  "telegramToken": "bot123:ABC",
+  "telegramChatID": "-100123456",
+  "weworkEnabled": false,
+  "weworkKey": "",
+  "feishuEnabled": true,
+  "feishuWebhook": "https://open.feishu.cn/xxx",
+  "feishuSecret": "signature_key"
+}
+```
+
+- **示例请求**:
+
+```bash
+curl -X PUT http://localhost:8080/api/notify/config \
+     -H "Cookie: session=xxx" \
+     -H "Content-Type: application/json" \
+     -d '{
+           "webhookEnabled": true,
+           "webhookURL": "https://webhook.example.com"
+         }'
+```
+
+#### 测试推送
+
+- **路径**: `/api/notify/test`  
+- **方法**: POST  
+- **描述**: 测试指定推送渠道  
+- **请求体示例**:
+
+```json
+{
+  "type": "telegram"
+}
+```
+
+- **示例请求**:
+
+```bash
+curl -X POST http://localhost:8080/api/notify/test \
+     -H "Cookie: session=xxx" \
+     -H "Content-Type: application/json" \
+     -d '{"type": "telegram"}'
+```
+
+#### 发送推送
+
+- **路径**: `/api/notify/send`  
+- **方法**: POST  
+- **描述**: 手动触发推送（需已配置推送渠道）  
+- **请求体示例**:
+
+```json
+{
+  "content": "测试消息内容",
+  "images": ["https://example.com/image.jpg"],
+  "format": "markdown"
+}
+```
+
+- **示例请求**:
+
+```bash
+curl -X POST http://localhost:8080/api/notify/send \
+     -H "Cookie: session=xxx" \
+     -H "Content-Type: application/json" \
+     -d '{"content": "紧急通知！"}'
+```
+
 注意事项：
 1. 所有需要认证的接口都需要在请求头中携带有效的 session cookie
 2. 部分接口可能需要管理员权限
@@ -748,10 +844,10 @@ docker buildx build --platform linux/amd64,linux/arm64 -t noise233/echo-noise:la
 - [x] 优化编辑器
 - [x] 增加发布热力图组件
 - [x] 加入搜索功能
-- [x] post发布认证
+- [x] post请求发布内容到站内
 - [x] 后台和前端数据的匹配完善
 - [x] 加入标签路由及组件
-- [ ] 加入一键推送
+- [x] 加入一键推送
 - [ ] 其它组件的添加
 
 ## 致谢

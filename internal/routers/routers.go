@@ -79,6 +79,14 @@ func SetupRouter() *gin.Engine {
         messages.PUT("/:id", controllers.UpdateMessage)
         messages.DELETE("/:id", controllers.DeleteMessage)
     }
+    // 添加推送配置路由
+    notify := authRoutes.Group("/notify")
+    {
+        notify.POST("/test", controllers.TestNotify)         // 测试推送
+        notify.POST("/send", controllers.SendNotify)         // 新增：实际推送路由
+        notify.GET("/config", controllers.GetNotifyConfig)   // 获取配置
+        notify.PUT("/config", controllers.SaveNotifyConfig)  // 保存配置
+    }
 
     // 数据库备份相关路由
     backup := authRoutes.Group("/backup")

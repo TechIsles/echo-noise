@@ -257,6 +257,12 @@
                         保存所有更改
                     </UButton>
                 </div>
+                 <!-- 推送配置面板 -->
+                 <NotifyPanel
+    v-if="isAdmin"
+    v-model:config="notifyConfig"
+    :immediate="true" 
+/>
 <!-- 数据库管理面板 -->
 <div v-if="isAdmin" class="bg-gray-700 rounded-lg p-4 mb-6">
     <h2 class="text-xl font-semibold text-white mb-4">数据库管理</h2>
@@ -385,6 +391,7 @@ import type { UserToLogin, UserToRegister } from '~/types/models'
 import { useUser } from '~/composables/useUser'
 import { useUserStore } from '~/store/user'
 import { useToast } from '#ui/composables/useToast'
+import NotifyPanel from './NotifyPanel.vue'
 
 const userStore = useUserStore()
 const { login, register, logout } = useUser()
@@ -394,6 +401,35 @@ const versionInfo = reactive({
     hasUpdate: false,
     latestVersion: ''
 })
+// 推送配置
+let notifyConfig = reactive({
+    webhookEnabled: false,
+    webhookURL: '',
+    telegramEnabled: false,
+    telegramToken: '',
+    telegramChatID: '',
+    weworkEnabled: false,
+    weworkKey: '',
+    feishuEnabled: false,
+    feishuWebhook: '',
+    feishuSecret: ''
+})
+
+// 获取推送配置
+const fetchNotifyConfig = async () => {
+    try {
+        const response = await fetch('/api/notify/config', {
+            credentials: 'include'
+        })
+        const data = await response.json()
+        if (data.code === 1) {
+            Object.assign(notifyConfig, data.data)
+        }
+    } catch (error) {
+        console.error('获取推送配置失败:', error)
+    }
+}
+
 // 检查版本更新
 const checkVersion = async () => {
     versionInfo.checking = true;

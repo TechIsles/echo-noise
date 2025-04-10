@@ -25,6 +25,7 @@ type Message struct {
     Private   bool      `gorm:"default:false" json:"private"`
     UserID    uint      `gorm:"not null;index" json:"user_id"`
     CreatedAt time.Time `json:"created_at"`
+    Notify    bool      `gorm:"default:false" json:"notify"` // 新增推送通知字段
 }
 
 

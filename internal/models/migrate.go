@@ -2,6 +2,7 @@ package models
 
 import (
     "gorm.io/gorm"
+    "fmt"
 )
 
 func MigrateDB(db *gorm.DB) error {
@@ -10,15 +11,15 @@ func MigrateDB(db *gorm.DB) error {
     switch dbType {
     case "postgres":
         err = db.Set("gorm:table_options", "").
-            Set("gorm:varchar_size", 255).  // PostgreSQL 可以使用更长的字符串
-            AutoMigrate(&User{}, &Message{}, &Setting{}, &SiteConfig{})
+            Set("gorm:varchar_size", 255).
+            AutoMigrate(&User{}, &Message{}, &Setting{}, &SiteConfig{}, &NotifyConfig{})
     case "mysql":
         err = db.Set("gorm:table_options", "ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci").
-            Set("gorm:varchar_size", 191).  // MySQL 使用较短的长度以适应索引限制
-            AutoMigrate(&User{}, &Message{}, &Setting{}, &SiteConfig{})
+            Set("gorm:varchar_size", 191).
+            AutoMigrate(&User{}, &Message{}, &Setting{}, &SiteConfig{}, &NotifyConfig{})
     default: // sqlite
-        err = db.Set("gorm:varchar_size", 255).  // SQLite 可以使用更长的字符串
-            AutoMigrate(&User{}, &Message{}, &Setting{}, &SiteConfig{})
+        err = db.Set("gorm:varchar_size", 255).
+            AutoMigrate(&User{}, &Message{}, &Setting{}, &SiteConfig{}, &NotifyConfig{})
     }
     
     if err != nil {
@@ -114,7 +115,6 @@ https://s2.loli.net/2025/03/27/y67m2k5xcSdTsHN.jpg`
             // 数据库中已有配置时，只更新空值字段
             updates := make(map[string]interface{})
             
-            // 检查并更新空值字段
             if config.Backgrounds == "" {
                 updates["backgrounds"] = defaultConfig.Backgrounds
             }
@@ -158,11 +158,30 @@ https://s2.loli.net/2025/03/27/y67m2k5xcSdTsHN.jpg`
                 updates["waline_server_url"] = defaultConfig.WalineServerURL
             }
             
-            // 只有在有需要更新的字段时才执行更新
             if len(updates) > 0 {
                 if err := tx.Model(&config).Updates(updates).Error; err != nil {
                     return err
                 }
+            }
+        }
+
+        // 初始化推送配置
+        var notifyConfig NotifyConfig
+        if err := tx.First(&notifyConfig).Error; err != nil {
+            defaultNotifyConfig := NotifyConfig{
+                WebhookEnabled:   false,
+                WebhookURL:      "WebhookURL", // 添加示例URL
+                TelegramEnabled:  false,
+                TelegramToken:   "bot_token", // 添加示例token
+                TelegramChatID:  "chat_id", // 添加示例chat ID
+                WeworkEnabled:    false,
+                WeworkKey:       "key", // 添加示例key
+                FeishuEnabled:    false,
+                FeishuWebhook:   "FeishuWebhook", // 添加示例webhook
+                FeishuSecret:    "secret", // 添加示例secret
+            }
+            if err := tx.Create(&defaultNotifyConfig).Error; err != nil {
+                return fmt.Errorf("初始化推送配置失败: %v", err)
             }
         }
 

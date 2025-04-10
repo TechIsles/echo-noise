@@ -14,6 +14,7 @@ export const useMessageStore = defineStore("messageStore", () => {
   const siteConfig = ref<any>(null);  // 添加网站配置状态
   const tags = ref<any[]>([]);  // 添加标签状态
   const images = ref<any[]>([]); // 添加图片状态
+  const notifyConfig = ref<any>(null); // 添加推送配置状态
 
   // 重置状态
   const reset = () => {
@@ -263,24 +264,153 @@ const getAllImages = async () => {
     throw error;
   }
 };
-  return {
-    messages,
-    total,
-    hasMore,
-    page,
-    pageSize,
-    loading,
-    siteConfig,  // 导出配置状态
-    reset,
-    getMessages,
-    deleteMessage,
-    updateMessage,
-    getSiteConfig,  // 导出获取配置方法
-    updateSiteConfig,  // 导出更新配置方法
-    tags,
-    images,
-    getAllTags,
-    getMessagesByTag,
-    getAllImages,
-  };
+  // 获取推送配置
+const getNotifyConfig = async () => {
+  try {
+    const response = await getRequest<any>("notify/config", {
+      credentials: 'include'
+    });
+    
+    if (!response || response.code !== 1) {
+      toast.add({
+        title: "获取推送配置失败",
+        description: response?.msg || "请稍后重试",
+        color: "red",
+        timeout: 2000,
+      });
+      return null;
+    }
+
+    notifyConfig.value = response.data;
+    return response.data;
+  } catch (error) {
+    console.error("获取推送配置失败:", error);
+    throw error;
+  }
+};
+
+// 更新推送配置
+const updateNotifyConfig = async (config: any) => {
+  try {
+    const response = await putRequest<any>("notify/config", config, {
+      credentials: 'include'
+    });
+
+    if (!response || response.code !== 1) {
+      toast.add({
+        title: "更新推送配置失败",
+        description: response?.msg || "请稍后重试",
+        color: "red",
+        timeout: 2000,
+      });
+      return null;
+    }
+
+    notifyConfig.value = response.data;
+    return response.data;
+  } catch (error) {
+    console.error("更新推送配置失败:", error);
+    throw error;
+  }
+};
+
+// 测试推送
+const testNotify = async (type: string) => {
+  try {
+    const response = await postRequest<any>(`notify/test?type=${type}`, {}, {
+      credentials: 'include'
+    });
+
+    if (!response || response.code !== 1) {
+      throw new Error(response?.msg || "测试失败");
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error("推送测试失败:", error);
+    throw error;
+  }
+};
+
+// 创建消息
+const createMessage = async (message: Message) => {
+  try {
+    const response = await postRequest<any>("messages", message, {
+      credentials: 'include'
+    });
+
+    if (!response || response.code !== 1) {
+      toast.add({
+        title: "创建消息失败",
+        description: response?.msg || "请稍后重试",
+        color: "red",
+        timeout: 2000,
+      });
+      throw new Error(response?.msg || "创建消息失败");
+    }
+
+    // 如果启用了推送
+    if (message.notify) {
+      try {
+        const baseUrl = useRuntimeConfig().public.baseApi;
+        // 构建完整的推送内容
+        const pushContent = {
+          content: message.content,
+          images: message.image_url 
+            ? [`${baseUrl}${message.image_url}`].filter(Boolean) 
+            : [],
+          format: "markdown"
+        };
+
+        const notifyResponse = await postRequest<any>("notify/send", pushContent, {
+          credentials: 'include'
+        });
+
+        if (!notifyResponse || notifyResponse.code !== 1) {
+          throw new Error(notifyResponse?.msg || "推送失败");
+        }
+      } catch (error) {
+        console.error("消息推送失败:", error);
+        toast.add({
+          title: "消息已保存，但推送失败",
+          description: "请检查推送配置",
+          color: "yellow",
+          timeout: 3000,
+        });
+      }
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error("创建消息失败:", error);
+    throw error;
+  }
+};
+
+// 返回所有方法和状态
+return {
+  messages,
+  total,
+  hasMore,
+  page,
+  pageSize,
+  loading,
+  siteConfig,
+  reset,
+  getMessages,
+  deleteMessage,
+  updateMessage,
+  getSiteConfig,
+  updateSiteConfig,
+  tags,
+  images,
+  getAllTags,
+  getMessagesByTag,
+  getAllImages,
+  notifyConfig,
+  getNotifyConfig,
+  updateNotifyConfig,
+  testNotify,
+  createMessage,
+};
 });

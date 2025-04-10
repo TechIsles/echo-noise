@@ -2,10 +2,14 @@ package controllers
 
 import (
     "fmt"
+    "regexp"
+
     "time"
     "net/http"
     "strconv"
     "encoding/json"
+    "sync"      // 添加 sync 包
+    "strings"   // 添加 strings 包
     "github.com/gin-contrib/sessions"
     "github.com/gin-gonic/gin"
     "github.com/lin-snow/ech0/internal/dto"
@@ -150,28 +154,6 @@ func GetMessagesByPage(c *gin.Context) {
     }
 
     c.JSON(http.StatusOK, dto.OK(pageQueryResult, models.GetMessagesByPageSuccess))
-}
-
-func PostMessage(c *gin.Context) {
-    var message models.Message
-    if err := c.ShouldBindJSON(&message); err != nil {
-        c.JSON(http.StatusOK, dto.Fail[string](models.InvalidRequestBodyMessage))
-        return
-    }
-
-    userID, exists := c.Get("user_id")
-    if !exists {
-        c.JSON(http.StatusOK, dto.Fail[string]("未授权访问"))
-        return
-    }
-    message.UserID = userID.(uint)
-
-    if err := services.CreateMessage(&message); err != nil {
-        c.JSON(http.StatusOK, dto.Fail[string](err.Error()))
-        return
-    }
-
-    c.JSON(http.StatusOK, dto.OK(message, models.PostMessageSuccess))
 }
 
 func GetStatus(c *gin.Context) {
@@ -613,5 +595,366 @@ func CheckVersion(c *gin.Context) {
             "hasUpdate":     hasUpdate,
             "lastUpdateTime": lastUpdateTime,
         },
+    })
+}
+
+// GetNotifyConfig 获取推送配置
+func GetNotifyConfig(c *gin.Context) {
+    _, err := checkAdmin(c)
+    if err != nil {
+        c.JSON(http.StatusOK, dto.Fail[string](err.Error()))
+        return
+    }
+
+    config := models.GetNotifyConfig()
+    if config == nil {
+        // 如果配置不存在，返回空配置
+        config = &models.NotifyConfig{
+            WebhookEnabled:  false,
+            TelegramEnabled: false,
+            WeworkEnabled:   false,
+            FeishuEnabled:   false,
+        }
+    }
+    c.JSON(http.StatusOK, dto.OK(config, "获取成功"))
+}
+
+// SaveNotifyConfig 保存推送配置
+func SaveNotifyConfig(c *gin.Context) {
+    _, err := checkAdmin(c)
+    if err != nil {
+        c.JSON(http.StatusOK, dto.Fail[string](err.Error()))
+        return
+    }
+
+    var config models.NotifyConfig
+    if err := c.ShouldBindJSON(&config); err != nil {
+        c.JSON(http.StatusOK, dto.Fail[string]("无效的配置数据"))
+        return
+    }
+
+    // 根据启用状态验证配置
+    if config.WebhookEnabled {
+        if config.WebhookURL == "" {
+            c.JSON(http.StatusOK, dto.Fail[string]("Webhook URL 不能为空"))
+            return
+        }
+    }
+    if config.TelegramEnabled {
+        if config.TelegramToken == "" || config.TelegramChatID == "" {
+            c.JSON(http.StatusOK, dto.Fail[string]("Telegram 配置不完整"))
+            return
+        }
+    }
+    if config.WeworkEnabled {
+        if config.WeworkKey == "" {
+            c.JSON(http.StatusOK, dto.Fail[string]("企业微信 Key 不能为空"))
+            return
+        }
+    }
+    if config.FeishuEnabled {
+        if config.FeishuWebhook == "" {
+            c.JSON(http.StatusOK, dto.Fail[string]("飞书 Webhook 不能为空"))
+            return
+        }
+    }
+
+    // 打印配置信息以便调试
+    fmt.Printf("保存配置: %+v\n", config)
+
+    if err := models.SaveNotifyConfig(config); err != nil {
+        c.JSON(http.StatusOK, dto.Fail[string]("保存配置失败: "+err.Error()))
+        return
+    }
+
+    // 保存后重新获取配置进行验证
+    savedConfig := models.GetNotifyConfig()
+    fmt.Printf("保存后的配置: %+v\n", savedConfig)
+
+    c.JSON(http.StatusOK, dto.OK[any](nil, "配置已更新"))
+}
+// TestNotify 测试推送
+func TestNotify(c *gin.Context) {
+    _, err := checkAdmin(c)
+    if err != nil {
+        c.JSON(http.StatusOK, dto.Fail[string](err.Error()))
+        return
+    }
+
+    var request struct {
+        Type string `json:"type" binding:"required"`
+    }
+    if err := c.ShouldBindJSON(&request); err != nil {
+        c.JSON(http.StatusOK, dto.Fail[string]("无效的请求参数"))
+        return
+    }
+
+    testMsg := "这是一条测试消息 - " + time.Now().Format("2006-01-02 15:04:05")
+    var emptyImages []string
+
+    var testErr error
+    switch request.Type {
+    case "webhook":
+        testErr = models.SendWebhook(testMsg)
+    case "telegram":
+        testErr = models.SendTelegram(testMsg, emptyImages)
+    case "wework":
+        testErr = models.SendWework(testMsg, emptyImages)
+    case "feishu":
+        testErr = models.SendFeishu(testMsg)
+    default:
+        c.JSON(http.StatusOK, dto.Fail[string]("不支持的推送类型"))
+        return
+    }
+
+    if testErr != nil {
+        c.JSON(http.StatusOK, dto.Fail[string](fmt.Sprintf("推送测试失败: %v", testErr)))
+        return
+    }
+
+    c.JSON(http.StatusOK, dto.OK[any](nil, "推送测试已发送"))
+}
+// 保留这个新版本的 PostMessage 函数
+func PostMessage(c *gin.Context) {
+    // 解析请求数据
+    var request struct {
+        Content   string `json:"content" `
+        Private   bool   `json:"private"`
+        ImageURL  string `json:"image_url"`
+        Notify    bool   `json:"notify"`
+    }
+    if err := c.ShouldBindJSON(&request); err != nil {
+        c.JSON(http.StatusOK, dto.Fail[string]("内容不能为空"))
+        return
+    }
+
+    // 验证用户身份
+    userID, exists := c.Get("user_id")
+    if !exists {
+        c.JSON(http.StatusOK, dto.Fail[string]("未授权访问"))
+        return
+    }
+
+    // 创建消息
+    message := &models.Message{
+        Content:  request.Content,
+        Private:  request.Private,
+        ImageURL: request.ImageURL,
+        UserID:   userID.(uint),
+    }
+
+    if err := services.CreateMessage(message); err != nil {
+        c.JSON(http.StatusOK, dto.Fail[string](err.Error()))
+        return
+    }
+
+    // 处理推送逻辑
+    // 处理推送逻辑
+if request.Notify {
+    notifyConfig := models.GetNotifyConfig()
+    if notifyConfig != nil {
+        // 提取内容中的第一张图片链接
+        var firstImageURL string
+        var formattedContent string
+        
+        // 如果已有上传的图片，优先使用
+        if request.ImageURL != "" {
+            firstImageURL = request.ImageURL
+            formattedContent = request.Content
+        } else {
+            // 从 Markdown 内容中提取第一张图片
+            imageRegex := regexp.MustCompile(`!\[([^\]]*)\]\(([^)]+)\)`)
+            matches := imageRegex.FindAllStringSubmatch(request.Content, -1)
+            
+            if len(matches) > 0 {
+                // 提取第一张图片的URL
+                firstImageURL = matches[0][2]
+                
+                // 从内容中移除第一张图片的Markdown语法
+                formattedContent = imageRegex.ReplaceAllStringFunc(request.Content, func(match string) string {
+                    if match == matches[0][0] {
+                        return "" // 移除第一张图片
+                    }
+                    return match // 保留其他图片的Markdown语法
+                })
+            } else {
+                formattedContent = request.Content
+            }
+        }
+        
+        // 处理长内容，如果超过4000字符，进行截断
+        const maxContentLength = 4000
+        var truncatedContent string
+        if len(formattedContent) > maxContentLength {
+            truncatedContent = formattedContent[:maxContentLength] + "...\n(内容过长，已截断)"
+        } else {
+            truncatedContent = formattedContent
+        }
+        
+        // 格式化内容，处理Markdown语法
+        // 1. 处理标题 - 保留原始的#符号
+        headingRegex := regexp.MustCompile(`(?m)^(#{1,6})\s+(.+)$`)
+        truncatedContent = headingRegex.ReplaceAllString(truncatedContent, "$1 $2")
+        
+        // 准备图片数组
+        var images []string
+        if firstImageURL != "" {
+            images = []string{firstImageURL}
+        }
+        
+        go func() {
+            // 为不同平台准备不同的内容长度限制
+            // Webhook通常支持较长内容
+            if notifyConfig.WebhookEnabled && notifyConfig.WebhookURL != "" {
+                models.SendWebhook(truncatedContent)
+            }
+            
+            // Telegram有消息长度限制
+            if notifyConfig.TelegramEnabled && notifyConfig.TelegramToken != "" && notifyConfig.TelegramChatID != "" {
+                // 对Telegram进一步限制长度
+                const telegramMaxLength = 3000
+                var telegramContent string
+                if len(formattedContent) > telegramMaxLength {
+                    telegramContent = formattedContent[:telegramMaxLength] + "...\n(内容过长，已截断)"
+                } else {
+                    telegramContent = formattedContent
+                }
+                
+                if firstImageURL != "" {
+                    // 发送图片+文本作为一条消息
+                    models.SendTelegramPhotoWithCaption(firstImageURL, telegramContent)
+                } else {
+                    // 没有图片时只发送文本
+                    models.SendTelegramMessage(telegramContent)
+                }
+            }
+            
+            // 企业微信有消息长度限制
+            if notifyConfig.WeworkEnabled && notifyConfig.WeworkKey != "" {
+                // 对企业微信进一步限制长度
+                const weworkMaxLength = 2000
+                var weworkContent string
+                if len(formattedContent) > weworkMaxLength {
+                    weworkContent = formattedContent[:weworkMaxLength] + "...\n(内容过长，已截断)"
+                } else {
+                    weworkContent = formattedContent
+                }
+                
+                models.SendWework(weworkContent, images)
+            }
+            
+            // 飞书有消息长度限制
+            if notifyConfig.FeishuEnabled && notifyConfig.FeishuWebhook != "" {
+                // 对飞书进一步限制长度
+                const feishuMaxLength = 2000
+                var feishuContent string
+                if len(formattedContent) > feishuMaxLength {
+                    feishuContent = formattedContent[:feishuMaxLength] + "...\n(内容过长，已截断)"
+                } else {
+                    feishuContent = formattedContent
+                }
+                
+                models.SendFeishu(feishuContent)
+            }
+        }()
+    }
+}
+
+    c.JSON(http.StatusOK, dto.OK(message, "发布成功"))
+}
+func SendNotify(c *gin.Context) {
+    var request struct {
+        Content string   `json:"content"`
+        Images  []string `json:"images"`
+        Format  string   `json:"format"`
+    }
+
+    if err := c.ShouldBindJSON(&request); err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"code": 0, "msg": "请求参数错误"})
+        return
+    }
+
+    // 验证内容不为空
+    if request.Content == "" {
+        c.JSON(http.StatusBadRequest, gin.H{"code": 0, "msg": "推送内容不能为空"})
+        return
+    }
+
+    // 获取推送配置
+    config := models.GetNotifyConfig()
+    if config == nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": "推送配置不存在"})
+        return
+    }
+
+    // 并发处理所有启用的推送渠道
+    var wg sync.WaitGroup
+    errorChan := make(chan error, 4) // 用于收集错误
+
+    // Telegram
+    if config.TelegramEnabled {
+        wg.Add(1)
+        go func() {
+            defer wg.Done()
+            if err := models.SendTelegram(request.Content, request.Images); err != nil {
+                errorChan <- fmt.Errorf("Telegram: %v", err)
+            }
+        }()
+    }
+
+    // 企业微信
+    if config.WeworkEnabled {
+        wg.Add(1)
+        go func() {
+            defer wg.Done()
+            if err := models.SendWework(request.Content, request.Images); err != nil {
+                errorChan <- fmt.Errorf("企业微信: %v", err)
+            }
+        }()
+    }
+
+    // 飞书
+    if config.FeishuEnabled {
+        wg.Add(1)
+        go func() {
+            defer wg.Done()
+            if err := models.SendFeishu(request.Content); err != nil {
+                errorChan <- fmt.Errorf("飞书: %v", err)
+            }
+        }()
+    }
+
+    // Webhook
+    if config.WebhookEnabled {
+        wg.Add(1)
+        go func() {
+            defer wg.Done()
+            if err := models.SendWebhook(request.Content); err != nil {
+                errorChan <- fmt.Errorf("Webhook: %v", err)
+            }
+        }()
+    }
+
+    // 等待所有推送完成
+    wg.Wait()
+    close(errorChan)
+
+    // 收集错误
+    var errors []string
+    for err := range errorChan {
+        errors = append(errors, err.Error())
+    }
+
+    if len(errors) > 0 {
+        c.JSON(http.StatusOK, gin.H{
+            "code": 0,
+            "msg":  fmt.Sprintf("部分推送失败: %s", strings.Join(errors, "; ")),
+        })
+        return
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "code": 1,
+        "msg":  "推送成功",
     })
 }

@@ -51,16 +51,29 @@
             icon="i-fluent-image-20-regular"
             @click="triggerFileInput"
           />
-          <!-- 是否设为私密？ -->
-          <UButton
+                  <!-- 是否设为私密？ -->
+                  <UButton
              color="gray"
              variant="solid"
              size="sm"
              @click="Private = !Private"
              :icon="privateIcon"
+             :title="Private ? '设为公开' : '设为私密'"
+             :ui="{ tooltip: { text: Private ? '设为公开' : '设为私密' } }"
             />
-        </div>
-
+       
+<!-- 推送开关 -->
+<UButton
+  color="gray"
+  variant="solid"
+  size="sm"
+  @click="toggleNotify"
+  :icon="enableNotify ? 'i-mdi-bell' : 'i-mdi-bell-off'"
+  :title="enableNotify ? '关闭推送' : '开启推送'"
+  :ui="{ tooltip: { text: enableNotify ? '关闭推送' : '开启推送' } }"
+  class="text-gray-600" 
+/>
+</div>
         <div class="flex gap-2">
           <!-- 清空表单 -->
           <UButton
@@ -121,6 +134,8 @@ import '@fancyapps/ui/dist/fancybox/fancybox.css'
 import VditorEditor from './VditorEditor.vue'
 // 导入搜索模式组件
 import SearchMode from './Searchmode.vue'
+import { useMessageStore } from '~/store/message'
+import { useNotifyStore } from '~/store/notify'
 
 // 添加搜索相关变量和函数
 const showSearchModal = ref(false);
@@ -157,29 +172,66 @@ const vditorEditor = ref<InstanceType<typeof VditorEditor> | null>(null);
 
 const privateIcon = computed(() => (Private.value ? 'i-mdi-eye-off-outline' : 'i-mdi-eye-outline'));
 
+// 在顶部 script 区域添加 enableNotify 的定义
+const notifyStore = useNotifyStore()
+const enableNotify = ref(localStorage.getItem('enableNotify') === 'true')
+
+// 保留这一个 clearForm 函数，删除另一个重复的定义
 const clearForm = () => {
   Username.value = "";
   MessageContent.value = "";
   ImageUrl.value = "";
   Private.value = false;
+  // 不重置推送状态，保持用户的选择
   if (vditorEditor.value) {
     vditorEditor.value.clear();
   }
 };
 
 const addMessage = async () => {
+  // 添加基本验证
+  if (!MessageContent.value.trim() && !ImageUrl.value) {
+    toast.add({
+      title: '错误',
+      description: '请输入内容或上传图片',
+      color: 'red',
+      timeout: 2000
+    });
+    return;
+  }
+
   const message: MessageToSave = {
     username: Username.value,
     content: MessageContent.value,
     private: Private.value,
     image_url: ImageUrl.value,
+    // 修改推送逻辑：私密内容不进行推送
+    notify: Private.value ? false : enableNotify.value,
   };
 
-  const response = await save(message);
-  if (response) {
-    clearForm();
+  try {
+    const response = await save(message);
+    if (response) {
+      toast.add({
+        title: '成功',
+        description: '发布成功',
+        color: 'green',
+        timeout: 2000
+      });
+      clearForm();
+    }
+  } catch (error: any) {
+    console.error('发布错误:', error);
+    toast.add({
+      title: '错误',
+      description: error.message || '发布失败',
+      color: 'red',
+      timeout: 2000
+    });
   }
 };
+
+// 删除这里重复的 clearForm 函数定义
 
 const triggerFileInput = () => {
   const input = document.getElementById("file-input");
@@ -265,6 +317,8 @@ const addImage = async (event: Event) => {
       if (vditorEditor.value?.vditor) {
         const imageMarkdown = `\n![](${BASE_API}${data.data})\n`;
         vditorEditor.value.vditor.insertValue(imageMarkdown);
+        // 确保编辑器内容更新
+        MessageContent.value = vditorEditor.value.vditor.getValue();
       }
       toast.add({
         title: '成功',
@@ -292,9 +346,16 @@ const addImage = async (event: Event) => {
 
 onMounted(() => {
   Fancybox.bind("[data-fancybox]", {});
+  console.log('组件加载时推送开关状态:', enableNotify.value);
 });
 
 onBeforeUnmount(() => {
   Fancybox.destroy();
 });
+// 添加切换推送状态的方法
+const toggleNotify = () => {
+  enableNotify.value = !enableNotify.value;
+  localStorage.setItem('enableNotify', enableNotify.value.toString());
+  console.log('推送开关状态:', enableNotify.value);
+};
 </script>
