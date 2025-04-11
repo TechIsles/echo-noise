@@ -447,7 +447,7 @@ curl http://localhost:8080/api/messages/1
 
 #### 5.3 分页获取消息
 - **路径**: `/api/messages/page`
-- **方法**: POST
+- **方法**: POST或GET
 - **描述**: 分页获取消息列表
 - **请求体**:
 ```json

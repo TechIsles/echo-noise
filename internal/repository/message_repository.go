@@ -29,20 +29,20 @@ func GetAllMessages(showPrivate bool) ([]models.Message, error) {
 
 // GetMessageByID 根据 ID 获取留言
 func GetMessageByID(id uint, showPrivate bool) (*models.Message, error) {
-	var message models.Message
-	result := database.DB.First(&message, id)
-	if result.Error != nil {
-		if result.Error == gorm.ErrRecordNotFound {
-			return nil, nil // 如果未找到记录，则返回 nil
-		}
-		return nil, result.Error // 其他错误返回
-	}
+    var message models.Message
+    result := database.DB.First(&message, id)
+    if result.Error != nil {
+        if result.Error == gorm.ErrRecordNotFound {
+            return nil, errors.New("消息不存在")
+        }
+        return nil, result.Error
+    }
 
-	if !showPrivate && message.Private {
-		return nil, nil
-	}
+    if !showPrivate && message.Private {
+        return nil, errors.New("无权访问该消息")
+    }
 
-	return &message, nil
+    return &message, nil
 }
 
 // CreateMessage 保存一条留言

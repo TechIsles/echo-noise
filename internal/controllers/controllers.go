@@ -132,12 +132,36 @@ func GetMessage(c *gin.Context) {
 }
 
 func GetMessagesByPage(c *gin.Context) {
+    var page, pageSize int = 1, 10
+
+    // 尝试从 POST JSON 数据获取分页参数
     var pageRequest dto.PageQueryDto
-    if err := c.ShouldBindJSON(&pageRequest); err != nil {
-        c.JSON(http.StatusOK, dto.Fail[string](models.InvalidRequestBodyMessage))
-        return
+    if err := c.ShouldBindJSON(&pageRequest); err == nil {
+        page = pageRequest.Page
+        pageSize = pageRequest.PageSize
+    } else {
+        // 如果不是 POST JSON，则尝试从 URL 查询参数获取
+        if pageStr := c.Query("page"); pageStr != "" {
+            if p, err := strconv.Atoi(pageStr); err == nil && p > 0 {
+                page = p
+            }
+        }
+        if sizeStr := c.Query("pageSize"); sizeStr != "" {
+            if s, err := strconv.Atoi(sizeStr); err == nil && s > 0 && s <= 100 {
+                pageSize = s
+            }
+        }
     }
 
+    // 验证分页参数
+    if page < 1 {
+        page = 1
+    }
+    if pageSize < 1 || pageSize > 100 {
+        pageSize = 10
+    }
+
+    // 检查权限
     showPrivate := false
     userID, exists := c.Get("user_id")
     if exists {
@@ -147,7 +171,7 @@ func GetMessagesByPage(c *gin.Context) {
         }
     }
 
-    pageQueryResult, err := services.GetMessagesByPage(pageRequest.Page, pageRequest.PageSize, showPrivate)
+    pageQueryResult, err := services.GetMessagesByPage(page, pageSize, showPrivate)
     if err != nil {
         c.JSON(http.StatusOK, dto.Fail[string](err.Error()))
         return
@@ -155,7 +179,6 @@ func GetMessagesByPage(c *gin.Context) {
 
     c.JSON(http.StatusOK, dto.OK(pageQueryResult, models.GetMessagesByPageSuccess))
 }
-
 func GetStatus(c *gin.Context) {
     status, err := services.GetStatus()
     if err != nil {
