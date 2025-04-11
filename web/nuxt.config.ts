@@ -24,10 +24,10 @@ export default defineNuxtConfig({
         { src: 'https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js', body: true },
         { src: 'https://cdn.jsdelivr.net/npm/bcryptjs@2.4.3/dist/bcrypt.min.js', body: true },
       ],
-      title: "Noise·说说·笔记~",
       meta: [
         { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" }
-      ]
+      ],
+      title: '说说笔记'
     }
   },
   compatibilityDate: '2024-11-01',

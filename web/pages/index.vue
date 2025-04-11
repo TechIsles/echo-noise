@@ -88,6 +88,7 @@ useHead({
     }
   ]
 })
+
 // 添加前端配置的响应式对象
 const frontendConfig = ref({
     siteTitle: '',
@@ -273,7 +274,22 @@ const changeBackground = async () => {
     }
   })
 }
+// 定义页面元数据
+definePageMeta({
+  title: '说说笔记'
+})
 
+// 设置动态标题
+const updateTitle = () => {
+  useHead({
+    title: frontendConfig.value.siteTitle || '说说笔记'
+  })
+}
+
+// 监听配置变化
+watch(() => frontendConfig.value.siteTitle, () => {
+  updateTitle()
+}, { immediate: true })
 const subtitleEl = ref<HTMLElement | null>(null)
   const tags = ref([])
 // 添加标签更新处理函数
