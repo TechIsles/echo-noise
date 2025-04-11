@@ -938,6 +938,7 @@ exports.actions = [{
 
 </details>
 
+<details>
 <summary><h2>✅ Web组件示例【点击查看】</h2></summary>
 
 如果你想将内容作为说说嵌入或结合到你的网站、博客可以参考
