@@ -815,6 +815,129 @@ docker buildx build --platform linux/amd64,linux/arm64 -t noise233/echo-noise:la
 
 迁移结束后将你的数据库文件和原图片文件夹（有的话）打包为zip格式，进入站点后台选择恢复数据上传即可。
 
+<details>
+<summary><h2>✅ Popclip发送扩展【点击查看】</h2></summary>
+
+选中后自动识别安装
+
+```
+// #popclip extension for Send to Shuo
+// name: 说说笔记
+// icon: square filled 说
+// language: javascript
+// module: true
+// entitlements: [network]
+// options: [{
+//   identifier: "siteUrl",
+//   label: "服务端地址",
+//   type: "string",
+//   defaultValue: "https://note.noisework.cn",
+//   description: "请确保地址正确，不要带末尾斜杠"
+// }, {
+//   identifier: "token",
+//   label: "API Token",
+//   type: "string",
+//   description: "从设置页面获取最新Token"
+// }]
+
+async function sendToShuo(input, options) {
+    try {
+        // 参数预处理
+        const siteUrl = (options.siteUrl || "").replace(/\/+$/g, "");
+        const token = (options.token || "").trim();
+        const content = (input.text || "").trim();
+        
+        // 验证参数
+        if (!/^https:\/\/[\w.-]+(:\d+)?$/.test(siteUrl)) {
+            throw new Error("地址格式错误，示例: https://note.noisework.cn");
+        }
+        if (!token) throw new Error("Token不能为空");
+        if (!content) throw new Error("选中文本不能为空");
+
+        // 发送请求
+        await sendRequestWithXMLHttpRequest(siteUrl, token, content);
+        PopClip.showText("✓ 发送成功");
+    } catch (error) {
+        handleRequestError(error);
+    }
+}
+
+// 使用 XMLHttpRequest 实现网络请求
+function sendRequestWithXMLHttpRequest(siteUrl, token, content) {
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        const url = `${siteUrl}/api/token/messages`;
+
+        xhr.open("POST", url, true);
+        xhr.setRequestHeader("Content-Type", "application/json");
+        xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+
+        xhr.timeout = 10000; // 设置超时时间（10秒）
+        
+        // 设置回调函数
+        xhr.onreadystatechange = () => {
+            if (xhr.readyState === XMLHttpRequest.DONE) {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    resolve(xhr.responseText);
+                } else {
+                    let errorMsg = `请求失败 (${xhr.status})`;
+                    try {
+                        const data = JSON.parse(xhr.responseText);
+                        errorMsg = data.message || errorMsg;
+                    } catch {}
+                    reject(new Error(errorMsg));
+                }
+            }
+        };
+
+        // 处理网络错误
+        xhr.onerror = () => reject(new Error("网络错误"));
+        
+        // 处理超时错误
+        xhr.ontimeout = () => reject(new Error("请求超时"));
+
+        try {
+            // 发送请求
+            const payload = JSON.stringify({
+                content: `#Popclip\n${content}`,
+                type: "text"
+            });
+            xhr.send(payload);
+        } catch (error) {
+            reject(new Error("请求发送失败: " + error.message));
+        }
+    });
+}
+
+// 错误处理
+function handleRequestError(error) {
+    console.error("请求错误:", error);
+    
+    const errorMap = {
+        "Failed to fetch": "无法连接到服务器",
+        "aborted": "请求超时",
+        "网络错误": "网络错误",
+        "401": "认证失败，请检查Token",
+        "404": "API地址不存在"
+    };
+
+    const message = Object.entries(errorMap).find(([key]) => 
+        error.message.includes(key)
+    )?.[1] || `请求错误: ${error.message.split('\n')[0].slice(0, 50)}`;
+
+    PopClip.showText(`❌ ${message}`);
+}
+
+exports.actions = [{
+    title: "发送至说说笔记",
+    code: sendToShuo,
+    icon: "square filled 说"
+}];
+
+```
+
+</details>
+
 ## 问题🙋
 
 数据库可以直接迁移吗
