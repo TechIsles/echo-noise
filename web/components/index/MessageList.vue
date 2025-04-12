@@ -82,10 +82,10 @@
               <div v-if="msg.image_url && msg.content" class="border-t border-gray-600 my-4"></div>
               <!-- 文本内容区域 -->
               <div class="overflow-y-hidden relative" :class="{ 'max-h-[700px]': !isExpanded[msg.id] }">
-                <MarkdownRenderer :content="msg.content" @tagClick="handleTagClick" />
+                <MarkdownRenderer :content="msg.content" @tagClick="handleTagClick" link-target="_blank"/>
                 <div v-if="shouldShowExpandButton[msg.id] && !isExpanded[msg.id]"
-                  class="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[rgba(36,43,50,1)] via-[rgba(36,43,50,0.8)] to-transparent">
-                </div>
+    class="absolute bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-[rgba(36,43,50,1)] via-[rgba(36,43,50,0.8)] to-transparent">
+  </div>
               </div>
               <!-- 展开/折叠按钮 -->
               <div v-if="shouldShowExpandButton[msg.id]" class="text-center mt-2 relative" style="z-index: 9999;">
@@ -263,7 +263,9 @@ const message = useMessageStore();
 const activeCommentId = ref<number | null>(null);
 const userStore = useUserStore();
 const isLogin = computed(() => userStore.isLogin);
-
+const openInNewTab = (url: string) => {
+  window.open(url, '_blank', 'noopener,noreferrer');
+};
 // 修改标签点击处理函数
 const handleTagClick = async (tag: string) => {
   try {

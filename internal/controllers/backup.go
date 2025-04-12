@@ -294,17 +294,21 @@ func restorePostgres(tempDir string) error {
         "-U", os.Getenv("DB_USER"),
         "-d", "postgres",
         "-c", fmt.Sprintf(`
-            SELECT pg_terminate_backend(pid) 
+            SELECT pg_terminate_backend(pg_stat_activity.pid) 
             FROM pg_stat_activity 
-            WHERE datname = '%s' 
-            AND pid <> pg_backend_pid();
+            WHERE pg_stat_activity.datname = '%s' 
+            AND pg_stat_activity.pid <> pg_backend_pid();
             DROP DATABASE IF EXISTS %s;
             CREATE DATABASE %s WITH ENCODING='UTF8';
         `, os.Getenv("DB_NAME"), os.Getenv("DB_NAME"), os.Getenv("DB_NAME")),
     )
     cleanCmd.Env = append(os.Environ(), fmt.Sprintf("PGPASSWORD=%s", os.Getenv("DB_PASSWORD")))
+    
+    var cleanStderr bytes.Buffer
+    cleanCmd.Stderr = &cleanStderr
+    
     if err := cleanCmd.Run(); err != nil {
-        return fmt.Errorf("清理数据库失败: %v", err)
+        return fmt.Errorf("清理数据库失败: %v, 错误输出: %s", err, cleanStderr.String())
     }
 
     // 恢复数据
@@ -322,11 +326,11 @@ func restorePostgres(tempDir string) error {
     cmd := exec.Command("psql", args...)
     cmd.Env = append(os.Environ(), fmt.Sprintf("PGPASSWORD=%s", os.Getenv("DB_PASSWORD")))
     
-    var stderr bytes.Buffer
-    cmd.Stderr = &stderr
+    var restoreStderr bytes.Buffer
+    cmd.Stderr = &restoreStderr
     
     if err := cmd.Run(); err != nil {
-        return fmt.Errorf("psql 执行失败: %v, 错误输出: %s", err, stderr.String())
+        return fmt.Errorf("psql 执行失败: %v, 错误输出: %s", err, restoreStderr.String())
     }
 
     return nil

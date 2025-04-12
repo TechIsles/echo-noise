@@ -71,7 +71,9 @@ const renderMarkdown = async (markdown: string) => {
       return;
     }
 
-    const processedContent = processMediaLinks(markdown);
+    // 修改：添加链接处理函数
+    const processedContent = processMediaLinks(markdown)
+      .replace(/<a /g, '<a target="_blank" '); // 强制所有链接添加 target="_blank"
     // 修改标签处理方式
     const processedWithTags = processedContent.replace(
       /#([^\s#]+)/g,
@@ -90,16 +92,15 @@ const renderMarkdown = async (markdown: string) => {
         lineNumber: true,
         enable: true
       },
+
       after: () => {
-        // 添加标签点击事件监听
-        const tags = previewElement.value?.querySelectorAll('.clickable-tag');
-        tags?.forEach(tag => {
-          tag.addEventListener('click', () => {
-            const tagText = tag.textContent?.slice(1); // 移除 # 符号
-            if (tagText) {
-              emit('tagClick', tagText);
-            }
-          });
+        // 确保所有链接都有 target="_blank"
+        const links = previewElement.value?.querySelectorAll('a');
+        links?.forEach(link => {
+          if (!link.hasAttribute('target')) {
+            link.setAttribute('target', '_blank');
+            link.setAttribute('rel', 'noopener noreferrer');
+          }
         });
         // 初始化图片缩放
         initializeZoom();
