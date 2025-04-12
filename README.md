@@ -2,7 +2,7 @@
 
 ### Ech0 - Noise
 
-![预览](https://s2.loli.net/2025/03/25/7gyEspef1ZhOtrH.png)
+![T1HaBIgPGZEXlfc](https://s2.loli.net/2025/04/12/T1HaBIgPGZEXlfc.png)
 
 ## 介绍
 
@@ -55,6 +55,10 @@ Ech0 是一款专为轻量级分享而设计的开源自托管平台，支持快
 <details>
 <summary><h2>✅ 更新状况【点击查看】</h2></summary>
 
+
+- 增加一键部署无服务器平台-fly.io、zeabur、railway、vercel
+
+- 增加扩展-快捷指令及popclip一键发布内容到站点
 
 - 增加推送渠道（webhook、tg、企业微信、飞书）及实现一键推送-编辑器组件
 
@@ -167,6 +171,189 @@ docker run -d \
 ```shell
 docker-compose up -d
 ```
+
+## 无服务器平台+postgres免费数据库部署
+
+数据库使用 [Neon PostgreSQL](https://console.neon.tech/) 云数据库服务，其它也支持
+
+请先前往官网https://console.neon.tech部署好你的基础数据库
+
+以下部署文件已放入根目录下的noise文件夹内
+
+部署成功示例：
+
+![GrsKm8Qced4f7n3](https://s2.loli.net/2025/04/12/GrsKm8Qced4f7n3.png)
+
+![SDOAt8BsdIiCzXF](https://s2.loli.net/2025/04/12/SDOAt8BsdIiCzXF.png)
+
+<details>
+<summary><h2>✅ Fly.io部署【点击查看】</h2></summary>
+
+### Fly.io部署
+
+fly.toml
+
+```
+app = 'ech0-noise'    # 修改为你的自定义容器名
+primary_region = 'hkg'
+
+[experimental]
+  auto_rollback = true
+
+[build]
+  image = 'noise233/echo-noise:last'
+  dockerfile = 'Dockerfile'
+
+[env]
+  CGO_ENABLED = '1'
+  DB_HOST = 'example.aws.neon.tech' # 修改为数据库的HOST地址
+  DB_NAME = 'noise'        # 修改为数据库的名称
+  DB_PASSWORD = 'example'  # 修改为数据库的密码
+  DB_PORT = '5432'
+  DB_SSL_MODE = 'require'
+  DB_TYPE = 'postgres'
+  DB_USER = 'noise_owner'  # 修改为数据库的用户名
+  TZ = 'Asia/Shanghai'
+
+[http_service]
+  internal_port = 1314
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+
+[[services]]
+  protocol = 'tcp'
+  internal_port = 1314
+
+  [[services.ports]]
+    port = 1314
+
+[[vm]]
+  memory = '512mb'
+  cpu_kind = 'shared'
+  cpus = 1
+```
+
+部署命令
+在准备好 fly.toml 文件后，你可以使用以下命令来部署你的应用到 Fly.io：
+
+#### 初始化 Fly.io 应用（如果尚未初始化）
+`fly launch`
+
+#### 部署应用
+`fly deploy`
+
+确保你已经安装并配置好了 Fly.io 的 CLI 工具，并且已经登录到你的 Fly.io 账号。如果你还没有安装 Fly.io CLI，可以通过以下命令安装：
+
+```
+curl -L https://fly.io/install.sh | sh
+```
+
+安装完成后，使用 `fly auth login` 登录到你的 Fly.io 账号。
+
+</details>
+
+<details>
+<summary><h2>✅ Zeabur部署【点击查看】</h2></summary>
+
+zeabur.toml
+
+```
+app = "ech0-noise"
+
+[build]
+  dockerfile = "Dockerfile"
+  image = "noise233/echo-noise:last"
+
+[env]
+  DB_TYPE = "postgres"
+  DB_HOST = 'example.aws.neon.tech' # 修改为数据库的HOST地址
+  DB_PORT = "5432"
+  DB_USER = 'noise_owner'  # 修改为数据库的用户名
+  DB_PASSWORD = 'example'  # 修改为数据库的密码
+  DB_NAME = 'noise'        # 修改为数据库的名称
+  DB_SSL_MODE = "require"
+  CGO_ENABLED = "1"
+  TZ = "Asia/Shanghai"
+
+[http_service]
+  internal_port = 1314
+  force_https = true
+
+[[services]]
+  protocol = "tcp"
+  internal_port = 1314
+
+  [[services.ports]]
+    port = 1314
+
+[[vm]]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
+```
+
+#### 部署命令：
+
+```
+zeabur deploy
+```
+
+</details>
+
+<details>
+<summary><h2>✅ Railway部署【点击查看】</h2></summary>
+
+railway.toml
+
+```
+app = "ech0-noise"
+
+[build]
+  dockerfile = "Dockerfile"
+  image = "noise233/echo-noise:last"
+
+[env]
+  DB_TYPE = "postgres"
+  DB_HOST = 'example.aws.neon.tech' # 修改为数据库的HOST地址
+  DB_PORT = "5432"
+  DB_USER = 'noise_owner'  # 修改为数据库的用户名
+  DB_PASSWORD = 'example'  # 修改为数据库的密码
+  DB_NAME = 'noise'        # 修改为数据库的名称
+  DB_SSL_MODE = "require"
+  CGO_ENABLED = "1"
+  TZ = "Asia/Shanghai"
+
+[service]
+  internal_port = 1314
+  protocol = "tcp"
+
+[service.ports]
+  port = 1314
+
+[vm]
+  memory = "512mb"
+  cpu_kind = "shared"
+  cpus = 1
+
+```
+
+#### 部署命令：
+
+```
+railway up
+```
+
+![预览](https://s2.loli.net/2025/03/25/7gyEspef1ZhOtrH.png)
+
+</details>
+
+注意⚠️
+
+如果你是直接在平台拉取项目部署而不是通过命令部署，你需要拷贝fork本项目并将fly.toml、railway.toml、zeabur.toml文件放入根目录下才能一键部署
+
+
 
 # 开发
 
@@ -1315,6 +1502,15 @@ document.addEventListener('DOMContentLoaded', function() {
     height: 86px;
 }
 ```
+
+</details>
+
+<details>
+<summary><h2>✅ ios快捷指令【点击查看】</h2></summary>
+
+使用快捷指令发布内容到站内，[点击获取](https://www.icloud.com/shortcuts/8ba1240ab39d4bf2b4a02b69a5cc12bf)
+
+![idpz8Ea9DQMfyex](https://s2.loli.net/2025/04/12/idpz8Ea9DQMfyex.png)
 
 </details>
 
