@@ -2,7 +2,7 @@ app = "ech0-noise"
 
 [build]
   dockerfile = "Dockerfile"
-  image = "noise233/echo-noise:last"
+  image = "noise233/echo-noise"
 
 [env]
   DB_TYPE = "postgres"

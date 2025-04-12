@@ -199,7 +199,7 @@ primary_region = 'hkg'
   auto_rollback = true
 
 [build]
-  image = 'noise233/echo-noise:last'
+  image = 'noise233/echo-noise'
   dockerfile = 'Dockerfile'
 
 [env]
@@ -262,7 +262,7 @@ app = "ech0-noise"
 
 [build]
   dockerfile = "Dockerfile"
-  image = "noise233/echo-noise:last"
+  image = "noise233/echo-noise"
 
 [env]
   DB_TYPE = "postgres"
@@ -310,7 +310,7 @@ app = "ech0-noise"
 
 [build]
   dockerfile = "Dockerfile"
-  image = "noise233/echo-noise:last"
+  image = "noise233/echo-noise"
 
 [env]
   DB_TYPE = "postgres"

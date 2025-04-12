@@ -5,7 +5,7 @@ primary_region = 'hkg'
   auto_rollback = true
 
 [build]
-  image = 'noise233/echo-noise:last'
+  image = 'noise233/echo-noise'
   dockerfile = 'Dockerfile'
 
 [env]
