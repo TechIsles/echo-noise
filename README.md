@@ -182,8 +182,6 @@ docker-compose up -d
 
 部署成功示例：
 
-![GrsKm8Qced4f7n3](https://s2.loli.net/2025/04/12/GrsKm8Qced4f7n3.png)
-
 ![SDOAt8BsdIiCzXF](https://s2.loli.net/2025/04/12/SDOAt8BsdIiCzXF.png)
 
 <details>
