@@ -71,17 +71,19 @@ const renderMarkdown = async (markdown: string) => {
       return;
     }
 
-     // 修改：添加链接处理函数
-     const processedContent = processMediaLinks(markdown)
-      .replace(/<a /g, '<a target="_blank" '); // 强制所有链接添加 target="_blank"
-    // 修改标签处理方式 - 添加 onclick 事件
-    const processedWithTags = processedContent.replace(
-      /#([^\s#]+)/g,
-      '<span class="clickable-tag" onclick="window.handleTagClick(\'$1\')" style="cursor: pointer; color: #fb923c;">#$1</span>'
-    );
+    // 先处理媒体链接
+    const processedContent = processMediaLinks(markdown);
+    
+    // 修改标签匹配规则，排除HTML标签内的内容
+    const finalContent = processedContent
+      .replace(/<a /g, '<a target="_blank" ')
+      .replace(
+        /(?<!<[^>]*)#([^\s#<>]+)(?![^<]*>)/g,
+        '<span class="clickable-tag" onclick="window.handleTagClick(\'$1\')" style="cursor: pointer; color: #fb923c;">#$1</span>'
+      );
 
     // 使用处理后的内容
-    Vditor.preview(previewElement.value, processedWithTags, {
+    Vditor.preview(previewElement.value, finalContent, {
       mode: 'light',
       lang: 'zh_CN',
       theme: {
