@@ -188,9 +188,11 @@ const clearForm = () => {
   }
 };
 
-const addMessage = async () => {
-  // 添加登录检查
-  const userStore = useUserStore();
+// 在顶部声明 userStore
+const userStore = useUserStore();
+
+// 创建一个通用的登录检查函数
+const checkLogin = () => {
   if (!userStore.isLogin) {
     toast.add({
       title: '提示',
@@ -198,9 +200,14 @@ const addMessage = async () => {
       color: 'orange',
       timeout: 2000
     });
-    return;
+    return false;
   }
+  return true;
+};
 
+const addMessage = async () => {
+  if (!checkLogin()) return;
+  
   // 添加基本验证
   if (!MessageContent.value.trim() && !ImageUrl.value) {
     toast.add({
@@ -245,19 +252,10 @@ const triggerFileInput = () => {
 };
 
 const addImage = async (event: Event) => {
+  if (!checkLogin()) return;
+  
   const input = event.target as HTMLInputElement;
   const file = input.files ? input.files[0] : null;
-
-  const userStore = useUserStore();
-  if (!userStore.isLogin) {
-    toast.add({
-      title: '错误',
-      description: '请先登录',
-      color: 'red',
-      timeout: 2000
-    });
-    return;
-  }
 
   if (!file) {
     toast.add({
@@ -348,7 +346,15 @@ const addImage = async (event: Event) => {
   }
 };
 
-onMounted(() => {
+// 添加登录状态监听
+watch(() => userStore.isLogin, (newLoginState) => {
+  if (newLoginState) {
+    // 可以在这里添加登录后的初始化逻辑
+    enableNotify.value = localStorage.getItem('enableNotify') === 'true';
+  }
+}, { immediate: true });
+
+onMounted(async () => {
   Fancybox.bind("[data-fancybox]", {});
   console.log('组件加载时推送开关状态:', enableNotify.value);
 });
