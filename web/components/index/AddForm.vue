@@ -189,6 +189,18 @@ const clearForm = () => {
 };
 
 const addMessage = async () => {
+  // 添加登录检查
+  const userStore = useUserStore();
+  if (!userStore.isLogin) {
+    toast.add({
+      title: '提示',
+      description: '请先登录',
+      color: 'orange',
+      timeout: 2000
+    });
+    return;
+  }
+
   // 添加基本验证
   if (!MessageContent.value.trim() && !ImageUrl.value) {
     toast.add({
@@ -205,19 +217,13 @@ const addMessage = async () => {
     content: MessageContent.value,
     private: Private.value,
     image_url: ImageUrl.value,
-    // 修改推送逻辑：私密内容不进行推送
     notify: Private.value ? false : enableNotify.value,
   };
 
   try {
     const response = await save(message);
     if (response) {
-      toast.add({
-        title: '成功',
-        description: '发布成功',
-        color: 'green',
-        timeout: 2000
-      });
+      // 只保留一个成功提示
       clearForm();
     }
   } catch (error: any) {
@@ -230,8 +236,6 @@ const addMessage = async () => {
     });
   }
 };
-
-// 删除这里重复的 clearForm 函数定义
 
 const triggerFileInput = () => {
   const input = document.getElementById("file-input");

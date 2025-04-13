@@ -340,12 +340,6 @@ const createMessage = async (message: Message) => {
     });
 
     if (!response || response.code !== 1) {
-      toast.add({
-        title: "创建消息失败",
-        description: response?.msg || "请稍后重试",
-        color: "red",
-        timeout: 2000,
-      });
       throw new Error(response?.msg || "创建消息失败");
     }
 
@@ -353,7 +347,6 @@ const createMessage = async (message: Message) => {
     if (message.notify) {
       try {
         const baseUrl = useRuntimeConfig().public.baseApi;
-        // 构建完整的推送内容
         const pushContent = {
           content: message.content,
           images: message.image_url 
@@ -367,18 +360,20 @@ const createMessage = async (message: Message) => {
         });
 
         if (!notifyResponse || notifyResponse.code !== 1) {
-          throw new Error(notifyResponse?.msg || "推送失败");
+          console.warn("推送失败:", notifyResponse?.msg);
         }
       } catch (error) {
         console.error("消息推送失败:", error);
-        toast.add({
-          title: "消息已保存，但推送失败",
-          description: "请检查推送配置",
-          color: "yellow",
-          timeout: 3000,
-        });
       }
     }
+
+    // 添加成功提示
+    toast.add({
+      title: '成功',
+      description: '发布成功',
+      color: 'green',
+      timeout: 2000
+    });
 
     return response.data;
   } catch (error) {
@@ -386,7 +381,6 @@ const createMessage = async (message: Message) => {
     throw error;
   }
 };
-
 // 返回所有方法和状态
 return {
   messages,

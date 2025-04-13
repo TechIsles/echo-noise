@@ -287,8 +287,8 @@ func backupSQLite(tempDir string) error {
 func restorePostgres(tempDir string) error {
     dumpFile := filepath.Join(tempDir, "database.sql")
     
-    // 先清理现有连接并重建数据库
-    cleanCmd := exec.Command("psql",
+    // 先清理现有连接并重建数据库 - 分成单独的命令执行
+    terminateCmd := exec.Command("psql",
         "-h", os.Getenv("DB_HOST"),
         "-p", os.Getenv("DB_PORT"),
         "-U", os.Getenv("DB_USER"),
@@ -298,17 +298,33 @@ func restorePostgres(tempDir string) error {
             FROM pg_stat_activity 
             WHERE pg_stat_activity.datname = '%s' 
             AND pg_stat_activity.pid <> pg_backend_pid();
-            DROP DATABASE IF EXISTS %s;
-            CREATE DATABASE %s WITH ENCODING='UTF8';
-        `, os.Getenv("DB_NAME"), os.Getenv("DB_NAME"), os.Getenv("DB_NAME")),
+        `, os.Getenv("DB_NAME")),
     )
-    cleanCmd.Env = append(os.Environ(), fmt.Sprintf("PGPASSWORD=%s", os.Getenv("DB_PASSWORD")))
+    terminateCmd.Env = append(os.Environ(), fmt.Sprintf("PGPASSWORD=%s", os.Getenv("DB_PASSWORD")))
     
-    var cleanStderr bytes.Buffer
-    cleanCmd.Stderr = &cleanStderr
+    var terminateStderr bytes.Buffer
+    terminateCmd.Stderr = &terminateStderr
     
-    if err := cleanCmd.Run(); err != nil {
-        return fmt.Errorf("清理数据库失败: %v, 错误输出: %s", err, cleanStderr.String())
+    if err := terminateCmd.Run(); err != nil {
+        return fmt.Errorf("终止数据库连接失败: %v, 错误输出: %s", err, terminateStderr.String())
+    }
+
+    // 单独执行DROP和CREATE命令
+    recreateCmd := exec.Command("psql",
+        "-h", os.Getenv("DB_HOST"),
+        "-p", os.Getenv("DB_PORT"),
+        "-U", os.Getenv("DB_USER"),
+        "-d", "postgres",
+        "-c", fmt.Sprintf("DROP DATABASE IF EXISTS %s; CREATE DATABASE %s WITH ENCODING='UTF8';", 
+            os.Getenv("DB_NAME"), os.Getenv("DB_NAME")),
+    )
+    recreateCmd.Env = append(os.Environ(), fmt.Sprintf("PGPASSWORD=%s", os.Getenv("DB_PASSWORD")))
+    
+    var recreateStderr bytes.Buffer
+    recreateCmd.Stderr = &recreateStderr
+    
+    if err := recreateCmd.Run(); err != nil {
+        return fmt.Errorf("重建数据库失败: %v, 错误输出: %s", err, recreateStderr.String())
     }
 
     // 恢复数据
