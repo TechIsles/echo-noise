@@ -3,15 +3,15 @@
     <div class="relative">
       <div class="tags-wrapper">
         <div class="tags-scroll">
-          <span
-            v-for="tag in filteredTags"
-            :key="tag.name + timestamp"
-            class="tag-item"
-            @click="handleTagClick(tag.name)"
-          >
-            #{{ tag.name }}
-            <span class="tag-count">({{ tag.count }})</span>
-          </span>
+          <template v-for="tag in filteredTags" :key="tag.name + timestamp">
+            <span
+              class="tag-item"
+              @click="handleTagClick(tag.name)"
+            >
+              #{{ tag.name }}
+              <span class="tag-count">({{ tag.count }})</span>
+            </span>
+          </template>
         </div>
       </div>
       <div 
@@ -45,12 +45,23 @@ const props = defineProps({
 })
 
 const filteredTags = computed(() => {
-  return props.tags.filter(tag => {
-    const invalidChars = /[/?=&]/;
-    const isMediaLink = /^(song|video|playlist)\?id=\d+$/;
-    return !invalidChars.test(tag.name) && !isMediaLink.test(tag.name);
-  });
-});
+  const invalidChars = /[/?=&]/;
+  const isMediaLink = /^(song|video|playlist)\?id=\d+$/;
+  const cache = new Map();
+  
+  return props.tags.reduce((acc, tag) => {
+    // 使用缓存避免重复计算
+    if (cache.has(tag.name)) {
+      return acc;
+    }
+    
+    if (!invalidChars.test(tag.name) && !isMediaLink.test(tag.name)) {
+      cache.set(tag.name, true);
+      acc.push(tag);
+    }
+    return acc;
+  }, []);
+}, { immediate: true });
 
 const handleTagClick = (tagName: string) => {
   emit('tagClick', tagName)
@@ -101,6 +112,8 @@ const refreshTags = async () => {
 }
 
 .tag-item {
+  will-change: transform;
+  contain: content;
   display: inline-flex;
   align-items: center;
   padding: 0.25rem 0.75rem;
