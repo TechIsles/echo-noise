@@ -56,6 +56,8 @@ Ech0 是一款专为轻量级分享而设计的开源自托管平台，支持快
 <summary><h2>✅ 更新状况【点击查看】</h2></summary>
 
 
+- 增加浏览器扩展插件，位于chromeExpand文件夹内
+
 - 修复标签不能被点击的bug，调整点击发送按钮后提示为一个提示，增加未登陆时点发表的登陆提示
 
 - 增加一键部署无服务器平台-fly.io、zeabur、railway、vercel
@@ -1122,6 +1124,13 @@ exports.actions = [{
 }];
 
 ```
+
+</details>
+
+<details>
+<summary><h2>✅ 浏览器扩展</h2></summary>
+
+前往chromeExpand查看说明，安装请在浏览器扩展页面点击加载已解压缩文件夹安装
 
 </details>
 
