@@ -1130,7 +1130,7 @@ exports.actions = [{
 <details>
 <summary><h2>✅ 浏览器扩展</h2></summary>
 
-前往chromeExpand查看说明，安装请在浏览器扩展页面点击加载已解压缩文件夹安装
+前往[chromeExpand](https://github.com/rcy1314/echo-noise/tree/main/chromeExpand)查看说明，安装请在浏览器扩展页面点击加载已解压缩文件夹安装
 
 </details>
 
