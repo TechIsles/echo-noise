@@ -42,7 +42,8 @@
       ref="messageList" 
       class="message-list-container" 
       :site-config="frontendConfig"
-    />
+      :target-message-id="targetMessageId" 
+      />
       </UContainer>
       <Notification />
       <!-- 添加搜索模态框组件 -->
@@ -52,7 +53,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, inject, provide, onMounted, onUnmounted, watch } from 'vue' // 添加 provide
+import { ref, computed, inject, provide, onMounted, onUnmounted, watch, useRoute } from 'vue' // 添加 provide
 import AddForm from '@/components/index/AddForm.vue'
 import MessageList from '@/components/index/MessageList.vue'
 import Notification from '~/components/widgets/Notification.vue';

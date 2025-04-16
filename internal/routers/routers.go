@@ -39,6 +39,9 @@ func SetupRouter() *gin.Engine {
     // API 路由组
     api := r.Group("/api")
 
+    // 消息详情页路由（移到 API 组外）
+    r.GET("/m/:id", controllers.GetMessagePage) 
+    
     // RSS 路由
     r.GET("/rss", controllers.GenerateRSS)  // 保持原有的 RSS 订阅链接
     api.POST("/rss/refresh", middleware.SessionAuthMiddleware(), controllers.RefreshRSS) // 添加刷新 RSS 的路由
@@ -118,7 +121,10 @@ func SetupRouter() *gin.Engine {
     // 404 处理
     r.NoRoute(func(c *gin.Context) {
         path := c.Request.URL.Path
-        if path == "/" || !strings.HasPrefix(path, "/api") {
+        if strings.HasPrefix(path, "/m/") || 
+           strings.HasPrefix(path, "/messages/") || 
+           path == "/" || 
+           !strings.HasPrefix(path, "/api") {
             c.File("./public/index.html")
         } else {
             c.JSON(http.StatusNotFound, gin.H{"code": 0, "msg": "接口不存在"})

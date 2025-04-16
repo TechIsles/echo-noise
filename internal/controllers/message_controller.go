@@ -3,9 +3,11 @@ package controllers
 import (
     "net/http"
     "time"
+    "strconv"  // 添加 strconv 包
     "github.com/gin-gonic/gin"
     "github.com/lin-snow/ech0/internal/models"
-    "github.com/lin-snow/ech0/internal/database" 
+    "github.com/lin-snow/ech0/internal/database"
+    "github.com/lin-snow/ech0/internal/services"  // 添加 services 包
     "regexp"
 )
 // GetMessagesByTag 获取指定标签的消息
@@ -140,5 +142,26 @@ func GetAllImages(c *gin.Context) {
     }
 
     c.JSON(http.StatusOK, gin.H{"code": 1, "data": allImages})
+}
+
+// GetMessagePage 处理消息详情页请求
+func GetMessagePage(c *gin.Context) {
+    id := c.Param("id")
+    messageID, err := strconv.ParseUint(id, 10, 64)
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"code": 0, "msg": "无效的消息ID"})
+        return
+    }
+    
+    message, err := services.GetMessagePage(uint(messageID))
+    if err != nil {
+        c.JSON(http.StatusNotFound, gin.H{"code": 0, "msg": err.Error()})
+        return
+    }
+    
+    c.JSON(http.StatusOK, gin.H{
+        "code": 1,
+        "data": message,
+    })
 }
 

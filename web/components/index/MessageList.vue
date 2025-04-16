@@ -255,6 +255,32 @@ const jumpToPage = async () => {
     });
   }
 };
+// 添加 props 定义
+const props = defineProps({
+  siteConfig: {
+    type: Object,
+    required: true
+  },
+  targetMessageId: {  // 添加新的 prop
+    type: String,
+    default: null
+  }
+});
+// 添加监听器
+watch(() => props.targetMessageId, async (newId) => {
+  if (!newId) return;
+  
+  await nextTick();
+  const targetElement = document.querySelector(`.content-container[data-msg-id="${newId}"]`);
+  if (targetElement) {
+    targetElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // 添加高亮效果
+    targetElement.classList.add('highlight-message');
+    setTimeout(() => {
+      targetElement.classList.remove('highlight-message');
+    }, 2000);
+  }
+}, { immediate: true });
 
 const BASE_API = useRuntimeConfig().public.baseApi;
 const { deleteMessage } = useMessage();
@@ -320,13 +346,7 @@ const resetList = async () => {
   checkContentHeight();
   initFancybox();
 };
-// 添加 props 定义
-const props = defineProps({
-  siteConfig: {
-    type: Object,
-    required: true
-  }
-});
+
 const deleteMsg = async (id: number) => {
   const confirmDelete = confirm("确定要删除这条消息吗？");
   if (confirmDelete) {
@@ -411,7 +431,7 @@ const toggleComment = async (msgId: number) => {
         window.Waline.init({
           el: `#waline-${msgId}`,
           serverURL: props.siteConfig.walineServerURL,
-          path: `/message/${msgId}`,
+          path: 'messages/${msgId}',
           reaction: false,
           meta: ["nick", "mail", "link"],
           requiredMeta: ["mail", "nick"],
@@ -488,6 +508,10 @@ const checkContentHeight = () => {
 
 // 确保在内容变化时重新检查高度
 watch(() => message.messages, () => {
+  // 如果是单条消息查看模式，不执行滚动
+  if (route.hash.includes('/messages/')) {
+    return;
+  }
   nextTick(() => {
     requestAnimationFrame(() => {
       checkContentHeight();
@@ -495,20 +519,13 @@ watch(() => message.messages, () => {
     });
   });
 }, { deep: true });
-
+// 添加路由相关
+const route = useRoute();
 onMounted(async () => {
   try {
-    // 获取消息列表
-    const result = await message.getMessages({
-      page: 1,
-      pageSize: 15,
-    });
-    if (!result) {
-      throw new Error('加载消息失败');
-    }
-    // 异步检查登录状态
-    userStore.checkLoginStatus();
-
+    // 获取路由中的消息ID
+    const messageId = route.hash.split('/messages/').pop();
+    
     // 加载 Waline
     if (!window.Waline) {
       const link = document.createElement("link");
@@ -526,21 +543,110 @@ onMounted(async () => {
       });
     }
 
-    // 初始化其他功能
+    // 根据是否有消息ID来决定加载方式
+    if (messageId) {
+      const response = await fetch(`${BASE_API}/messages/${messageId}`, {
+        credentials: 'include',
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
+      
+      if (!response.ok) throw new Error('消息加载失败');
+      
+      const data = await response.json();
+      if (data.code === 1 && data.data) {
+        // 设置单条消息模式
+        message.messages = [data.data];
+        message.hasMore = false;
+        message.page = 1;
+        
+        await nextTick();
+        const targetElement = document.querySelector(`.content-container[data-msg-id="${messageId}"]`);
+        if (targetElement) {
+          targetElement.scrollIntoView({ behavior: 'instant', block: 'start' });
+        }
+      } else {
+        throw new Error('消息不存在');
+      }
+    } else {
+      // 只有在非消息详情页时才加载列表
+      if (!route.hash.includes('/messages/')) {
+        await message.getMessages({
+          page: 1,
+          pageSize: 15,
+        });
+      }
+    }
+
+    // 初始化视图
     await nextTick();
     checkContentHeight();
     initFancybox();
     
   } catch (error) {
     console.error('初始化失败:', error);
+    if (error instanceof Error) {
+      useToast().add({
+        title: '加载失败',
+        description: error.message || '请刷新重试',
+        color: 'red',
+        timeout: 2000
+      });
+    }
+  }
+});
+
+// 修改路由监听
+watch(() => route.hash, async (newHash) => {
+  const messageId = newHash.split('/messages/').pop();
+  
+  // 如果没有消息ID且不是从消息详情页返回，则加载列表
+  if (!messageId) {
+    if (!route.hash.includes('/messages/')) {
+      await message.getMessages({
+        page: 1,
+        pageSize: 15,
+      });
+    }
+    return;
+  }
+  
+  try {
+    const response = await fetch(`${BASE_API}/messages/${messageId}`, {
+      credentials: 'include',
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    
+    if (!response.ok) throw new Error('消息加载失败');
+    
+    const data = await response.json();
+    if (data.code === 1 && data.data) {
+      message.messages = [data.data];
+      message.hasMore = false;
+      message.page = 1;
+      
+      await nextTick();
+      const targetElement = document.querySelector(`.content-container[data-msg-id="${messageId}"]`);
+      if (targetElement) {
+        targetElement.scrollIntoView({ 
+          behavior: 'instant',
+          block: 'start'
+        });
+      }
+    }
+  } catch (error) {
+    console.error('加载消息失败:', error);
     useToast().add({
       title: '加载失败',
-      description: '请刷新页面重试',
       color: 'red',
       timeout: 2000
     });
   }
-});
+}, { immediate: true });
+
 // 修改 loadMore 为 loadNextPage
 const loadNextPage = async () => {
   if (message.loading) return;
@@ -552,19 +658,18 @@ const loadNextPage = async () => {
     });
     
     if (!result || !result.items || result.items.length === 0) {
-      message.hasMore = false; // 确保没有更多数据时设置为false
+      message.hasMore = false;
       return;
     }
     
-    // 先更新内容
+    // 更新内容
     message.messages = result.items;
     
-    // 等待 DOM 更新完成后再滚动
+    // 等待 DOM 更新完成
     await nextTick();
-    window.scrollTo({ 
-      top: 0,
-      behavior: 'instant' // 改为即时滚动，避免动画
-    });
+    checkContentHeight();
+    initFancybox();
+    
   } catch (error) {
     console.error('加载下一页失败:', error);
     useToast().add({
@@ -1249,7 +1354,8 @@ button:hover {
 }
 
 :deep(.wl-editor) {
-  color: #000 !important;
+  background: rgba(36, 43, 50, 0.95) !important;
+  color: #fff !important;
 }
 
 :deep(.wl-comment .wl-content) {
@@ -1264,18 +1370,11 @@ button:hover {
   color: #fff !important;
 }
 /* 调整编辑器区域样式 */
-:deep(.wl-editor) {
-  background-color: rgba(36, 43, 50, 0.95) !important;
-  color: #fff !important;
-}
 :deep(.wl-comment .wl-meta .wl-like),
 :deep(.wl-comment .wl-meta .wl-reply) {
   color: #999 !important;
 }
-/* 调整输入框背景色 */
-:deep(.wl-editor) {
-  background: rgba(255, 255, 255, 0.9) !important;
-}
+
 
 /* 调整输入框边框 */
 :deep(.wl-input-row) {
@@ -1295,20 +1394,9 @@ button:hover {
   background-color: rgba(251, 146, 60, 0.8) !important;
   color: #fff !important;
 }
-:deep(.wl-input) {
-  color: #fff !important;
-}
 
 :deep(.wl-action) {
   color: #fff !important;
-}
-:deep(.wl-panel) {
-  background: rgba(36, 43, 50, 0.95) !important;
-  border: 1px solid rgba(14, 14, 14, 0.2) !important;
-}
-
-:deep(.wl-editor) {
-  background: rgba(36, 43, 50, 0.95) !important;
 }
 
 :deep(.wl-header) {
@@ -1324,6 +1412,8 @@ button:hover {
 :deep(.wl-card) {
   position: relative;
   z-index: 100;
+  background: rgba(36, 43, 50, 0.95) !important;
+  border: 1px solid rgba(14, 14, 14, 0.2) !important;
 }
 
 /* 确保评论区域不会被遮挡 */
@@ -1461,5 +1551,14 @@ button:hover {
   .mt-3 {
     margin-top: 0.75rem;
   }
+}
+/* 添加高亮动画样式 */
+@keyframes highlight {
+  0% { background: rgba(251, 146, 60, 0.3); }
+  100% { background: rgba(36, 43, 50, 0.95); }
+}
+
+.highlight-message {
+  animation: highlight 2s ease-out;
 }
 </style>

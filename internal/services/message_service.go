@@ -117,8 +117,10 @@ func GenerateRSS(c *gin.Context) (string, error) {
     if c.Request.TLS != nil {
         schema = "https"
     }
-    host := c.Request.Host
-
+    
+    // 从配置中获取域名，如果没有配置则使用请求的 host
+    host := getConfigValue("siteURL", c.Request.Host)
+    
     feed := &feeds.Feed{
         Title: getConfigValue("rssTitle", "说说笔记"),
         Link: &feeds.Link{
@@ -152,11 +154,12 @@ func GenerateRSS(c *gin.Context) (string, error) {
         }
 
         // 生成前端页面 URL
+        // 使用配置的域名生成 URL
         pageURL := fmt.Sprintf("%s://%s/#/messages/%d", schema, host, msg.ID)
-
+        
         item := &feeds.Item{
             Title:       title,
-            Link:        &feeds.Link{Href: fmt.Sprintf("%s://%s/api/messages/%d", schema, host, msg.ID)},
+            Link:        &feeds.Link{Href: pageURL},
             Description: string(htmlContent),
             Author:      &feeds.Author{Name: msg.Username},
             Created:     msg.CreatedAt,
@@ -224,7 +227,24 @@ func GetMessagesGroupByDate() ([]struct {
     
     return results, nil
 }
-// ... existing code ...
+// GetMessagePage 获取消息详情页
+func GetMessagePage(id uint) (*models.Message, error) {
+    message, err := repository.GetMessageByID(id, false)
+    if err != nil {
+        return nil, err
+    }
+    
+    if message == nil {
+        return nil, fmt.Errorf("消息不存在")
+    }
+    
+    // 如果是私密消息，需要进行额外处理
+    if message.Private {
+        return nil, fmt.Errorf("无权访问")
+    }
+    
+    return message, nil
+}
 
 func SearchMessages(keyword string, page, pageSize int, showPrivate bool) (dto.PageQueryResult, error) {
     // 参数校验
