@@ -1140,7 +1140,9 @@ exports.actions = [{
 
 <details>
 <summary><h2>✅ Web组件示例【点击查看】</h2></summary>
-![867sho00](https://s2.loli.net/2025/04/16/uoHIvbq8FXMJSa2.png)
+
+
+![](https://s2.loli.net/2025/04/16/uoHIvbq8FXMJSa2.png)
 
 配置(htmlwidgets内)
 
