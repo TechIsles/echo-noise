@@ -1,7 +1,9 @@
 <template>
   <div 
     class="fixed z-50 bg-black/80 backdrop-blur-sm rounded-lg shadow-lg p-4 text-white"
-    :style="{ top: `${position.y}px`, left: `${position.x}px` }"
+    :style="getPopupPosition"
+    @mousedown="startDrag"
+    @touchstart="startDrag"
   >
     <div class="flex justify-between items-center mb-3">
       <h3 class="text-lg font-medium">图床上传</h3>
@@ -16,14 +18,6 @@
     
     <div class="mb-4">
       <div class="flex gap-2 mb-3">
-        <UButton 
-          :color="selectedHost === 'smms' ? 'blue' : 'gray'" 
-          variant="solid" 
-          size="sm" 
-          @click="selectedHost = 'smms'"
-        >
-          SM.MS
-        </UButton>
         <UButton 
           :color="selectedHost === 'github' ? 'blue' : 'gray'" 
           variant="solid" 
@@ -57,15 +51,16 @@
           placeholder="存储路径 (默认: images/)" 
           size="sm"
         />
-      </div>
-      
-      <!-- SM.MS 配置 -->
-      <div v-if="selectedHost === 'smms'" class="space-y-2 mb-3">
+        <!-- 修改后的CDN配置 -->
+        <div class="flex items-center gap-2">
+          <UToggle v-model="enableCDN" />
+          <span class="text-sm">启用CDN加速</span>
+        </div>
         <UInput 
-          v-model="smmsToken" 
-          placeholder="SM.MS API Token (可选)" 
+          v-if="enableCDN"
+          v-model="cdnDomain" 
+          placeholder="输入CDN域名 (如: jsd.cdn.noisework.cn)" 
           size="sm"
-          type="password"
         />
       </div>
       
@@ -136,7 +131,7 @@
       <div v-if="errorMessage" class="mt-2 text-red-400 text-sm">
         {{ errorMessage }}
       </div>
-      
+         
       <div v-if="uploadedUrl" class="mt-2">
         <div class="flex items-center gap-2 bg-gray-800 p-2 rounded">
           <input 
@@ -172,13 +167,99 @@
 import { ref, computed, watch, onMounted } from 'vue';
 import { useToast, useRuntimeConfig } from '#imports';
 
+// 修改 position 属性定义
 const props = defineProps({
   position: {
     type: Object,
     required: true,
     default: () => ({ x: 0, y: 0 })
+  },
+  editorRef: {
+    type: Object,
+    required: false,
+    default: null
   }
 });
+
+// 添加弹窗位置计算
+const getPopupPosition = computed(() => {
+  if (typeof window === 'undefined') return {};
+  
+  const screenWidth = window.innerWidth;
+  const screenHeight = window.innerHeight;
+  const popupWidth = 400;
+  const popupHeight = 500;
+  
+  let x = props.position.x;
+  let y = props.position.y;
+  
+  // 确保弹窗在屏幕内
+  if (x + popupWidth > screenWidth) {
+    x = screenWidth - popupWidth - 20;
+  }
+  if (x < 0) x = 20;
+  
+  if (y + popupHeight > screenHeight) {
+    y = screenHeight - popupHeight - 20;
+  }
+  if (y < 0) y = 20;
+  
+  // 移动端居中显示
+  if (screenWidth < 768) {
+    x = (screenWidth - popupWidth) / 2;
+    y = 60;
+  }
+  
+  return {
+    position: 'fixed',
+    top: `${y}px`,
+    left: `${x}px`,
+    maxWidth: `${Math.min(popupWidth, screenWidth - 40)}px`,
+    width: '100%',
+    // 添加以下样式确保可拖动
+    cursor: 'move',
+    userSelect: 'none',
+    touchAction: 'none'
+  };
+});
+const isDraggingWindow = ref(false);
+const dragStartPos = ref({ x: 0, y: 0 });
+
+const startDrag = (e: MouseEvent | TouchEvent) => {
+  isDraggingWindow.value = true;
+  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+  const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+  
+  dragStartPos.value = {
+    x: clientX - props.position.x,
+    y: clientY - props.position.y
+  };
+
+  document.addEventListener('mousemove', handleDrag);
+  document.addEventListener('touchmove', handleDrag);
+  document.addEventListener('mouseup', stopDrag);
+  document.addEventListener('touchend', stopDrag);
+};
+
+const handleDrag = (e: MouseEvent | TouchEvent) => {
+  if (!isDraggingWindow.value) return;
+  
+  const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
+  const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
+  
+  emit('update:position', {
+    x: clientX - dragStartPos.value.x,
+    y: clientY - dragStartPos.value.y
+  });
+};
+
+const stopDrag = () => {
+  isDraggingWindow.value = false;
+  document.removeEventListener('mousemove', handleDrag);
+  document.removeEventListener('touchmove', handleDrag);
+  document.removeEventListener('mouseup', stopDrag);
+  document.removeEventListener('touchend', stopDrag);
+};
 
 const emit = defineEmits(['close', 'upload-success']);
 const toast = useToast();
@@ -198,9 +279,13 @@ const githubToken = ref('');
 const githubRepo = ref('');
 const githubBranch = ref('main');
 const githubPath = ref('images/');
+const enableCDN = ref(false);  // 默认不启用CDN
+const cdnDomain = ref('');     // 默认没有CDN域名
 
-// SM.MS 配置
+// 图床配置
 const smmsToken = ref('');
+
+const freeimageToken = ref('');
 
 // 触发文件选择
 const triggerFileInput = () => {
@@ -246,6 +331,7 @@ const handleFile = async (file: File) => {
   
   // 清除错误信息
   errorMessage.value = '';
+  selectedFile.value = file;
   
   // 创建预览
   const reader = new FileReader();
@@ -253,18 +339,26 @@ const handleFile = async (file: File) => {
     previewUrl.value = e.target?.result as string;
   };
   reader.readAsDataURL(file);
-  
-  // 直接开始上传
-  try {
-    if (selectedHost.value === 'smms') {
-      await uploadToSMMS(file);
-    } else if (selectedHost.value === 'github') {
-      await uploadToGitHub(file);
-    }
-  } catch (error: any) {
-    errorMessage.value = error.message || '上传失败';
-    isUploading.value = false;
+};
+
+// 修改插入图片方法
+const insertImage = () => {
+  if (!uploadedUrl.value) {
+    errorMessage.value = '请先上传图片';
+    return;
   }
+  
+  const markdownLink = `![](${uploadedUrl.value})`;
+  emit('upload-success', markdownLink);
+  emit('close');
+  
+  // 重置状态
+  selectedFile.value = null;
+  previewUrl.value = '';
+  uploadedUrl.value = '';
+  uploadProgress.value = 0;
+  isUploading.value = false;
+  errorMessage.value = '';
 };
 
 // 添加复制到剪贴板方法
@@ -287,63 +381,170 @@ const copyToClipboard = async (text: string) => {
   }
 };
 
-// 添加开始上传方法
-const startUpload = () => {
-  if (selectedFile.value) {
-    uploadFile(selectedFile.value);
-  } else {
+// 修改startUpload方法，添加全局错误处理
+const startUpload = async () => {
+  if (!selectedFile.value) {
     errorMessage.value = '请先选择图片';
+    return;
   }
-};
 
-// 修改 SM.MS 上传方法
-const uploadToSMMS = async (file: File) => {
-  const formData = new FormData();
-  formData.append('smfile', file);
-  
-  // 显示上传进度
   isUploading.value = true;
-  uploadProgress.value = 10;
+  uploadProgress.value = 0;
+  errorMessage.value = '';
   
   try {
-    // 使用 imgtp.com 作为替代图床 (SM.MS 的替代方案)
-    const response = await fetch('https://imgtp.com/api/upload', {
-      method: 'POST',
-      body: formData
+    switch(selectedHost.value) {
+      case 'github':
+        await uploadToGitHub(selectedFile.value);
+        break;
+      default:
+        throw new Error('未知的图床类型');
+    }
+  } catch (error: any) {
+    console.error('上传错误:', error);
+    errorMessage.value = error.message || '上传失败';
+    isUploading.value = false;
+    
+    // 添加详细错误诊断
+    if (error.name === 'AbortError') {
+      errorMessage.value = '请求超时，请检查网络连接';
+    } else if (error.message.includes('Failed to fetch')) {
+      errorMessage.value = '网络请求失败，可能是跨域问题或API不可用';
+    }
+  }
+};
+// 添加 GitHub 上传方法
+const uploadToGitHub = async (file: File) => {
+  if (!githubToken.value || !githubRepo.value) {
+    errorMessage.value = '请先配置 GitHub Token 和仓库名';
+    return;
+  }
+
+  try {
+    uploadProgress.value = 30;
+    
+    // 生成文件名和路径
+    const timestamp = Date.now();
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${timestamp}.${fileExt}`;
+    const filePath = `${githubPath.value}${fileName}`.replace(/\/\//g, '/');
+    
+    // 读取文件内容
+    const fileContent = await readFileAsBase64(file);
+    
+    // 准备请求数据
+    const requestData = {
+      message: `Upload image ${fileName}`,
+      content: fileContent,
+      branch: githubBranch.value || 'main'
+    };
+    
+    uploadProgress.value = 50;
+    
+    // 发送请求
+    const response = await fetch(`https://api.github.com/repos/${githubRepo.value}/contents/${filePath}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `token ${githubToken.value}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(requestData)
     });
     
-    uploadProgress.value = 90;
+    uploadProgress.value = 80;
     
     if (!response.ok) {
-      throw new Error(`HTTP 错误: ${response.status}`);
+      throw new Error(`GitHub 上传失败: ${response.status}`);
     }
     
     const data = await response.json();
+    // 只有当启用CDN且填写了CDN域名时才使用CDN URL
+    uploadedUrl.value = enableCDN.value && cdnDomain.value
+      ? `https://${cdnDomain.value}/gh/${githubRepo.value}@${githubBranch.value || 'main'}/${filePath}`
+      : data.content.download_url;
     
-    if (data.code === 200) {
-      uploadedUrl.value = data.data.url;
-      uploadProgress.value = 100;
-      isUploading.value = false;
-    } else {
-      throw new Error(data.msg || '图片上传失败');
-    }
+    uploadProgress.value = 100;
+    isUploading.value = false;
+    
+    toast.add({
+      title: '成功',
+      description: `图片已上传到 GitHub${enableCDN.value && cdnDomain.value ? ' (CDN加速)' : ''}`,
+      color: 'green',
+      timeout: 2000
+    });
   } catch (error: any) {
-    console.error('图片上传错误:', error);
-    errorMessage.value = `上传失败: ${error.message}`;
+    console.error('GitHub 上传错误:', error);
+    errorMessage.value = error.message || 'GitHub 上传失败';
     isUploading.value = false;
   }
 };
 
-// 插入图片 - 修改为插入 Markdown 格式链接
-const insertImage = () => {
-  // 创建 Markdown 格式的图片链接
-  const markdownLink = `![](${uploadedUrl.value})`;
-  emit('upload-success', markdownLink);
-  // 关闭弹窗
-  emit('close');
+// 添加文件转 Base64 的辅助方法
+const readFileAsBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
 };
 
-// 保存配置到 localStorage - 修复保存功能
+
+
+const uploadToFreeImage = async (file: File) => {
+  const formData = new FormData();
+  formData.append('source', file);
+  formData.append('key', '6d207e02198a847aa98d0a2a901485a5');
+  formData.append('action', 'upload');
+  formData.append('format', 'json');
+
+  try {
+    uploadProgress.value = 30;
+    
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 延长超时时间
+    
+    const response = await fetchWithProxy('https://freeimage.host/api/1/upload', {
+      method: 'POST',
+      body: formData,
+      signal: controller.signal,
+      headers: {
+        'Accept': 'application/json'
+      }
+    });
+    clearTimeout(timeoutId);
+    
+    uploadProgress.value = 70;
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.message || `FreeImage上传失败: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    if (data.status_code === 200) {
+      uploadedUrl.value = data.image.url;
+      uploadProgress.value = 100;
+      isUploading.value = false;
+      
+      toast.add({
+        title: '成功',
+        description: '图片已上传到FreeImage',
+        color: 'green',
+        timeout: 2000
+      });
+    } else {
+      throw new Error(data.message || 'FreeImage上传失败');
+    }
+  } catch (error: any) {
+    console.error('FreeImage上传错误:', error);
+    errorMessage.value = error.name === 'AbortError'
+      ? '请求超时，请检查网络连接'
+      : error.message || 'FreeImage上传失败，请稍后再试';
+    isUploading.value = false;
+  }
+};
+// 保存配置到 localStorage
 const saveConfig = () => {
   try {
     const config = {
@@ -352,10 +553,15 @@ const saveConfig = () => {
         token: githubToken.value,
         repo: githubRepo.value,
         branch: githubBranch.value,
-        path: githubPath.value
+        path: githubPath.value,
+        enableCDN: enableCDN.value,
+        cdnDomain: cdnDomain.value
       },
       smms: {
         token: smmsToken.value
+      },
+      freeimage: {
+        token: freeimageToken.value
       }
     };
     
@@ -391,11 +597,19 @@ const loadConfig = () => {
         githubRepo.value = config.github.repo || '';
         githubBranch.value = config.github.branch || 'main';
         githubPath.value = config.github.path || 'images/';
+        enableCDN.value = config.github.enableCDN || false;
+        cdnDomain.value = config.github.cdnDomain || ''; // 加载时不设置默认值
       }
       
       if (config.smms) {
         smmsToken.value = config.smms.token || '';
       }
+      if (config.imgtp) {
+    imgtpToken.value = config.imgtp.token || '';
+  }
+  if (config.freeimage) {
+    freeimageToken.value = config.freeimage.token || '';
+  }
     } catch (error) {
       console.error('加载配置失败:', error);
     }
@@ -415,3 +629,16 @@ onMounted(() => {
   loadConfig();
 });
 </script>
+
+<style scoped>
+.fixed {
+  position: fixed !important;
+}
+
+@media (max-width: 768px) {
+  .fixed {
+    max-height: 90vh;
+    overflow-y: auto;
+  }
+}
+</style>

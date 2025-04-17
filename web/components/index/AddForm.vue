@@ -59,6 +59,16 @@
             icon="i-fluent-image-20-regular"
             @click="triggerFileInput"
           />
+           <!-- 新增图床上传按钮 -->
+           <UButton
+            color="gray"
+            variant="solid"
+            class="cursor-pointer"
+            size="sm"
+            icon="i-mdi-cloud-upload-outline"
+            @click="showImageUploader = true"
+            title="图床上传"
+          />
           <UButton
             color="gray"
             variant="solid"
@@ -117,6 +127,13 @@
     v-model="showSearchModal" 
     @search-result="handleSearchResult" 
   />
+  <ImageHostingUploader
+  v-if="showImageUploader"
+  :position="imageUploaderPosition"
+  @close="showImageUploader = false"
+  @upload-success="handleImageHostingSuccess"
+  @update:position="handlePositionUpdate"
+/>
 </template>
 
 <script setup lang="ts">
@@ -134,7 +151,19 @@ import SearchMode from './Searchmode.vue'
 import { useMessageStore } from '~/store/message'
 import { useNotifyStore } from '~/store/notify'
 import VideoUpload from './VideoUpload.vue'
-
+import ImageHostingUploader from '~/components/widgets/ImageHostingUploader.vue'
+const showImageUploader = ref(false)
+const imageUploaderPosition = ref({ x: 400, y: 320 }) // 可根据实际调整
+// 处理图床上传成功，插入编辑器
+const handleImageHostingSuccess = (markdown: string) => {
+  if (vditorEditor.value?.insertValue) {
+    vditorEditor.value.insertValue(markdown)
+  }
+  showImageUploader.value = false
+}
+const handlePositionUpdate = (newPosition: { x: number; y: number }) => {
+  imageUploaderPosition.value = newPosition;
+};
 const videoUploadProgress = ref(0); // 新增进度变量
 const handleVideoUploadProgress = (percent: number) => {
   videoUploadProgress.value = percent;
