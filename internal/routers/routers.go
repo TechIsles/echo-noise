@@ -35,6 +35,7 @@ func SetupRouter() *gin.Engine {
     // 映射静态文件目录
     r.Use(static.Serve("/", static.LocalFile("./public", true)))
     r.Static("/api/images", "./data/images")
+    r.Static("/video", "./data/video")
 
     // API 路由组
     api := r.Group("/api")
@@ -101,6 +102,8 @@ func SetupRouter() *gin.Engine {
 
     // 图片上传路由
     authRoutes.POST("/images/upload", controllers.UploadImage)  // 上传图片 
+    // 新增：视频上传路由
+    authRoutes.POST("/videos/upload", controllers.UploadVideo)  // 上传视频
 
     // 用户相关路由
     user := authRoutes.Group("/user")

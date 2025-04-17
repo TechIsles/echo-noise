@@ -48,7 +48,11 @@ func HandleBackupDownload(c *gin.Context) {
         c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": "备份图片失败: " + err.Error()})
         return
     }
-
+// 备份视频文件
+if err := backupVideos(tempDir); err != nil {
+    c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": "备份视频失败: " + err.Error()})
+    return
+}
     // 根据数据库类型执行不同的备份逻辑
     switch dbType {
     case "postgres":
@@ -131,14 +135,23 @@ func HandleBackupRestore(c *gin.Context) {
         c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": "备份当前图片失败"})
         return
     }
-
+// 备份当前视频
+if err := backupCurrentVideos(); err != nil {
+    c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": "备份当前视频失败"})
+    return
+}
     // 恢复图片
     if err := restoreImages(tempDir); err != nil {
         restoreCurrentImages() // 尝试恢复原图片
         c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": "恢复图片失败"})
         return
     }
-
+// 恢复视频
+if err := restoreVideos(tempDir); err != nil {
+    restoreCurrentVideos() // 尝试恢复原视频
+    c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": "恢复视频失败"})
+    return
+}
     // 根据数据库类型执行不同的恢复逻辑
     switch dbType {
     case "postgres":
@@ -170,6 +183,8 @@ func HandleBackupRestore(c *gin.Context) {
 
     // 清理原图片备份
     cleanupImageBackup()
+    // 清理原视频备份
+    cleanupVideoBackup()
 
     c.JSON(http.StatusOK, gin.H{
         "code": 1,
@@ -643,4 +658,50 @@ func copyFile(src, dst string) error {
 
     _, err = io.Copy(destFile, sourceFile)
     return err
+}
+// 添加视频备份相关辅助函数
+func backupCurrentVideos() error {
+    videoDir := "/app/data/video"
+    if _, err := os.Stat(videoDir); os.IsNotExist(err) {
+        return nil
+    }
+    backupDir := "/app/data/video_backup"
+    return copyDir(videoDir, backupDir)
+}
+
+func restoreCurrentVideos() error {
+    backupDir := "/app/data/video_backup"
+    if _, err := os.Stat(backupDir); os.IsNotExist(err) {
+        return nil
+    }
+    videoDir := "/app/data/video"
+    if err := os.RemoveAll(videoDir); err != nil {
+        return err
+    }
+    return copyDir(backupDir, videoDir)
+}
+
+func cleanupVideoBackup() {
+    backupDir := "/app/data/video_backup"
+    os.RemoveAll(backupDir)
+}
+func backupVideos(tempDir string) error {
+    videoDir := "/app/data/video"
+    if _, err := os.Stat(videoDir); os.IsNotExist(err) {
+        return nil
+    }
+    destDir := filepath.Join(tempDir, "video")
+    return copyDir(videoDir, destDir)
+}
+
+func restoreVideos(tempDir string) error {
+    srcDir := filepath.Join(tempDir, "video")
+    if _, err := os.Stat(srcDir); os.IsNotExist(err) {
+        return nil
+    }
+    destDir := "/app/data/video"
+    if err := os.RemoveAll(destDir); err != nil {
+        return err
+    }
+    return copyDir(srcDir, destDir)
 }

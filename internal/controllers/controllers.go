@@ -3,7 +3,7 @@ package controllers
 import (
     "fmt"
     "regexp"
-
+"log"
     "time"
     "net/http"
     "strconv"
@@ -15,6 +15,9 @@ import (
     "github.com/lin-snow/ech0/internal/dto"
     "github.com/lin-snow/ech0/internal/models"
     "github.com/lin-snow/ech0/internal/services"
+    "path/filepath"
+    "os"
+    "github.com/google/uuid"
 )
 func checkUser(c *gin.Context) (*models.User, error) {
     userID, exists := c.Get("user_id")  // 修改 userid 为 user_id
@@ -741,9 +744,10 @@ func TestNotify(c *gin.Context) {
 func PostMessage(c *gin.Context) {
     // 解析请求数据
     var request struct {
-        Content   string `json:"content" `
+        Content   string `json:"content"`
         Private   bool   `json:"private"`
         ImageURL  string `json:"image_url"`
+        VideoURL  string `json:"video_url"` // 新增视频字段
         Notify    bool   `json:"notify"`
     }
     if err := c.ShouldBindJSON(&request); err != nil {
@@ -772,118 +776,214 @@ func PostMessage(c *gin.Context) {
     }
 
     // 处理推送逻辑
-    // 处理推送逻辑
-if request.Notify {
-    notifyConfig := models.GetNotifyConfig()
-    if notifyConfig != nil {
-        // 提取内容中的第一张图片链接
-        var firstImageURL string
-        var formattedContent string
-        
-        // 如果已有上传的图片，优先使用
-        if request.ImageURL != "" {
-            firstImageURL = request.ImageURL
-            formattedContent = request.Content
-        } else {
+    if request.Notify {
+        notifyConfig := models.GetNotifyConfig()
+        if notifyConfig != nil {
+            // 提取内容中的第一张图片链接
+            var firstImageURL string
+            var firstVideoURL string
+            var formattedContent string
+
+            // 如果已有上传的图片，优先使用
+            if request.ImageURL != "" {
+                firstImageURL = request.ImageURL
+            }
+            // 如果已有上传的视频，优先使用
+            if request.VideoURL != "" {
+                firstVideoURL = request.VideoURL
+            }
+
             // 从 Markdown 内容中提取第一张图片
             imageRegex := regexp.MustCompile(`!\[([^\]]*)\]\(([^)]+)\)`)
             matches := imageRegex.FindAllStringSubmatch(request.Content, -1)
-            
-            if len(matches) > 0 {
-                // 提取第一张图片的URL
+            if firstImageURL == "" && len(matches) > 0 {
                 firstImageURL = matches[0][2]
-                
-                // 从内容中移除第一张图片的Markdown语法
+            }
+
+            // 从 Markdown 内容中提取第一段视频（如 [video](url)）
+            videoRegex := regexp.MustCompile(`\[video\]\(([^)]+)\)`)
+            videoMatches := videoRegex.FindAllStringSubmatch(request.Content, -1)
+            if firstVideoURL == "" && len(videoMatches) > 0 {
+                firstVideoURL = videoMatches[0][1]
+            }
+
+            // 移除第一张图片的Markdown语法
+            formattedContent = request.Content
+            if len(matches) > 0 {
                 formattedContent = imageRegex.ReplaceAllStringFunc(request.Content, func(match string) string {
                     if match == matches[0][0] {
-                        return "" // 移除第一张图片
+                        return ""
                     }
-                    return match // 保留其他图片的Markdown语法
+                    return match
                 })
+            }
+
+            // 处理长内容，如果超过4000字符，进行截断
+            const maxContentLength = 4000
+            var truncatedContent string
+            if len(formattedContent) > maxContentLength {
+                truncatedContent = formattedContent[:maxContentLength] + "...\n(内容过长，已截断)"
             } else {
-                formattedContent = request.Content
+                truncatedContent = formattedContent
             }
+
+            // 格式化内容，处理Markdown语法
+            headingRegex := regexp.MustCompile(`(?m)^(#{1,6})\s+(.+)$`)
+            truncatedContent = headingRegex.ReplaceAllString(truncatedContent, "$1 $2")
+
+            // 准备图片和视频数组
+            var images []string
+            var videos []string
+            if firstImageURL != "" {
+                images = []string{firstImageURL}
+            }
+            if firstVideoURL != "" {
+                videos = []string{firstVideoURL}
+            }
+
+            go func() {
+                // Webhook
+                if notifyConfig.WebhookEnabled && notifyConfig.WebhookURL != "" {
+                    models.SendWebhook(truncatedContent)
+                }
+
+                // Telegram
+                if notifyConfig.TelegramEnabled && notifyConfig.TelegramToken != "" && notifyConfig.TelegramChatID != "" {
+                    const telegramMaxText = 4096
+                    const telegramMaxCaption = 1024
+
+                    isPublicURL := func(url string) bool {
+                        return strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://")
+                    }
+
+                    // 推送图片
+                    if len(images) > 0 {
+                        if isPublicURL(images[0]) {
+                            caption := formattedContent
+                            if len(caption) > telegramMaxCaption {
+                                caption = caption[:telegramMaxCaption] + "...\n(内容过长，已截断)"
+                            }
+                            err := models.SendTelegramPhotoWithCaption(images[0], caption)
+                            if err != nil {
+                                sendTelegramErrorNotify(c, err)
+                            }
+                        } else {
+                            msg := formattedContent + "\n[图片] " + images[0]
+                            if len(msg) > telegramMaxText {
+                                msg = msg[:telegramMaxText] + "...\n(内容过长，已截断)"
+                            }
+                            err := models.SendTelegramMessage(msg)
+                            if err != nil {
+                                sendTelegramErrorNotify(c, err)
+                            }
+                        }
+                    }
+
+                    // 推送视频
+                    if len(videos) > 0 {
+                        if isPublicURL(videos[0]) {
+                            caption := formattedContent
+                            if len(caption) > telegramMaxCaption {
+                                caption = caption[:telegramMaxCaption] + "...\n(内容过长，已截断)"
+                            }
+                            err := models.SendTelegramVideoWithCaption(videos[0], caption)
+                            if err != nil {
+                                sendTelegramErrorNotify(c, err)
+                            }
+                        } else {
+                            msg := formattedContent + "\n[视频] " + videos[0]
+                            if len(msg) > telegramMaxText {
+                                msg = msg[:telegramMaxText] + "...\n(内容过长，已截断)"
+                            }
+                            err := models.SendTelegramMessage(msg)
+                            if err != nil {
+                                sendTelegramErrorNotify(c, err)
+                            }
+                        }
+                    }
+
+                    // 没有图片和视频，直接发文本
+                    if len(images) == 0 && len(videos) == 0 {
+                        if len(formattedContent) > telegramMaxText {
+                            sendTelegramErrorNotify(c, fmt.Errorf("Telegram 文本内容超出最大长度（%d 字符）", telegramMaxText))
+                        } else {
+                            err := models.SendTelegramMessage(formattedContent)
+                            if err != nil {
+                                sendTelegramErrorNotify(c, err)
+                            }
+                        }
+                    }
+                }
+
+                // 企业微信
+                if notifyConfig.WeworkEnabled && notifyConfig.WeworkKey != "" {
+                    const weworkMaxLength = 2000
+                    var weworkContent string
+                    if len(formattedContent) > weworkMaxLength {
+                        weworkContent = formattedContent[:weworkMaxLength] + "...\n(内容过长，已截断)"
+                    } else {
+                        weworkContent = formattedContent
+                    }
+                    models.SendWework(weworkContent, images)
+                }
+
+                // 飞书
+                if notifyConfig.FeishuEnabled && notifyConfig.FeishuWebhook != "" {
+                    const feishuMaxLength = 2000
+                    var feishuContent string
+                    if len(formattedContent) > feishuMaxLength {
+                        feishuContent = formattedContent[:feishuMaxLength] + "...\n(内容过长，已截断)"
+                    } else {
+                        feishuContent = formattedContent
+                    }
+                    models.SendFeishu(feishuContent)
+                }
+            }()
         }
-        
-        // 处理长内容，如果超过4000字符，进行截断
-        const maxContentLength = 4000
-        var truncatedContent string
-        if len(formattedContent) > maxContentLength {
-            truncatedContent = formattedContent[:maxContentLength] + "...\n(内容过长，已截断)"
-        } else {
-            truncatedContent = formattedContent
-        }
-        
-        // 格式化内容，处理Markdown语法
-        // 1. 处理标题 - 保留原始的#符号
-        headingRegex := regexp.MustCompile(`(?m)^(#{1,6})\s+(.+)$`)
-        truncatedContent = headingRegex.ReplaceAllString(truncatedContent, "$1 $2")
-        
-        // 准备图片数组
-        var images []string
-        if firstImageURL != "" {
-            images = []string{firstImageURL}
-        }
-        
-        go func() {
-            // 为不同平台准备不同的内容长度限制
-            // Webhook通常支持较长内容
-            if notifyConfig.WebhookEnabled && notifyConfig.WebhookURL != "" {
-                models.SendWebhook(truncatedContent)
-            }
-            
-            // Telegram有消息长度限制
-            if notifyConfig.TelegramEnabled && notifyConfig.TelegramToken != "" && notifyConfig.TelegramChatID != "" {
-                // 对Telegram进一步限制长度
-                const telegramMaxLength = 3000
-                var telegramContent string
-                if len(formattedContent) > telegramMaxLength {
-                    telegramContent = formattedContent[:telegramMaxLength] + "...\n(内容过长，已截断)"
-                } else {
-                    telegramContent = formattedContent
-                }
-                
-                if firstImageURL != "" {
-                    // 发送图片+文本作为一条消息
-                    models.SendTelegramPhotoWithCaption(firstImageURL, telegramContent)
-                } else {
-                    // 没有图片时只发送文本
-                    models.SendTelegramMessage(telegramContent)
-                }
-            }
-            
-            // 企业微信有消息长度限制
-            if notifyConfig.WeworkEnabled && notifyConfig.WeworkKey != "" {
-                // 对企业微信进一步限制长度
-                const weworkMaxLength = 2000
-                var weworkContent string
-                if len(formattedContent) > weworkMaxLength {
-                    weworkContent = formattedContent[:weworkMaxLength] + "...\n(内容过长，已截断)"
-                } else {
-                    weworkContent = formattedContent
-                }
-                
-                models.SendWework(weworkContent, images)
-            }
-            
-            // 飞书有消息长度限制
-            if notifyConfig.FeishuEnabled && notifyConfig.FeishuWebhook != "" {
-                // 对飞书进一步限制长度
-                const feishuMaxLength = 2000
-                var feishuContent string
-                if len(formattedContent) > feishuMaxLength {
-                    feishuContent = formattedContent[:feishuMaxLength] + "...\n(内容过长，已截断)"
-                } else {
-                    feishuContent = formattedContent
-                }
-                
-                models.SendFeishu(feishuContent)
-            }
-        }()
     }
-}
 
     c.JSON(http.StatusOK, dto.OK(message, "发布成功"))
+}
+
+// 上传视频
+func UploadVideo(c *gin.Context) {
+    file, err := c.FormFile("video")
+    if err != nil {
+        c.JSON(http.StatusBadRequest, gin.H{"code": 0, "msg": "未选择视频文件"})
+        return
+    }
+
+    // 检查文件类型和大小
+    allowedExts := map[string]bool{".mp4": true, ".webm": true, ".mov": true, ".avi": true}
+    ext := strings.ToLower(filepath.Ext(file.Filename)) // 兼容大小写
+    if !allowedExts[ext] {
+        c.JSON(http.StatusBadRequest, gin.H{"code": 0, "msg": "仅支持 mp4/webm/mov/avi 格式"})
+        return
+    }
+    if file.Size > 200*1024*1024 {
+        c.JSON(http.StatusBadRequest, gin.H{"code": 0, "msg": "视频不能超过200MB"})
+        return
+    }
+
+    // 保存到 data/video 目录
+    saveDir := "./data/video"
+    if err := os.MkdirAll(saveDir, 0755); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": "无法创建目录"})
+        return
+    }
+    newName := uuid.New().String() + ext
+    savePath := filepath.Join(saveDir, newName)
+    if err := c.SaveUploadedFile(file, savePath); err != nil {
+        c.JSON(http.StatusInternalServerError, gin.H{"code": 0, "msg": "保存失败"})
+        return
+    }
+
+    // 返回视频访问路径
+    c.JSON(http.StatusOK, gin.H{
+        "code": 1,
+        "msg":  "上传成功",
+        "data": "/video/" + newName,
+    })
 }
 func SendNotify(c *gin.Context) {
     var request struct {
@@ -980,4 +1080,7 @@ func SendNotify(c *gin.Context) {
         "code": 1,
         "msg":  "推送成功",
     })
+}
+func sendTelegramErrorNotify(c *gin.Context, err error) {
+    log.Printf("Telegram 推送失败: %v", err)
 }

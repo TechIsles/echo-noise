@@ -10,9 +10,10 @@ import (
     "errors"
     "fmt"
     "html"      // 添加 html 包
+    "io"
+    "mime/multipart"  // 添加这一行
     "net/http"
     "strings"
-    "io"
     "time"
     "gorm.io/gorm"
     "regexp"
@@ -481,12 +482,164 @@ func SendTelegramPhotoWithCaption(photoURL string, caption string) error {
     // 构建请求URL
     apiURL := fmt.Sprintf("https://api.telegram.org/bot%s/sendPhoto", config.TelegramToken)
 
+    // 检查URL是否为本地URL
+    isLocalURL := strings.HasPrefix(photoURL, "http://localhost") || 
+                 strings.HasPrefix(photoURL, "https://localhost") ||
+                 strings.Contains(photoURL, "127.0.0.1") ||
+                 (!strings.HasPrefix(photoURL, "http://") && !strings.HasPrefix(photoURL, "https://"))
+
+    var resp *http.Response
+    var err error
+
+    if isLocalURL {
+        // 对于本地URL，先下载图片然后作为文件上传
+        log.Printf("检测到本地图片URL: %s，尝试下载后上传", photoURL)
+        
+        // 创建一个multipart表单
+        body := &bytes.Buffer{}
+        writer := multipart.NewWriter(body)
+        
+        // 添加chat_id字段
+        _ = writer.WriteField("chat_id", config.TelegramChatID)
+        
+        // 添加caption字段
+        _ = writer.WriteField("caption", caption)
+        
+        // 添加parse_mode字段
+        _ = writer.WriteField("parse_mode", "Markdown")
+        
+        // 尝试下载图片
+        var imgResp *http.Response
+        if strings.HasPrefix(photoURL, "http") {
+            imgResp, err = http.Get(photoURL)
+        } else {
+            // 如果是相对路径，尝试从本地文件系统读取
+            return fmt.Errorf("无法处理相对路径图片: %s", photoURL)
+        }
+        
+        if err != nil {
+            return fmt.Errorf("下载图片失败: %v", err)
+        }
+        defer imgResp.Body.Close()
+        
+        // 创建photo部分
+        part, err := writer.CreateFormFile("photo", "image.jpg")
+        if err != nil {
+            return fmt.Errorf("创建表单文件失败: %v", err)
+        }
+        
+        // 复制图片数据
+        _, err = io.Copy(part, imgResp.Body)
+        if err != nil {
+            return fmt.Errorf("复制图片数据失败: %v", err)
+        }
+        
+        // 完成multipart表单
+        err = writer.Close()
+        if err != nil {
+            return fmt.Errorf("关闭表单失败: %v", err)
+        }
+        
+        // 发送请求
+        req, err := http.NewRequest("POST", apiURL, body)
+        if err != nil {
+            return fmt.Errorf("创建请求失败: %v", err)
+        }
+        req.Header.Set("Content-Type", writer.FormDataContentType())
+        
+        client := &http.Client{}
+        resp, err = client.Do(req)
+    } else {
+        // 对于公网可访问的URL，直接使用URL
+        // 构建请求体
+        data := map[string]interface{}{
+            "chat_id": config.TelegramChatID,
+            "photo":   photoURL,
+            "caption": caption,
+            "parse_mode": "Markdown",
+        }
+
+        jsonData, err := json.Marshal(data)
+        if err != nil {
+            return err
+        }
+
+        // 发送请求
+        resp, err = http.Post(apiURL, "application/json", bytes.NewBuffer(jsonData))
+    }
+
+    if err != nil {
+        return err
+    }
+    defer resp.Body.Close()
+
+    // 检查响应
+    if resp.StatusCode != http.StatusOK {
+        body, _ := io.ReadAll(resp.Body)
+        return fmt.Errorf("Telegram API 错误: %s", string(body))
+    }
+
+    return nil
+}
+
+// SendTelegramVideoWithCaption 发送视频和文本作为一条消息
+func SendTelegramVideoWithCaption(videoURL string, caption string) error {
+    config := GetNotifyConfig()
+    if config == nil || !config.TelegramEnabled {
+        return fmt.Errorf("Telegram 推送未启用")
+    }
+
+    // 构建请求URL
+    apiURL := fmt.Sprintf("https://api.telegram.org/bot%s/sendVideo", config.TelegramToken)
+
+    // 检查URL是否为本地URL
+    isLocalURL := strings.HasPrefix(videoURL, "http://localhost") || 
+                 strings.HasPrefix(videoURL, "https://localhost") ||
+                 strings.Contains(videoURL, "127.0.0.1") ||
+                 (!strings.HasPrefix(videoURL, "http://") && !strings.HasPrefix(videoURL, "https://"))
+
+    // 如果是本地URL，改为发送消息并附带链接
+    if isLocalURL {
+        log.Printf("检测到本地视频URL: %s，改为发送消息并附带链接", videoURL)
+        
+        // 构建消息内容
+        messageText := caption + "\n\n视频链接: " + videoURL
+        
+        // 使用sendMessage API
+        messageURL := fmt.Sprintf("https://api.telegram.org/bot%s/sendMessage", config.TelegramToken)
+        messageData := map[string]interface{}{
+            "chat_id": config.TelegramChatID,
+            "text":    messageText,
+            "parse_mode": "Markdown",
+        }
+        
+        jsonData, err := json.Marshal(messageData)
+        if err != nil {
+            return err
+        }
+        
+        resp, err := http.Post(messageURL, "application/json", bytes.NewBuffer(jsonData))
+        if err != nil {
+            return err
+        }
+        defer resp.Body.Close()
+        
+        // 检查响应
+        if resp.StatusCode != http.StatusOK {
+            body, _ := io.ReadAll(resp.Body)
+            return fmt.Errorf("Telegram API 错误: %s", string(body))
+        }
+        
+        return nil
+    }
+    
+    // 对于公网可访问的URL，直接使用URL
     // 构建请求体
     data := map[string]interface{}{
         "chat_id": config.TelegramChatID,
-        "photo":   photoURL,
+        "video":   videoURL,
         "caption": caption,
-        "parse_mode": "Markdown", // 使用Markdown解析模式
+        "parse_mode": "Markdown",
     }
 
     jsonData, err := json.Marshal(data)
@@ -510,7 +663,6 @@ func SendTelegramPhotoWithCaption(photoURL string, caption string) error {
     return nil
 }
 
-// SendTelegramMessage 只发送文本消息
 func SendTelegramMessage(message string) error {
     config := GetNotifyConfig()
     if config == nil || !config.TelegramEnabled {
@@ -524,7 +676,7 @@ func SendTelegramMessage(message string) error {
     data := map[string]interface{}{
         "chat_id": config.TelegramChatID,
         "text":    message,
-        "parse_mode": "Markdown", // 使用Markdown解析模式
+        "parse_mode": "Markdown",
     }
 
     jsonData, err := json.Marshal(data)

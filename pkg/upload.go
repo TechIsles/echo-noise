@@ -77,3 +77,39 @@ func createImageDirIfNotExist(imagePath string) error {
 	}
 	return nil
 }
+
+// 上传视频并返回视频的URL
+func UploadVideo(c *gin.Context, allowedExtensions []string) (string, error) {
+	// 获取上传的文件
+	file, err := c.FormFile("video")
+	if err != nil {
+		return "", errors.New("未上传视频文件")
+	}
+
+	// 检查视频类型是否合法
+	if !isAllowedType(file.Header.Get("Content-Type"), allowedExtensions) {
+		return "", errors.New("不支持的视频类型")
+	}
+
+	// 检查文件大小（200MB）
+	if file.Size > 200*1024*1024 {
+		return "", errors.New("视频大小不能超过200MB")
+	}
+
+	// 创建存储视频的目录
+	videoPath := "/app/data/video"
+	if err := createImageDirIfNotExist(videoPath); err != nil {
+		return "", err
+	}
+
+	ext := filepath.Ext(file.Filename)
+	baseName := strings.TrimSuffix(file.Filename, ext)
+	newFileName := fmt.Sprintf("%s_%s%s", baseName, uuid.New().String(), ext)
+	savePath := filepath.Join(videoPath, newFileName)
+	if err := c.SaveUploadedFile(file, savePath); err != nil {
+		return "", errors.New("视频上传失败")
+	}
+
+	videoURL := fmt.Sprintf("/video/%s", newFileName)
+	return videoURL, nil
+}

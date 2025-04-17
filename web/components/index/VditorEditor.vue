@@ -96,8 +96,15 @@ defineExpose({
   clear: () => {
     if (vditorInstance) {
       vditorInstance.setValue('');
+      emit("update:modelValue", '');
     }
   },
+  insertValue: (val: string) => {
+    if (vditorInstance) {
+      vditorInstance.insertValue(val);
+      emit("update:modelValue", vditorInstance.getValue());
+    }
+  }
 });
 </script>
 
