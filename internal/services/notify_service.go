@@ -75,23 +75,26 @@ func FormatContentForTelegram(content string, images []string, format string) st
 
 // FormatContentForWework 格式化内容以适应企业微信
 func FormatContentForWework(content string, images []string) string {
-    // 企业微信支持 markdown，但可能需要特定处理
-    htmlContent := ProcessMarkdownWithImages(content, images)
-    
-    // 企业微信可能需要特定的格式，这里可以添加相应处理
-    // 例如，可能需要将 HTML 转换为企业微信支持的 markdown 格式
-    
-    return htmlContent
+    // 企业微信推荐 markdown 格式
+    markdownContent := content
+    if len(images) > 0 {
+        for _, img := range images {
+            markdownContent += fmt.Sprintf("\n![](%s)", img)
+        }
+    }
+    return markdownContent
 }
 
 // FormatContentForFeishu 格式化内容以适应飞书
 func FormatContentForFeishu(content string, images []string) string {
-    // 飞书支持 markdown，但可能需要特定处理
-    htmlContent := ProcessMarkdownWithImages(content, images)
-    
-    // 飞书可能需要特定的格式，这里可以添加相应处理
-    
-    return htmlContent
+    // 飞书推荐 markdown 格式
+    markdownContent := content
+    if len(images) > 0 {
+        for _, img := range images {
+            markdownContent += fmt.Sprintf("\n![](%s)", img)
+        }
+    }
+    return markdownContent
 }
 
 // FormatContentForWebhook 格式化内容以适应 Webhook
@@ -102,4 +105,34 @@ func FormatContentForWebhook(content string, images []string) string {
     // 这里可以添加 Webhook 特定的格式化逻辑
     
     return htmlContent
+}
+
+// FormatContentForTwitter 格式化内容以适应 Twitter
+func FormatContentForTwitter(content string, images []string) string {
+    // Twitter 仅支持纯文本，且有长度限制（280字符）
+    // 合并文本和图片链接
+    text := content
+    if len(images) > 0 {
+        for _, img := range images {
+            text += " " + img
+        }
+    }
+    // 截断到280字符
+    if len([]rune(text)) > 280 {
+        runes := []rune(text)
+        text = string(runes[:280])
+    }
+    return text
+}
+
+// FormatContentForCustomHttp 格式化内容以适应自定义HTTP
+func FormatContentForCustomHttp(content string, images []string) string {
+    // 默认将内容和图片链接合并为一段文本
+    text := content
+    if len(images) > 0 {
+        for _, img := range images {
+            text += "\n" + img
+        }
+    }
+    return text
 }

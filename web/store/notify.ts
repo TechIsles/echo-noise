@@ -13,7 +13,19 @@ export const useNotifyStore = defineStore('notify', {
       weworkKey: '',
       feishuEnabled: false,
       feishuWebhook: '',
-      feishuSecret: ''
+      feishuSecret: '',
+      // 新增 Twitter 配置字段
+      twitterEnabled: false,
+      twitterApiKey: '',
+      twitterApiSecret: '',
+      twitterAccessToken: '',
+      twitterAccessTokenSecret: '',
+      // 新增自定义HTTP配置字段
+      customHttpEnabled: false,
+      customHttpUrl: '',
+      customHttpMethod: 'POST',
+      customHttpHeaders: '',
+      customHttpBody: '{"content":"{{content}}"}'
     } as NotifyConfig
   }),
   actions: {
@@ -43,7 +55,15 @@ export const useNotifyStore = defineStore('notify', {
         })
         const data = await response.json()
         if (data.code === 1) {
-          this.config = config
+          // 修复：用后端返回的最新配置，并确保布尔类型
+          const newConfig = data.data || config
+          Object.keys(this.config).forEach(key => {
+            if (key.endsWith('Enabled')) {
+              this.config[key] = !!newConfig[key] && newConfig[key] !== 'false'
+            } else if (newConfig[key] !== undefined) {
+              this.config[key] = newConfig[key]
+            }
+          })
           return true
         }
         return false

@@ -123,24 +123,79 @@
                     </div>
                 </div>
                 <div v-if="editItem.feishu" class="space-y-2">
-    <UInput
-        v-model="localConfig.feishuWebhook"
-        placeholder="WebHook URL"
-    />
-    <UInput
-        v-model="localConfig.feishuSecret"
-        placeholder="签名密钥"
-        type="password"
-    />
-    <div class="flex justify-end gap-2">
-        <UButton @click="resetConfigItem('feishu')" variant="ghost" color="gray">
-            重置
-        </UButton>
-        <UButton @click="saveConfigItem('feishu')" color="primary">
-            保存
-        </UButton>
-    </div>
-</div>
+                    <UInput
+                        v-model="localConfig.feishuWebhook"
+                        placeholder="WebHook URL"
+                    />
+                    <UInput
+                        v-model="localConfig.feishuSecret"
+                        placeholder="签名密钥"
+                        type="password"
+                    />
+                    <div class="flex justify-end gap-2">
+                        <UButton @click="resetConfigItem('feishu')" variant="ghost" color="gray">
+                            重置
+                        </UButton>
+                        <UButton @click="saveConfigItem('feishu')" color="primary">
+                            保存
+                        </UButton>
+                    </div>
+                </div>
+            </div> <!-- 这里补上飞书配置块的闭合 -->
+            <!-- Twitter配置 -->
+            <div class="bg-gray-800 rounded p-3">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-gray-300">Twitter推送</span>
+                    <div class="flex items-center gap-2">
+                        <USwitch v-model="localConfig.twitterEnabled" />
+                        <UButton
+                            size="sm"
+                            @click="editItem.twitter = !editItem.twitter"
+                            :color="editItem.twitter ? 'gray' : 'primary'"
+                            variant="soft"
+                        >
+                            {{ editItem.twitter ? '取消' : '编辑' }}
+                        </UButton>
+                    </div>
+                </div>
+                <div v-if="editItem.twitter" class="space-y-2">
+                    <UInput v-model="localConfig.twitterApiKey" placeholder="API Key" />
+                    <UInput v-model="localConfig.twitterApiSecret" placeholder="API Secret" />
+                    <UInput v-model="localConfig.twitterAccessToken" placeholder="Access Token" />
+                    <UInput v-model="localConfig.twitterAccessTokenSecret" placeholder="Access Token Secret" />
+                    <div class="flex justify-end gap-2">
+                        <UButton @click="resetConfigItem('twitter')" variant="ghost" color="gray">重置</UButton>
+                        <UButton @click="saveConfigItem('twitter')" color="primary">保存</UButton>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 自定义HTTP配置 -->
+            <div class="bg-gray-800 rounded p-3">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-gray-300">自定义HTTP推送</span>
+                    <div class="flex items-center gap-2">
+                        <USwitch v-model="localConfig.customHttpEnabled" />
+                        <UButton
+                            size="sm"
+                            @click="editItem.customHttp = !editItem.customHttp"
+                            :color="editItem.customHttp ? 'gray' : 'primary'"
+                            variant="soft"
+                        >
+                            {{ editItem.customHttp ? '取消' : '编辑' }}
+                        </UButton>
+                    </div>
+                </div>
+                <div v-if="editItem.customHttp" class="space-y-2">
+                    <UInput v-model="localConfig.customHttpUrl" placeholder="请求URL" />
+                    <USelect v-model="localConfig.customHttpMethod" :options="['POST', 'PUT', 'PATCH']" />
+                    <UTextarea v-model="localConfig.customHttpHeaders" placeholder="请求Headers（JSON格式）" />
+                    <UTextarea v-model="localConfig.customHttpBody" placeholder='请求Body模板（如：{"content":"{{content}}"})' />
+                    <div class="flex justify-end gap-2">
+                        <UButton @click="resetConfigItem('customHttp')" variant="ghost" color="gray">重置</UButton>
+                        <UButton @click="saveConfigItem('customHttp')" color="primary">保存</UButton>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -166,6 +221,12 @@ import { ref, reactive, watch, onMounted } from 'vue'
 // 添加 emit 定义
 const emit = defineEmits(['save'])
 
+// 添加 props 定义
+const props = defineProps<{
+    config: NotifyConfig;
+    immediate?: boolean;
+}>();
+
 // 添加类型定义
 interface NotifyConfig {
     webhookEnabled: boolean;
@@ -178,48 +239,61 @@ interface NotifyConfig {
     feishuEnabled: boolean;
     feishuWebhook: string;
     feishuSecret: string;
+    twitterEnabled: boolean;
+    twitterApiKey: string;
+    twitterApiSecret: string;
+    twitterAccessToken: string;
+    twitterAccessTokenSecret: string;
+    customHttpEnabled: boolean;
+    customHttpUrl: string;
+    customHttpMethod: string;
+    customHttpHeaders: string;
+    customHttpBody: string;
 }
 
-// 修改 props 定义
-const props = defineProps<{
-    config: NotifyConfig;
-    immediate?: boolean;
-}>();
-
-// 修改本地配置的类型
 const localConfig = reactive<NotifyConfig>({
     webhookEnabled: false,
     webhookURL: '',
-    
     telegramEnabled: false,
     telegramToken: '',
     telegramChatID: '',
-    
     weworkEnabled: false,
     weworkKey: '',
-    
     feishuEnabled: false,
     feishuWebhook: '',
-    feishuSecret: '' 
+    feishuSecret: '',
+    twitterEnabled: false,
+    twitterApiKey: '',
+    twitterApiSecret: '',
+    twitterAccessToken: '',
+    twitterAccessTokenSecret: '',
+    customHttpEnabled: false,
+    customHttpUrl: '',
+    customHttpMethod: 'POST',
+    customHttpHeaders: '',
+    customHttpBody: '{"content":"{{content}}"}'
 })
 
-// 编辑状态
 const editItem = reactive({
     webhook: false,
     telegram: false,
     wework: false,
-    feishu: false
+    feishu: false,
+    // 新增
+    twitter: false,
+    customHttp: false
 })
 
-const notifyTypes = ['webhook', 'telegram', 'wework', 'feishu']
+const notifyTypes = ['webhook', 'telegram', 'wework', 'feishu', 'twitter', 'customHttp']
 
-// 获取推送类型名称
 const getNotifyTypeName = (type) => {
     const names = {
         webhook: 'Webhook',
         telegram: 'Telegram',
         wework: '企业微信',
-        feishu: '飞书'
+        feishu: '飞书',
+        twitter: 'Twitter',
+        customHttp: '自定义HTTP'
     }
     return names[type] || type
 }
@@ -242,15 +316,23 @@ const isConfigValid = (type: string) => {
     const config = localConfig;
     switch(type) {
         case 'webhook':
-            return config.webhookEnabled && config.webhookURL?.trim();
+            return config.webhookEnabled && !!config.webhookURL?.trim();
         case 'telegram':
             return config.telegramEnabled && 
-                   config.telegramToken?.trim() && 
-                   config.telegramChatID?.trim();
+                   !!config.telegramToken?.trim() && 
+                   !!config.telegramChatID?.trim();
         case 'wework':
-            return config.weworkEnabled && config.weworkKey?.trim();
+            return config.weworkEnabled && !!config.weworkKey?.trim();
         case 'feishu':
-            return config.feishuEnabled && config.feishuWebhook?.trim();
+            return config.feishuEnabled && !!config.feishuWebhook?.trim();
+        case 'twitter':
+            return config.twitterEnabled &&
+                   !!config.twitterApiKey?.trim() &&
+                   !!config.twitterApiSecret?.trim() &&
+                   !!config.twitterAccessToken?.trim() &&
+                   !!config.twitterAccessTokenSecret?.trim();
+        case 'customHttp':
+            return config.customHttpEnabled && !!config.customHttpUrl?.trim();
         default:
             return false;
     }
@@ -281,8 +363,24 @@ const saveConfigItem = async (type: string) => {
                     throw new Error('飞书Webhook不能为空');
                 }
                 break;
+            case 'twitter':
+                if (localConfig.twitterEnabled && (
+                    !localConfig.twitterApiKey ||
+                    !localConfig.twitterApiSecret ||
+                    !localConfig.twitterAccessToken ||
+                    !localConfig.twitterAccessTokenSecret
+                )) {
+                    throw new Error('Twitter配置不完整');
+                }
+                break;
+            case 'customHttp':
+                if (localConfig.customHttpEnabled && !localConfig.customHttpUrl) {
+                    throw new Error('自定义HTTP URL不能为空');
+                }
+                break;
         }
 
+        // 修复：补全所有推送渠道的配置字段
         const configData = {
             webhookEnabled: localConfig.webhookEnabled,
             webhookURL: localConfig.webhookURL,
@@ -293,7 +391,19 @@ const saveConfigItem = async (type: string) => {
             weworkKey: localConfig.weworkKey,
             feishuEnabled: localConfig.feishuEnabled,
             feishuWebhook: localConfig.feishuWebhook,
-            feishuSecret: localConfig.feishuSecret
+            feishuSecret: localConfig.feishuSecret,
+            // 新增 Twitter 配置字段
+            twitterEnabled: localConfig.twitterEnabled,
+            twitterApiKey: localConfig.twitterApiKey,
+            twitterApiSecret: localConfig.twitterApiSecret,
+            twitterAccessToken: localConfig.twitterAccessToken,
+            twitterAccessTokenSecret: localConfig.twitterAccessTokenSecret,
+            // 新增自定义HTTP配置字段
+            customHttpEnabled: localConfig.customHttpEnabled,
+            customHttpUrl: localConfig.customHttpUrl,
+            customHttpMethod: localConfig.customHttpMethod,
+            customHttpHeaders: localConfig.customHttpHeaders,
+            customHttpBody: localConfig.customHttpBody
         };
 
         const response = await fetch('/api/notify/config', {
@@ -312,8 +422,9 @@ const saveConfigItem = async (type: string) => {
             // 强制更新所有配置字段，确保启用状态同步
             if (data.data) {
                 Object.keys(data.data).forEach(key => {
+                    // 修复：所有 xxxEnabled 字段都强制转为布尔值
                     if (key.endsWith('Enabled')) {
-                        localConfig[key] = Boolean(data.data[key]);
+                        localConfig[key] = !!data.data[key] && data.data[key] !== 'false';
                     } else {
                         localConfig[key] = data.data[key] || '';
                     }
@@ -380,10 +491,14 @@ const testNotify = async (type: string) => {
 // 初始化配置
 watch(() => props.config, (newConfig) => {
     if (newConfig) {
-        // 确保所有字段都被正确赋值
         Object.keys(localConfig).forEach(key => {
             if (newConfig[key] !== undefined) {
-                localConfig[key] = newConfig[key];
+                // 修复：所有 xxxEnabled 字段都强制转为布尔值
+                if (key.endsWith('Enabled')) {
+                    localConfig[key] = !!newConfig[key] && newConfig[key] !== 'false';
+                } else {
+                    localConfig[key] = newConfig[key];
+                }
             }
         });
     }
@@ -401,16 +516,16 @@ onMounted(async () => {
         });
         const data = await response.json();
         if (data.code === 1 && data.data) {
-            // 确保布尔值正确设置
             const config = data.data;
             Object.keys(config).forEach(key => {
-                if (typeof config[key] === 'boolean') {
-                    localConfig[key] = Boolean(config[key]);
+                // 修复：所有 xxxEnabled 字段都强制转为布尔值
+                if (key.endsWith('Enabled')) {
+                    localConfig[key] = !!config[key] && config[key] !== 'false';
                 } else {
                     localConfig[key] = config[key] || '';
                 }
             });
-            console.log('加载的配置:', localConfig); // 用于调试
+            console.log('加载的配置:', localConfig);
         }
     } catch (error) {
         console.error('获取配置失败:', error);

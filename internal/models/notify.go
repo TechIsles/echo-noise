@@ -9,16 +9,16 @@ import (
     "encoding/json"
     "errors"
     "fmt"
-    "html"      // 添加 html 包
+    "html"
     "io"
-    "mime/multipart"  // 添加这一行
+    "mime/multipart"
     "net/http"
     "strings"
     "time"
     "gorm.io/gorm"
     "regexp"
+    "github.com/dghubble/oauth1"
 )
-
 type NotifyConfig struct {
     gorm.Model
     WebhookEnabled  bool   `json:"webhookEnabled"`
@@ -31,35 +31,52 @@ type NotifyConfig struct {
     FeishuEnabled   bool   `json:"feishuEnabled"`
     FeishuWebhook   string `gorm:"type:varchar(255)" json:"feishuWebhook"`
     FeishuSecret    string `gorm:"type:varchar(255)" json:"feishuSecret"`
+    TwitterEnabled       bool   `json:"twitterEnabled"`
+    TwitterApiKey        string `gorm:"type:varchar(255)" json:"twitterApiKey"`
+    TwitterApiSecret     string `gorm:"type:varchar(255)" json:"twitterApiSecret"`
+    TwitterAccessToken   string `gorm:"type:varchar(255)" json:"twitterAccessToken"`
+    TwitterAccessTokenSecret string `gorm:"type:varchar(255)" json:"twitterAccessTokenSecret"`
+    CustomHttpEnabled    bool   `json:"customHttpEnabled"`
+    CustomHttpUrl        string `gorm:"type:varchar(255)" json:"customHttpUrl"`
+    CustomHttpMethod     string `gorm:"type:varchar(20)" json:"customHttpMethod"`
+    CustomHttpHeaders    string `gorm:"type:text" json:"customHttpHeaders"`
+    CustomHttpBody       string `gorm:"type:text" json:"customHttpBody"`
 }
 
 // 获取配置
 // 确保 GetNotifyConfig 返回最新配置
+func fixNotifyConfigBoolFields(config *NotifyConfig) {
+    // 保证所有 Enabled 字段为 bool 类型
+    config.WebhookEnabled = config.WebhookEnabled
+    config.TelegramEnabled = config.TelegramEnabled
+    config.WeworkEnabled = config.WeworkEnabled
+    config.FeishuEnabled = config.FeishuEnabled
+    config.TwitterEnabled = config.TwitterEnabled
+    config.CustomHttpEnabled = config.CustomHttpEnabled
+}
+
 func GetNotifyConfig() *NotifyConfig {
     db := GetDB()
     var config NotifyConfig
     if err := db.First(&config).Error; err != nil {
-        return &NotifyConfig{} // 确保返回空配置而不是nil
+        config = NotifyConfig{}
     }
+    fixNotifyConfigBoolFields(&config)
     return &config
 }
 
 
 // 保存配置
 func SaveNotifyConfig(config NotifyConfig) error {
-    db := GetDB() // 使用 models 包中的 GetDB
+    db := GetDB()
     if db == nil {
         return errors.New("数据库连接未初始化")
     }
-
-    // 验证配置有效性
     if err := validateNotifyConfig(config); err != nil {
         return err
     }
-
     var existingConfig NotifyConfig
     result := db.First(&existingConfig)
-    
     if result.Error != nil {
         if result.Error == gorm.ErrRecordNotFound {
             // 创建新配置时，如果配置了对应渠道，则自动启用
@@ -75,11 +92,20 @@ func SaveNotifyConfig(config NotifyConfig) error {
             if config.FeishuWebhook != "" {
                 config.FeishuEnabled = true
             }
+            // 新增：自动启用 Twitter
+            if config.TwitterApiKey != "" && config.TwitterApiSecret != "" &&
+                config.TwitterAccessToken != "" && config.TwitterAccessTokenSecret != "" {
+                config.TwitterEnabled = true
+            }
+            // 新增：自动启用自定义HTTP
+            if config.CustomHttpUrl != "" {
+                config.CustomHttpEnabled = true
+            }
             return db.Create(&config).Error
         }
         return result.Error
     }
-    
+
     // 更新现有配置时，如果配置了对应渠道，则自动启用
     if config.WebhookURL != "" {
         config.WebhookEnabled = true
@@ -93,7 +119,31 @@ func SaveNotifyConfig(config NotifyConfig) error {
     if config.FeishuWebhook != "" {
         config.FeishuEnabled = true
     }
+    // 新增：自动启用 Twitter
+    // 修改自动启用逻辑
+    if config.TwitterApiKey != "" && config.TwitterApiSecret != "" &&
+    config.TwitterAccessToken != "" && config.TwitterAccessTokenSecret != "" {
+    config.TwitterEnabled = true
+    } else {
+    // 明确设置为false
+    config.TwitterEnabled = false
+    config.TwitterApiKey = ""
+    config.TwitterApiSecret = ""
+    config.TwitterAccessToken = ""
+    config.TwitterAccessTokenSecret = ""
+    }
     
+    if config.CustomHttpUrl != "" {
+    config.CustomHttpEnabled = true
+    } else {
+    // 明确设置为false
+    config.CustomHttpEnabled = false
+    config.CustomHttpUrl = ""
+    config.CustomHttpMethod = "POST"
+    config.CustomHttpHeaders = ""
+    config.CustomHttpBody = ""
+    }
+
     // 更新所有字段
     existingConfig.WebhookEnabled = config.WebhookEnabled
     existingConfig.WebhookURL = config.WebhookURL
@@ -105,7 +155,18 @@ func SaveNotifyConfig(config NotifyConfig) error {
     existingConfig.FeishuEnabled = config.FeishuEnabled
     existingConfig.FeishuWebhook = config.FeishuWebhook
     existingConfig.FeishuSecret = config.FeishuSecret
-    
+    // 新增字段同步
+    existingConfig.TwitterEnabled = config.TwitterEnabled
+    existingConfig.TwitterApiKey = config.TwitterApiKey
+    existingConfig.TwitterApiSecret = config.TwitterApiSecret
+    existingConfig.TwitterAccessToken = config.TwitterAccessToken
+    existingConfig.TwitterAccessTokenSecret = config.TwitterAccessTokenSecret
+    existingConfig.CustomHttpEnabled = config.CustomHttpEnabled
+    existingConfig.CustomHttpUrl = config.CustomHttpUrl
+    existingConfig.CustomHttpMethod = config.CustomHttpMethod
+    existingConfig.CustomHttpHeaders = config.CustomHttpHeaders
+    existingConfig.CustomHttpBody = config.CustomHttpBody
+
     return db.Save(&existingConfig).Error
 }
 // 验证配置
@@ -129,6 +190,21 @@ func validateNotifyConfig(config NotifyConfig) error {
     if config.FeishuEnabled {
         if config.FeishuWebhook == "" {
             return errors.New("飞书Webhook不能为空")
+        }
+    }
+    // 新增 Twitter 校验
+    if config.TwitterEnabled {
+        if config.TwitterApiKey == "" ||
+            config.TwitterApiSecret == "" ||
+            config.TwitterAccessToken == "" ||
+            config.TwitterAccessTokenSecret == "" {
+            return errors.New("Twitter配置不完整")
+        }
+    }
+    // 新增自定义HTTP校验
+    if config.CustomHttpEnabled {
+        if config.CustomHttpUrl == "" {
+            return errors.New("自定义HTTP URL不能为空")
         }
     }
     return nil
@@ -346,6 +422,10 @@ func TestNotify(notifyType string) error {
         err = SendWework(testMessage, emptyImages)
     case "feishu":
         err = SendFeishu(testMessage)
+    case "twitter":
+        err = SendTwitter(testMessage)
+    case "customHttp":
+        err = SendCustomHttp(testMessage)
     default:
         return fmt.Errorf("不支持的推送类型: %s", notifyType)
     }
@@ -389,7 +469,24 @@ func SendNotify(content string, images []string, config NotifyConfig) error {
             errors = append(errors, fmt.Sprintf("feishu: %v", err))
         }
     }
-    
+    // Twitter 推送
+    if config.TwitterEnabled && config.TwitterApiKey != "" && config.TwitterApiSecret != "" &&
+        config.TwitterAccessToken != "" && config.TwitterAccessTokenSecret != "" {
+        tweet := content
+        if len([]rune(tweet)) > 280 {
+            tweet = string([]rune(tweet)[:280]) + "...(内容截断)"
+        }
+        if err := SendTwitter(tweet); err != nil {
+            errors = append(errors, fmt.Sprintf("twitter: %v", err))
+        }
+    }
+
+    // 自定义 HTTP 推送
+    if config.CustomHttpEnabled && config.CustomHttpUrl != "" {
+        if err := SendCustomHttp(content); err != nil {
+            errors = append(errors, fmt.Sprintf("customHttp: %v", err))
+        }
+    }
     if len(errors) > 0 {
         return fmt.Errorf("推送失败: %s", strings.Join(errors, "; "))
     }
@@ -698,5 +795,145 @@ func SendTelegramMessage(message string) error {
     }
 
     return nil
+}
+
+// 发送Twitter消息
+func SendTwitter(message string) error {
+    config := GetNotifyConfig()
+    if !config.TwitterEnabled {
+        return nil
+    }
+    if config.TwitterApiKey == "" || config.TwitterApiSecret == "" || 
+       config.TwitterAccessToken == "" || config.TwitterAccessTokenSecret == "" {
+        return errors.New("Twitter配置不完整")
+    }
+
+    // 先尝试 v1.1 API
+    err := sendTwitterV1(message)
+    if err == nil {
+        return nil // v1.1 成功则直接返回
+    }
+    
+    log.Printf("Twitter v1.1 API 失败，尝试 v2 API: %v", err)
+    return sendTwitterV2(message)
+}
+
+// Twitter v1.1 API 实现
+func sendTwitterV1(message string) error {
+    config := GetNotifyConfig()
+    
+    oauthConfig := oauth1.NewConfig(config.TwitterApiKey, config.TwitterApiSecret)
+    token := oauth1.NewToken(config.TwitterAccessToken, config.TwitterAccessTokenSecret)
+    httpClient := oauth1.NewClient(oauth1.NoContext, oauthConfig, token)
+
+    apiUrl := "https://api.twitter.com/1.1/statuses/update.json"
+    params := map[string]string{"status": message}
+
+    req, err := http.NewRequest("POST", apiUrl, nil)
+    if err != nil {
+        return fmt.Errorf("创建请求失败: %v", err)
+    }
+
+    q := req.URL.Query()
+    for k, v := range params {
+        q.Add(k, v)
+    }
+    req.URL.RawQuery = q.Encode()
+
+    resp, err := httpClient.Do(req)
+    if err != nil {
+        return fmt.Errorf("请求错误: %v", err)
+    }
+    defer resp.Body.Close()
+
+    body, _ := io.ReadAll(resp.Body)
+    if resp.StatusCode != http.StatusOK {
+        return fmt.Errorf("Twitter v1.1错误[%d]: %s", resp.StatusCode, string(body))
+    }
+
+    log.Printf("Twitter v1.1推送成功: %s", string(body))
+    return nil
+}
+
+// Twitter v2 API 实现
+func sendTwitterV2(message string) error {
+    config := GetNotifyConfig()
+    
+    oauthConfig := oauth1.NewConfig(config.TwitterApiKey, config.TwitterApiSecret)
+    token := oauth1.NewToken(config.TwitterAccessToken, config.TwitterAccessTokenSecret)
+    httpClient := oauth1.NewClient(oauth1.NoContext, oauthConfig, token)
+
+    apiUrl := "https://api.twitter.com/2/tweets"
+    payload := map[string]interface{}{
+        "text": message,
+    }
+    jsonData, _ := json.Marshal(payload)
+
+    req, err := http.NewRequest("POST", apiUrl, bytes.NewBuffer(jsonData))
+    if err != nil {
+        return fmt.Errorf("创建请求失败: %v", err)
+    }
+    req.Header.Set("Content-Type", "application/json")
+
+    resp, err := httpClient.Do(req)
+    if err != nil {
+        return fmt.Errorf("请求错误: %v", err)
+    }
+    defer resp.Body.Close()
+
+    body, _ := io.ReadAll(resp.Body)
+    if resp.StatusCode != http.StatusCreated {
+        return fmt.Errorf("Twitter v2错误[%d]: %s", resp.StatusCode, string(body))
+    }
+
+    log.Printf("Twitter v2推送成功: %s", string(body))
+    return nil
+}
+
+// 发送自定义HTTP消息
+func SendCustomHttp(message string) error {
+    config := GetNotifyConfig()
+    if !config.CustomHttpEnabled || config.CustomHttpUrl == "" {
+        return nil
+    }
+    method := strings.ToUpper(config.CustomHttpMethod)
+    if method == "" {
+        method = "POST"
+    }
+    // 处理headers
+    headers := map[string]string{}
+    if config.CustomHttpHeaders != "" {
+        _ = json.Unmarshal([]byte(config.CustomHttpHeaders), &headers)
+    }
+    // 处理body模板
+    bodyStr := config.CustomHttpBody
+    if bodyStr == "" {
+        bodyStr = `{"content":"` + message + `"}`
+    } else {
+        bodyStr = strings.ReplaceAll(bodyStr, "{{content}}", message)
+    }
+    req, err := http.NewRequest(method, config.CustomHttpUrl, bytes.NewBuffer([]byte(bodyStr)))
+    if err != nil {
+        return err
+    }
+    req.Header.Set("Content-Type", "application/json")
+    for k, v := range headers {
+        req.Header.Set(k, v)
+    }
+    client := &http.Client{}
+    resp, err := client.Do(req)
+    if err != nil {
+        return err
+    }
+    defer resp.Body.Close()
+    if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+        return fmt.Errorf("自定义HTTP发送失败: %v", resp.Status)
+    }
+    return nil
+}
+
+func UpdateNotifyConfig(db *gorm.DB, config *NotifyConfig) error {
+    // 只存在一条记录，无需主键ID
+    return db.Model(&NotifyConfig{}).Updates(config).Error
 }
 

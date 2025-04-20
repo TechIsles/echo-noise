@@ -170,15 +170,25 @@ https://s2.loli.net/2025/03/27/y67m2k5xcSdTsHN.jpg`
         if err := tx.First(&notifyConfig).Error; err != nil {
             defaultNotifyConfig := NotifyConfig{
                 WebhookEnabled:   false,
-                WebhookURL:      "WebhookURL", // 添加示例URL
+                WebhookURL:      "WebhookURL",
                 TelegramEnabled:  false,
-                TelegramToken:   "bot_token", // 添加示例token
-                TelegramChatID:  "chat_id", // 添加示例chat ID
+                TelegramToken:   "bot_token",
+                TelegramChatID:  "chat_id",
                 WeworkEnabled:    false,
-                WeworkKey:       "key", // 添加示例key
+                WeworkKey:       "WebhookURL",
                 FeishuEnabled:    false,
-                FeishuWebhook:   "FeishuWebhook", // 添加示例webhook
-                FeishuSecret:    "secret", // 添加示例secret
+                FeishuWebhook:   "FeishuWebhook",
+                FeishuSecret:    "secret",
+                TwitterEnabled:         false,
+                TwitterApiKey:          "twitter_api_key",
+                TwitterApiSecret:       "twitter_api_secret",
+                TwitterAccessToken:     "twitter_access_token",
+                TwitterAccessTokenSecret: "twitter_access_token_secret",
+                CustomHttpEnabled:      false,
+                CustomHttpUrl:          "https://example.com/notify",
+                CustomHttpMethod:       "POST",
+                CustomHttpHeaders:      `{"Authorization":"Bearer token"}`,
+                CustomHttpBody:         `{"content":"{{content}}"}`,
             }
             if err := tx.Create(&defaultNotifyConfig).Error; err != nil {
                 return fmt.Errorf("初始化推送配置失败: %v", err)

@@ -634,12 +634,28 @@ func GetNotifyConfig(c *gin.Context) {
 
     config := models.GetNotifyConfig()
     if config == nil {
-        // 如果配置不存在，返回空配置
+        // 如果配置不存在，返回空配置（所有字段默认值）
         config = &models.NotifyConfig{
-            WebhookEnabled:  false,
-            TelegramEnabled: false,
-            WeworkEnabled:   false,
-            FeishuEnabled:   false,
+            WebhookEnabled:         false,
+            WebhookURL:             "",
+            TelegramEnabled:        false,
+            TelegramToken:          "",
+            TelegramChatID:         "",
+            WeworkEnabled:          false,
+            WeworkKey:              "",
+            FeishuEnabled:          false,
+            FeishuWebhook:          "",
+            FeishuSecret:           "",
+            TwitterEnabled:         false,
+            TwitterApiKey:          "",
+            TwitterApiSecret:       "",
+            TwitterAccessToken:     "",
+            TwitterAccessTokenSecret: "",
+            CustomHttpEnabled:      false,
+            CustomHttpUrl:          "",
+            CustomHttpMethod:       "",
+            CustomHttpHeaders:      "",
+            CustomHttpBody:         "",
         }
     }
     c.JSON(http.StatusOK, dto.OK(config, "获取成功"))
@@ -658,7 +674,20 @@ func SaveNotifyConfig(c *gin.Context) {
         c.JSON(http.StatusOK, dto.Fail[string]("无效的配置数据"))
         return
     }
-
+// Twitter校验
+if config.TwitterEnabled {
+    if config.TwitterApiKey == "" || config.TwitterApiSecret == "" || config.TwitterAccessToken == "" || config.TwitterAccessTokenSecret == "" {
+        c.JSON(http.StatusOK, dto.Fail[string]("Twitter配置不完整"))
+        return
+    }
+}
+// 自定义HTTP校验
+if config.CustomHttpEnabled {
+    if config.CustomHttpUrl == "" {
+        c.JSON(http.StatusOK, dto.Fail[string]("自定义HTTP URL不能为空"))
+        return
+    }
+}
     // 根据启用状态验证配置
     if config.WebhookEnabled {
         if config.WebhookURL == "" {
@@ -685,17 +714,24 @@ func SaveNotifyConfig(c *gin.Context) {
         }
     }
 
-    // 打印配置信息以便调试
-    fmt.Printf("保存配置: %+v\n", config)
+    // 打印调试信息（临时添加）
+    fmt.Printf("保存前的Twitter配置: Enabled=%v, Key=%s, Secret=%s\n", 
+        config.TwitterEnabled, 
+        config.TwitterApiKey, 
+        config.TwitterApiSecret)
+    fmt.Printf("保存前的CustomHttp配置: Enabled=%v, Url=%s\n",
+        config.CustomHttpEnabled,
+        config.CustomHttpUrl)
 
     if err := models.SaveNotifyConfig(config); err != nil {
         c.JSON(http.StatusOK, dto.Fail[string]("保存配置失败: "+err.Error()))
         return
     }
 
-    // 保存后重新获取配置进行验证
+    // 获取保存后的配置（调试用）
     savedConfig := models.GetNotifyConfig()
-    fmt.Printf("保存后的配置: %+v\n", savedConfig)
+    fmt.Printf("保存后的Twitter配置: Enabled=%v\n", savedConfig.TwitterEnabled)
+    fmt.Printf("保存后的CustomHttp配置: Enabled=%v\n", savedConfig.CustomHttpEnabled)
 
     c.JSON(http.StatusOK, dto.OK[any](nil, "配置已更新"))
 }
@@ -728,6 +764,10 @@ func TestNotify(c *gin.Context) {
         testErr = models.SendWework(testMsg, emptyImages)
     case "feishu":
         testErr = models.SendFeishu(testMsg)
+    case "twitter":
+        testErr = models.SendTwitter(testMsg)
+    case "customHttp":
+        testErr = models.SendCustomHttp(testMsg)
     default:
         c.JSON(http.StatusOK, dto.Fail[string]("不支持的推送类型"))
         return
@@ -1012,7 +1052,7 @@ func SendNotify(c *gin.Context) {
 
     // 并发处理所有启用的推送渠道
     var wg sync.WaitGroup
-    errorChan := make(chan error, 4) // 用于收集错误
+    errorChan := make(chan error, 6) // 增加通道容量
 
     // Telegram
     if config.TelegramEnabled {
@@ -1054,6 +1094,32 @@ func SendNotify(c *gin.Context) {
             defer wg.Done()
             if err := models.SendWebhook(request.Content); err != nil {
                 errorChan <- fmt.Errorf("Webhook: %v", err)
+            }
+        }()
+    }
+    // Twitter
+    if config.TwitterEnabled {
+        wg.Add(1)
+        go func() {
+            defer wg.Done()
+            // Twitter 字数限制 280
+            tweet := request.Content
+            if len([]rune(tweet)) > 280 {
+                tweet = string([]rune(tweet)[:280]) + "...(内容截断)"
+            }
+            if err := models.SendTwitter(tweet); err != nil {
+                errorChan <- fmt.Errorf("Twitter: %v", err)
+            }
+        }()
+    }
+
+    // 自定义 HTTP
+    if config.CustomHttpEnabled {
+        wg.Add(1)
+        go func() {
+            defer wg.Done()
+            if err := models.SendCustomHttp(request.Content); err != nil {
+                errorChan <- fmt.Errorf("CustomHttp: %v", err)
             }
         }()
     }
