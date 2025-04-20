@@ -51,6 +51,7 @@ const initializeZoom = () => {
   }
 };
 
+const GITHUB_REPO_REG = /https:\/\/github\.com\/([\w-]+)\/([\w.-]+)(?![\w\/])/g;
 const processMediaLinks = (content: string): string => {
   return content
     .replace(BILIBILI_REG, "<div class='video-wrapper'><iframe src='https://www.bilibili.com/blackboard/html5mobileplayer.html?bvid=$1&as_wide=1&high_quality=1&danmaku=0' scrolling='no' border='0' frameborder='no' framespacing='0' allowfullscreen='true' style='position:absolute;height:100%;width:100%'></iframe></div>")
@@ -59,9 +60,41 @@ const processMediaLinks = (content: string): string => {
     .replace(QQMUSIC_REG, "<meting-js auto='https://y.qq.com/n/yqq/song$1.html'></meting-js>")
     .replace(QQVIDEO_REG, "<div class='video-wrapper'><iframe src='//v.qq.com/iframe/player.html?vid=$1' allowFullScreen='true' frameborder='no'></iframe></div>")
     .replace(SPOTIFY_REG, "<div class='spotify-wrapper'><iframe style='border-radius:12px' src='https://open.spotify.com/embed/$1/$2?utm_source=generator&theme=0' width='100%' frameBorder='0' allowfullscreen='' allow='autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture' loading='lazy'></iframe></div>")
-    .replace(YOUKU_REG, "<div class='video-wrapper'><iframe src='https://player.youku.com/embed/$1' frameborder=0 'allowfullscreen'></iframe></div>");
+    .replace(YOUKU_REG, "<div class='video-wrapper'><iframe src='https://player.youku.com/embed/$1' frameborder=0 'allowfullscreen'></iframe></div>")
+    .replace(GITHUB_REPO_REG, (match, owner, repo) => {
+      // 生成一个带有唯一ID的占位卡片
+      const cardId = `github-card-${owner}-${repo}`;
+      return `<div class="github-card" id="${cardId}" data-owner="${owner}" data-repo="${repo}">
+        <div class="github-card-loading">Loading GitHub Repo...</div>
+      </div>`;
+    });
 };
-
+const fetchGitHubRepoInfo = async (owner: string, repo: string, cardId: string) => {
+  try {
+    const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`);
+    if (!res.ok) return;
+    const data = await res.json();
+    const card = document.getElementById(cardId);
+    if (card) {
+      card.innerHTML = `
+        <div class="github-card-header">
+          <img src="${data.owner.avatar_url}" class="github-card-avatar" />
+          <div>
+            <a href="${data.html_url}" target="_blank" class="github-card-title">${data.full_name}</a>
+            <div class="github-card-desc">${data.description || ''}</div>
+          </div>
+        </div>
+        <div class="github-card-footer">
+          <span>⭐ ${data.stargazers_count}</span>
+          <span>🍴 ${data.forks_count}</span>
+          <span>🛠️ ${data.language || ''}</span>
+        </div>
+      `;
+    }
+  } catch (e) {
+    // 忽略错误
+  }
+};
 const renderMarkdown = async (markdown: string) => {
   if (!previewElement.value) return;
 
@@ -119,6 +152,16 @@ const renderMarkdown = async (markdown: string) => {
               emit('tagClick', tagText);
             }
           });
+        });
+        // 渲染 GitHub 卡片
+        const githubCards = previewElement.value?.querySelectorAll('.github-card');
+        githubCards?.forEach(card => {
+          const owner = card.getAttribute('data-owner');
+          const repo = card.getAttribute('data-repo');
+          const cardId = card.id;
+          if (owner && repo && cardId) {
+            fetchGitHubRepoInfo(owner, repo, cardId);
+          }
         });
       }
     });
@@ -355,5 +398,48 @@ onBeforeUnmount(() => {
 
 .medium-zoom-image--opened {
   z-index: 1000;
+}
+.github-card {
+  border: 1px solid #30363d;
+  border-radius: 8px;
+  background: #161b22;
+  color: #c9d1d9;
+  margin: 1em 0;
+  padding: 16px;
+  width: 100%; /* 新增：让卡片宽度自适应父容器 */
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+  font-size: 15px;
+}
+.github-card-header {
+  display: flex;
+  align-items: center;
+}
+.github-card-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  margin-right: 12px;
+}
+.github-card-title {
+  font-weight: bold;
+  color: #58a6ff;
+  text-decoration: none;
+  font-size: 17px;
+}
+.github-card-desc {
+  color: #8b949e;
+  margin-top: 4px;
+  font-size: 14px;
+}
+.github-card-footer {
+  margin-top: 12px;
+  display: flex;
+  gap: 16px;
+  color: #8b949e;
+  font-size: 13px;
+}
+.github-card-loading {
+  color: #8b949e;
+  font-style: italic;
 }
 </style>

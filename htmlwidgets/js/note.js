@@ -263,6 +263,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const YOUKU_REG = /<a href="https:\/\/v\.youku\.com\/.*\/id_([a-zA-Z0-9=]+)\.html">.*?<\/a>/g;
         const YOUTUBE_REG = /<a href="https:\/\/(www\.youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})">.*?<\/a>/g;
         const NETEASE_MUSIC_REG = /<a href="https:\/\/music\.163\.com\/.*?id=(\d+)">.*?<\/a>/g;
+        const GITHUB_REPO_REG = /<a href="https:\/\/github\.com\/([\w-]+)\/([\w.-]+)"[^>]*>.*?<\/a>/g;
 
         // 处理标签（在 Markdown 解析后）
         content = content.replace(/<p>(.*?)<\/p>/g, (match, p) => {
@@ -271,16 +272,23 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // 处理各种媒体链接
         content = content
-            .replace(BILIBILI_REG, "<div class='video-wrapper'><iframe src='https://www.bilibili.com/blackboard/html5mobileplayer.html?bvid=$1&as_wide=1&high_quality=1&danmaku=0' scrolling='no' border='0' frameborder='no' framespacing='0' allowfullscreen='true' style='position:absolute;height:100%;width:100%;'></iframe></div>")
-            .replace(YOUTUBE_REG, "<div class='video-wrapper'><iframe src='https://www.youtube.com/embed/$2' title='YouTube video player' frameborder='0' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' allowfullscreen></iframe></div>")
-            .replace(NETEASE_MUSIC_REG, "<div class='music-wrapper'><meting-js auto='https://music.163.com/#/song?id=$1'></meting-js></div>")
-            .replace(QQMUSIC_REG, "<div class='music-wrapper'><meting-js auto='https://y.qq.com/n/yqq/song$1.html'></meting-js></div>")
-            .replace(QQVIDEO_REG, "<div class='video-wrapper'><iframe src='//v.qq.com/iframe/player.html?vid=$1' allowFullScreen='true' frameborder='no'></iframe></div>")
-            .replace(SPOTIFY_REG, "<div class='spotify-wrapper'><iframe style='border-radius:12px' src='https://open.spotify.com/embed/$1/$2?utm_source=generator&theme=0' width='100%' frameBorder='0' allowfullscreen='' allow='autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture' loading='lazy'></iframe></div>")
-            .replace(YOUKU_REG, "<div class='video-wrapper'><iframe src='https://player.youku.com/embed/$1' frameborder=0 'allowfullscreen'></iframe></div>");
+        .replace(BILIBILI_REG, "<div class='video-wrapper'><iframe src='https://www.bilibili.com/blackboard/html5mobileplayer.html?bvid=$1&as_wide=1&high_quality=1&danmaku=0' scrolling='no' border='0' frameborder='no' framespacing='0' allowfullscreen='true' style='position:absolute;height:100%;width:100%;'></iframe></div>")
+        .replace(YOUTUBE_REG, "<div class='video-wrapper'><iframe src='https://www.youtube.com/embed/$2' title='YouTube video player' frameborder='0' allow='accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture' allowfullscreen></iframe></div>")
+        .replace(NETEASE_MUSIC_REG, "<div class='music-wrapper'><meting-js auto='https://music.163.com/#/song?id=$1'></meting-js></div>")
+        .replace(QQMUSIC_REG, "<div class='music-wrapper'><meting-js auto='https://y.qq.com/n/yqq/song$1.html'></meting-js></div>")
+        .replace(QQVIDEO_REG, "<div class='video-wrapper'><iframe src='//v.qq.com/iframe/player.html?vid=$1' allowFullScreen='true' frameborder='no'></iframe></div>")
+        .replace(SPOTIFY_REG, "<div class='spotify-wrapper'><iframe style='border-radius:12px' src='https://open.spotify.com/embed/$1/$2?utm_source=generator&theme=0' width='100%' frameBorder='0' allowfullscreen='' allow='autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture' loading='lazy'></iframe></div>")
+        .replace(YOUKU_REG, "<div class='video-wrapper'><iframe src='https://player.youku.com/embed/$1' frameborder=0 'allowfullscreen'></iframe></div>")
+        .replace(GITHUB_REPO_REG, (match, owner, repo) => {
+            const cardId = `github-card-${owner}-${repo}-${Math.random().toString(36).slice(2, 8)}`;
+            setTimeout(() => fetchGitHubRepoInfo(owner, repo, cardId), 0);
+            return `<div class="github-card" id="${cardId}" data-owner="${owner}" data-repo="${repo}">
+                <div class="github-card-loading">Loading GitHub Repo...</div>
+            </div>`;
+        });
 
-        return content;
-    }
+    return content;
+}
     
     function updateLoadMoreState(itemCount) {
         if (itemCount >= config.limit) {
@@ -498,3 +506,29 @@ document.addEventListener('DOMContentLoaded', function() {
     // 将filterByTag函数暴露到全局作用域
     window.filterByTag = filterByTag;
 });
+
+// 新增：异步拉取GitHub仓库信息并填充卡片
+function fetchGitHubRepoInfo(owner, repo, cardId) {
+    fetch(`https://api.github.com/repos/${owner}/${repo}`)
+        .then(res => res.ok ? res.json() : null)
+        .then(data => {
+            if (!data) return;
+            const card = document.getElementById(cardId);
+            if (card) {
+                card.innerHTML = `
+                    <div class="github-card-header">
+                        <img src="${data.owner.avatar_url}" class="github-card-avatar" />
+                        <div>
+                            <a href="${data.html_url}" target="_blank" class="github-card-title">${data.full_name}</a>
+                            <div class="github-card-desc">${data.description || ''}</div>
+                        </div>
+                    </div>
+                    <div class="github-card-footer">
+                        <span>⭐ ${data.stargazers_count}</span>
+                        <span>🍴 ${data.forks_count}</span>
+                        <span>🛠️ ${data.language || ''}</span>
+                    </div>
+                `;
+            }
+        });
+}
