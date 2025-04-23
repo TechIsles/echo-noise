@@ -321,7 +321,9 @@ const addImage = async (event: Event) => {
     if (data.code === 1 && data.data) {
       // 直接插入编辑器内容
       if (vditorEditor.value?.insertValue) {
-        const imageMarkdown = `\n![](${BASE_API}${data.data})\n`;
+        // 拼接完整图片链接
+        const origin = typeof window !== 'undefined' ? window.location.origin : '';
+        const imageMarkdown = `\n![](${origin}${BASE_API}${data.data})\n`;
         vditorEditor.value.insertValue(imageMarkdown);
       }
       toast.add({

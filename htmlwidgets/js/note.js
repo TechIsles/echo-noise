@@ -263,7 +263,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const YOUKU_REG = /<a href="https:\/\/v\.youku\.com\/.*\/id_([a-zA-Z0-9=]+)\.html">.*?<\/a>/g;
         const YOUTUBE_REG = /<a href="https:\/\/(www\.youtube\.com\/watch\?v=|youtu\.be\/)([a-zA-Z0-9_-]{11})">.*?<\/a>/g;
         const NETEASE_MUSIC_REG = /<a href="https:\/\/music\.163\.com\/.*?id=(\d+)">.*?<\/a>/g;
-        const GITHUB_REPO_REG = /<a href="https:\/\/github\.com\/([\w-]+)\/([\w.-]+)"[^>]*>.*?<\/a>/g;
+        // 修改正则，避免匹配图片链接
+        const GITHUB_REPO_REG = /<a href="https:\/\/github\.com\/([\w-]+)\/([\w.-]+)(?:\/[^\s"]*)?"[^>]*>(?!<img)[\s\S]*?<\/a>/g;
 
         // 处理标签（在 Markdown 解析后）
         content = content.replace(/<p>(.*?)<\/p>/g, (match, p) => {

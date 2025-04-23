@@ -113,6 +113,7 @@
       size="xs" 
       class="rounded-full px-4 py-1.5 bg-[rgba(36,43,50,0.95)] text-white hover:text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm"
       @click="loadPreviousPage"
+      :disabled="isPageLoading"
     >
       <UIcon name="i-heroicons-arrow-left" class="mr-1 w-4 h-4" /> 
       上一页
@@ -125,10 +126,12 @@
       size="xs" 
       class="rounded-full px-4 py-1.5 bg-[rgba(36,43,50,0.95)] text-white hover:text-white border-none shadow-lg hover:shadow-xl transition-all duration-300 backdrop-blur-sm"
       @click="loadNextPage"
+      :disabled="isPageLoading"
     >
       下一页
       <UIcon name="i-heroicons-arrow-right" class="ml-1 w-4 h-4" />
     </UButton>
+    <span v-if="isPageLoading" class="ml-2 text-orange-400">加载中...</span>
   </div>
 
   <!-- 页码显示和跳转 -->
@@ -371,9 +374,7 @@ const deleteMsg = async (id: number) => {
 
 const initFancybox = () => {
   if (window.Fancybox) {
-    // 先解绑之前的事件，避免冲突
     window.Fancybox.destroy();
-    // 统一配置
     const fancyboxOptions = {
       Carousel: {
         infinite: false,
@@ -396,25 +397,34 @@ const initFancybox = () => {
       },
     };
 
-    // 处理 Markdown 中的图片
+    // 只为远程图片添加灯箱，且每张图片只包裹一次
     const mdImages = document.querySelectorAll(".markdown-preview img");
     mdImages.forEach((img) => {
-      // 移除已存在的包装器
+      const src = img.getAttribute("src") || "";
+      const isRemote = /^https?:\/\//i.test(src);
       const parent = img.parentElement;
-      if (parent && parent.hasAttribute("data-fancybox")) {
+      // 如果已经被包裹且包裹正确，跳过
+      if (parent && parent.tagName === "A" && parent.hasAttribute("data-fancybox")) {
+        // 如果不是远程图片，移除包裹
+        if (!isRemote) {
+          parent.replaceWith(img);
+        }
+        return;
+      }
+      // 只包裹远程图片
+      if (isRemote) {
+        const wrapper = document.createElement("a");
+        wrapper.href = src;
+        wrapper.setAttribute("data-fancybox", "uploaded-image");
+        wrapper.style.display = "block";
+        img.parentNode.insertBefore(wrapper, img);
+        wrapper.appendChild(img);
+      } else if (parent && parent.tagName === "A" && parent.hasAttribute("data-fancybox")) {
+        // 非远程图片且被包裹，移除包裹
         parent.replaceWith(img);
       }
-
-      const src = img.getAttribute("src");
-      const wrapper = document.createElement("a");
-      wrapper.href = src;
-      wrapper.setAttribute("data-fancybox", "uploaded-image");
-      wrapper.style.display = "block";
-      img.parentNode.insertBefore(wrapper, img);
-      wrapper.appendChild(img);
     });
 
-    // 最后统一绑定事件
     window.Fancybox.bind("[data-fancybox]", fancyboxOptions);
   }
 };
@@ -648,67 +658,59 @@ watch(() => route.hash, async (newHash) => {
 }, { immediate: true });
 
 // 修改 loadMore 为 loadNextPage
-const loadNextPage = async () => {
-  if (message.loading) return;
-  
+const isPageLoading = ref(false);
+
+const loadPreviousPage = async () => {
+  if (isPageLoading.value || message.page <= 1) return;
+  isPageLoading.value = true;
   try {
+    const targetPage = message.page - 1;
     const result = await message.getMessages({
-      page: message.page + 1,
+      page: targetPage,
       pageSize: 15,
     });
-    
-    if (!result || !result.items || result.items.length === 0) {
-      message.hasMore = false;
-      return;
+    if (result && Array.isArray(result.items)) {
+      message.messages = result.items;
+      message.page = result.page || targetPage;
+    } else {
+      message.page = targetPage;
     }
-    
-    // 更新内容
-    message.messages = result.items;
-    
-    // 等待 DOM 更新完成
-    await nextTick();
-    checkContentHeight();
-    initFancybox();
-    
+    window.scrollTo({ top: 0, behavior: 'instant' });
   } catch (error) {
-    console.error('加载下一页失败:', error);
     useToast().add({
       title: '加载失败',
       color: 'red',
       timeout: 2000
     });
+  } finally {
+    isPageLoading.value = false;
   }
 };
-// 添加加载上一页方法
-const loadPreviousPage = async () => {
-  if (message.page <= 1 || message.loading) return;
-  
+
+const loadNextPage = async () => {
+  if (isPageLoading.value || !message.hasMore) return;
+  isPageLoading.value = true;
   try {
+    const targetPage = message.page + 1;
     const result = await message.getMessages({
-      page: message.page - 1,
+      page: targetPage,
       pageSize: 15,
     });
-    
-    if (!result) {
-      throw new Error('加载上一页失败');
+    if (result && Array.isArray(result.items)) {
+      message.messages = result.items;
+      message.page = result.page || targetPage;
+    } else {
+      message.page = targetPage;
     }
-    
-    // 先更新内容
-    message.messages = result.items;
-    
-    // 等待 DOM 更新完成后再滚动
-    await nextTick();
-    window.scrollTo({ 
-      top: 0,
-      behavior: 'instant' // 改为即时滚动，避免动画
-    });
+    window.scrollTo({ top: 0, behavior: 'instant' });
   } catch (error) {
-    console.error('加载上一页失败:', error);
     useToast().add({
       title: '加载失败',
       color: 'red',
       timeout: 2000
     });
+  } finally {
+    isPageLoading.value = false;
   }
 };
 // 添加登录状态变化监听
