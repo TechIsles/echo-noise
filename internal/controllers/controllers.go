@@ -82,11 +82,9 @@ func Register(c *gin.Context) {
 // GetMessages 处理 GET /messages 请求，返回所有留言
 func GetMessages(c *gin.Context) {
     showPrivate := false
-    userID, exists := c.Get("user_id")
-    if exists {
-        user, err := services.GetUserByID(userID.(uint))
-        if err == nil && user.IsAdmin {
-            showPrivate = true
+    if userID, exists := c.Get("user_id"); exists {
+        if user, err := services.GetUserByID(userID.(uint)); err == nil {
+            showPrivate = user.IsAdmin // 移除了未使用的uid变量
         }
     }
 
@@ -110,11 +108,9 @@ func GetMessage(c *gin.Context) {
 
     // 检查是否显示私密消息
     showPrivate := false
-    userID, exists := c.Get("user_id")
-    if exists {
-        user, err := services.GetUserByID(userID.(uint))
-        if err == nil && user.IsAdmin {
-            showPrivate = true
+    if userID, exists := c.Get("user_id"); exists {
+        if user, err := services.GetUserByID(userID.(uint)); err == nil {
+            showPrivate = user.IsAdmin // 移除了未使用的uid变量
         }
     }
 
@@ -165,16 +161,16 @@ func GetMessagesByPage(c *gin.Context) {
     }
 
     // 检查权限
+    var uid uint = 0
     showPrivate := false
-    userID, exists := c.Get("user_id")
-    if exists {
-        user, err := services.GetUserByID(userID.(uint))
-        if err == nil && user.IsAdmin {
-            showPrivate = true
+    if userID, exists := c.Get("user_id"); exists {
+        if user, err := services.GetUserByID(userID.(uint)); err == nil {
+            uid = user.ID
+            showPrivate = user.IsAdmin
         }
     }
 
-    pageQueryResult, err := services.GetMessagesByPage(page, pageSize, showPrivate)
+    pageQueryResult, err := services.GetMessagesByPage(page, pageSize, showPrivate, uid)
     if err != nil {
         c.JSON(http.StatusOK, dto.Fail[string](err.Error()))
         return

@@ -25,7 +25,7 @@ func GetMessageByID(id uint, showPrivate bool) (*models.Message, error) {
 }
 
 // GetMessagesByPage 分页获取笔记
-func GetMessagesByPage(page, pageSize int, showPrivate bool) (dto.PageQueryResult, error) {
+func GetMessagesByPage(page int, pageSize int, showPrivate bool, uid uint) (*dto.PageQueryResult, error) {
 	// 参数校验
 	if page < 1 {
 		page = 1
@@ -40,22 +40,28 @@ func GetMessagesByPage(page, pageSize int, showPrivate bool) (dto.PageQueryResul
 	var messages []models.Message
 	var total int64
 
+	query := database.DB.Model(&models.Message{})
+	
 	if showPrivate {
-		// 如果是管理员，则不需要过滤私密笔记
-		database.DB.Model(&models.Message{}).Count(&total)
-		database.DB.Limit(pageSize).Offset(offset).Order("created_at DESC").Find(&messages)
+		// 管理员查看所有私密内容
+		query = query.Where("private = ?", true)
+	} else if uid > 0 {
+		// 普通用户只能查看自己的私密内容
+		query = query.Where("(private = ? AND user_id = ?) OR private = ?", true, uid, false)
 	} else {
-		// 如果不是管理员，则只查询公开的笔记
-		database.DB.Model(&models.Message{}).Where("private = ?", false).Count(&total)
-		database.DB.Limit(pageSize).Offset(offset).Where("private = ?", false).Order("created_at DESC").Find(&messages)
+		// 未登录用户只能看公开内容
+		query = query.Where("private = ?", false)
 	}
 
-	// 返回结果
-	var PageQueryResult dto.PageQueryResult
-	PageQueryResult.Total = total
-	PageQueryResult.Items = messages
+	database.DB.Model(&models.Message{}).Count(&total)
+	database.DB.Limit(pageSize).Offset(offset).Order("created_at DESC").Find(&messages)
 
-	return PageQueryResult, nil
+	// 返回结果
+	var pageQueryResult dto.PageQueryResult
+	pageQueryResult.Total = total
+	pageQueryResult.Items = messages
+
+	return &pageQueryResult, nil
 }
 
 // CreateMessage 发布一条笔记

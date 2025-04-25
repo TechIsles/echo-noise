@@ -62,11 +62,12 @@ COPY --from=backend-build /app/noise /app/noise
 COPY --from=frontend-build /app/public /app/public
 
 # 安装运行时所需的工具
-RUN apk add --no-cache \
-    ca-certificates \
-    postgresql-client \
-    mysql-client \
-    && rm -rf /var/cache/apk/*
+RUN apk update && \
+    apk add --no-cache \
+        ca-certificates \
+        postgresql-client \
+        mysql-client && \
+    rm -rf /var/cache/apk/*
 
 # 创建数据和图片目录
 RUN mkdir -p /app/data/images && \
