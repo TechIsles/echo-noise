@@ -16,16 +16,40 @@ import (
 
 // GetAllMessages 封装业务逻辑，获取所有笔记
 func GetAllMessages(showPrivate bool) ([]models.Message, error) {
-	return repository.GetAllMessages(showPrivate)
+    var messages []models.Message
+    var err error
+
+    if showPrivate {
+        // 如果是管理员或作者，则不需要过滤私密笔记
+        messages, err = repository.GetAllMessages(true)
+    } else {
+        // 如果不是管理员或作者，则只查询公开的笔记
+        messages, err = repository.GetAllMessages(false)
+    }
+
+    if err != nil {
+        return nil, fmt.Errorf("获取消息失败: %v", err)
+    }
+
+    return messages, nil
 }
 
 // GetMessageByID 根据 ID 获取笔记
 func GetMessageByID(id uint, showPrivate bool) (*models.Message, error) {
-	return repository.GetMessageByID(id, showPrivate)
+    message, err := repository.GetMessageByID(id, showPrivate)
+    if err != nil {
+        return nil, fmt.Errorf("获取消息失败: %v", err)
+    }
+
+    if message == nil {
+        return nil, fmt.Errorf("消息不存在")
+    }
+
+    return message, nil
 }
 
 // GetMessagesByPage 分页获取笔记
-func GetMessagesByPage(page int, pageSize int, showPrivate bool, uid uint) (*dto.PageQueryResult, error) {
+func GetMessagesByPage(page, pageSize int, showPrivate bool) (dto.PageQueryResult, error) {
 	// 参数校验
 	if page < 1 {
 		page = 1
@@ -40,28 +64,22 @@ func GetMessagesByPage(page int, pageSize int, showPrivate bool, uid uint) (*dto
 	var messages []models.Message
 	var total int64
 
-	query := database.DB.Model(&models.Message{})
-	
 	if showPrivate {
-		// 管理员查看所有私密内容
-		query = query.Where("private = ?", true)
-	} else if uid > 0 {
-		// 普通用户只能查看自己的私密内容
-		query = query.Where("(private = ? AND user_id = ?) OR private = ?", true, uid, false)
+		// 如果是管理员，则不需要过滤私密笔记
+		database.DB.Model(&models.Message{}).Count(&total)
+		database.DB.Limit(pageSize).Offset(offset).Order("created_at DESC").Find(&messages)
 	} else {
-		// 未登录用户只能看公开内容
-		query = query.Where("private = ?", false)
+		// 如果不是管理员，则只查询公开的笔记
+		database.DB.Model(&models.Message{}).Where("private = ?", false).Count(&total)
+		database.DB.Limit(pageSize).Offset(offset).Where("private = ?", false).Order("created_at DESC").Find(&messages)
 	}
 
-	database.DB.Model(&models.Message{}).Count(&total)
-	database.DB.Limit(pageSize).Offset(offset).Order("created_at DESC").Find(&messages)
-
 	// 返回结果
-	var pageQueryResult dto.PageQueryResult
-	pageQueryResult.Total = total
-	pageQueryResult.Items = messages
+	var PageQueryResult dto.PageQueryResult
+	PageQueryResult.Total = total
+	PageQueryResult.Items = messages
 
-	return &pageQueryResult, nil
+	return PageQueryResult, nil
 }
 
 // CreateMessage 发布一条笔记
