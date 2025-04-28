@@ -396,6 +396,9 @@ const startTypeEffect = () => {
 // 修改 onMounted 钩子
 onMounted(async () => {
   try {
+    // 确保在任何异步操作之前设置加载状态
+    isLoaded.value = false;
+
     // 使用 requestIdleCallback 延迟加载非关键组件
     window.requestIdleCallback = window.requestIdleCallback || ((cb) => setTimeout(cb, 1))
     
@@ -417,7 +420,6 @@ onMounted(async () => {
       // 先加载低质量版本
       const lowQualityImage = `${initialImage}?imageView2/2/w/100/q/30`
       currentImage.value = lowQualityImage
-      isLoaded.value = true
 
       // 后台预加载其他图片
       requestIdleCallback(async () => {
@@ -430,6 +432,7 @@ onMounted(async () => {
       img.onload = () => {
         requestAnimationFrame(() => {
           currentImage.value = initialImage
+          isLoaded.value = true; // 在高质量图片加载完成后设置为已加载
         })
       }
     }

@@ -161,7 +161,21 @@
                     <div class="flex justify-between items-center mb-4">
                         <h2 class="text-xl font-semibold text-white">网站配置</h2>
                     </div>
-                    
+                    <!-- 新用户注册开关 -->
+                    <div class="flex items-center bg-gray-800 rounded p-3 mb-4 justify-between">
+                        <span class="text-white">新用户注册</span>
+                        <div class="flex items-center gap-4">
+                            <div class="flex items-center">
+                                <URadio v-model="registerEnabled" :value="true" class="mr-2" />
+                                <span :class="registerEnabled ? 'text-white' : 'text-gray-400'">允许</span>
+                            </div>
+                            <div class="flex items-center">
+                                <URadio v-model="registerEnabled" :value="false" class="mr-2" />
+                                <span :class="!registerEnabled ? 'text-white' : 'text-gray-400'">不允许</span>
+                            </div>
+                            <UButton color="green" @click="saveRegisterConfig">保存</UButton>
+                        </div>
+                    </div>
 
                     <!-- 配置展示/编辑表单 -->
                     <div class="space-y-4">
@@ -392,6 +406,57 @@ import { useUser } from '~/composables/useUser'
 import { useUserStore } from '~/store/user'
 import { useToast } from '#ui/composables/useToast'
 import NotifyPanel from './NotifyPanel.vue'
+
+// 新用户注册开关相关
+const registerEnabled = ref(true);
+
+// 页面加载时获取配置
+const fetchRegisterConfig = async () => {
+    try {
+        const res = await fetch('/api/frontend/config', { credentials: 'include' });
+        const data = await res.json();
+        if (data.code === 1 && typeof data.data.allowRegistration === 'boolean') {
+            registerEnabled.value = data.data.allowRegistration;
+        }
+    } catch (e) {
+        useToast().add({ title: '获取注册配置失败', color: 'red' });
+    }
+};
+onMounted(fetchRegisterConfig);
+
+// 保存配置
+const saveRegisterConfig = async () => {
+    try {
+        // 先获取完整配置
+        const resConfig = await fetch('/api/frontend/config', { credentials: 'include' });
+        const dataConfig = await resConfig.json();
+        let payload = {};
+        if (dataConfig.code === 1) {
+            payload = {
+                ...dataConfig.data,
+                allowRegistration: registerEnabled.value
+            };
+        } else {
+            // 如果获取失败，只发 allowRegistration（兼容旧接口）
+            payload = { allowRegistration: registerEnabled.value };
+        }
+
+        const res = await fetch('/api/settings', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.code === 1) {
+            useToast().add({ title: '保存成功', color: 'green' });
+        } else {
+            throw new Error(data.msg || '保存失败');
+        }
+    } catch (e) {
+        useToast().add({ title: '保存失败', color: 'red' });
+    }
+};
 
 const userStore = useUserStore()
 const { login, register, logout } = useUser()
@@ -971,7 +1036,8 @@ onMounted(async () => {
         await Promise.all([
             userStore.getStatus(),
             userStore.getUser(),
-            fetchConfig()
+            fetchConfig(),
+            fetchRegisterConfig()
         ]);
 
         // 如果用户已登录，再获取 token

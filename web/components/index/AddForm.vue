@@ -69,6 +69,7 @@
             @click="showImageUploader = true"
             title="图床上传"
           />
+          <!-- 
           <UButton
             color="gray"
             variant="solid"
@@ -78,6 +79,7 @@
             :title="Private ? '设为公开' : '设为私密'"
             :ui="{ tooltip: { text: Private ? '设为公开' : '设为私密' } }"
           />
+          -->
           <UButton
             color="gray"
             variant="solid"

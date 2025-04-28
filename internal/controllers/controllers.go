@@ -15,6 +15,7 @@ import (
     "github.com/lin-snow/ech0/internal/dto"
     "github.com/lin-snow/ech0/internal/models"
     "github.com/lin-snow/ech0/internal/services"
+    "github.com/lin-snow/ech0/internal/database"
     "path/filepath"
     "os"
     "github.com/google/uuid"
@@ -65,6 +66,19 @@ func Logout(c *gin.Context) {
     c.JSON(http.StatusOK, dto.OK[any](nil, "登出成功"))
 }
 func Register(c *gin.Context) {
+    // 新增：注册前判断是否允许注册
+    db, _ := database.GetDB()
+    var setting models.Setting
+    allowReg := true
+    if err := db.Table("settings").First(&setting).Error; err == nil {
+        allowReg = setting.AllowRegistration
+    }
+
+    if !allowReg {
+        c.JSON(http.StatusOK, dto.Fail[string]("当前不允许注册新用户"))
+        return
+    }
+
     var user dto.RegisterDto
     if err := c.ShouldBindJSON(&user); err != nil {
         c.JSON(http.StatusOK, dto.Fail[string](models.InvalidRequestBodyMessage))
@@ -331,22 +345,68 @@ func GetUserInfo(c *gin.Context) {
 }
 
 func UpdateSetting(c *gin.Context) {
-    userID, err := checkAdmin(c)
+    _, err := checkAdmin(c)
     if err != nil {
         c.JSON(http.StatusOK, dto.Fail[string](err.Error()))
         return
     }
 
+    db, _ := database.GetDB()
+    var oldSetting models.Setting
+    if err := db.Table("settings").First(&oldSetting).Error; err != nil {
+        c.JSON(http.StatusOK, dto.Fail[string]("读取原有配置失败"))
+        return
+    }
+
+    // 解析前端传来的配置
     var setting dto.SettingDto
     if err := c.ShouldBindJSON(&setting); err != nil {
         c.JSON(http.StatusOK, dto.Fail[string](models.InvalidRequestBodyMessage))
         return
     }
 
-    // 构建设置映射
-    settingMap := map[string]interface{}{
-        "allowRegistration": setting.AllowRegistration,
-        "frontendSettings": map[string]interface{}{
+    // 只更新传递的字段，未传递的字段保持原值
+    oldSetting.AllowRegistration = setting.AllowRegistration
+
+    // 合并前端配置
+    var frontendSettings map[string]interface{}
+    if setting.FrontendSettings.SiteTitle == "" &&
+        setting.FrontendSettings.SubtitleText == "" &&
+        setting.FrontendSettings.AvatarURL == "" &&
+        setting.FrontendSettings.Username == "" &&
+        setting.FrontendSettings.Description == "" &&
+        len(setting.FrontendSettings.Backgrounds) == 0 &&
+        setting.FrontendSettings.CardFooterTitle == "" &&
+        setting.FrontendSettings.CardFooterLink == "" &&
+        setting.FrontendSettings.PageFooterHTML == "" &&
+        setting.FrontendSettings.RSSTitle == "" &&
+        setting.FrontendSettings.RSSDescription == "" &&
+        setting.FrontendSettings.RSSAuthorName == "" &&
+        setting.FrontendSettings.RSSFaviconURL == "" &&
+        setting.FrontendSettings.WalineServerURL == "" {
+        // 前端未传递 frontendSettings，自动从数据库读取
+        var config models.SiteConfig
+        if err := db.Table("site_configs").First(&config).Error; err == nil {
+            frontendSettings = map[string]interface{}{
+                "siteTitle":          config.SiteTitle,
+                "subtitleText":       config.SubtitleText,
+                "avatarURL":          config.AvatarURL,
+                "username":           config.Username,
+                "description":        config.Description,
+                "backgrounds":        config.GetBackgroundsList(),
+                "cardFooterTitle":    config.CardFooterTitle,
+                "cardFooterLink":     config.CardFooterLink,
+                "pageFooterHTML":     config.PageFooterHTML,
+                "rssTitle":           config.RSSTitle,
+                "rssDescription":     config.RSSDescription,
+                "rssAuthorName":      config.RSSAuthorName,
+                "rssFaviconURL":      config.RSSFaviconURL,
+                "walineServerURL":    config.WalineServerURL,
+            }
+        }
+    } else {
+        // 正常使用前端传递的配置
+        frontendSettings = map[string]interface{}{
             "siteTitle":          setting.FrontendSettings.SiteTitle,
             "subtitleText":       setting.FrontendSettings.SubtitleText,
             "avatarURL":          setting.FrontendSettings.AvatarURL,
@@ -356,34 +416,38 @@ func UpdateSetting(c *gin.Context) {
             "cardFooterTitle":    setting.FrontendSettings.CardFooterTitle,
             "cardFooterLink":     setting.FrontendSettings.CardFooterLink,
             "pageFooterHTML":     setting.FrontendSettings.PageFooterHTML,
-            "rssTitle":          setting.FrontendSettings.RSSTitle,
-            "rssDescription":    setting.FrontendSettings.RSSDescription,
-            "rssAuthorName":     setting.FrontendSettings.RSSAuthorName,
-            "rssFaviconURL":     setting.FrontendSettings.RSSFaviconURL,
-            "walineServerURL":   setting.FrontendSettings.WalineServerURL,
-        },
+            "rssTitle":           setting.FrontendSettings.RSSTitle,
+            "rssDescription":     setting.FrontendSettings.RSSDescription,
+            "rssAuthorName":      setting.FrontendSettings.RSSAuthorName,
+            "rssFaviconURL":      setting.FrontendSettings.RSSFaviconURL,
+            "walineServerURL":    setting.FrontendSettings.WalineServerURL,
+        }
     }
 
-    // 注意：这里需要修改为 UpdateFrontendSetting
-    if err := services.UpdateFrontendSetting(userID, settingMap); err != nil {
-        c.JSON(http.StatusOK, dto.Fail[string](err.Error()))
+    settingMap := map[string]interface{}{
+        "allowRegistration": setting.AllowRegistration,
+        "frontendSettings":  frontendSettings,
+    }
+    if err := services.UpdateFrontendSetting(0, settingMap); err != nil {
+        c.JSON(http.StatusOK, dto.Fail[string]("保存前端配置失败: "+err.Error()))
+        return
+    }
+
+    if err := db.Table("settings").Save(&oldSetting).Error; err != nil {
+        c.JSON(http.StatusOK, dto.Fail[string]("保存配置失败"))
         return
     }
 
     c.JSON(http.StatusOK, dto.OK[any](nil, models.UpdateSettingSuccessMessage))
 }
+
 func GetFrontendConfig(c *gin.Context) {
     config, err := services.GetFrontendConfig()
     if err != nil {
-        c.JSON(http.StatusOK, dto.Fail[string](models.QueryFailMessage))
+        c.JSON(http.StatusOK, gin.H{"code": 0, "msg": "获取配置失败"})
         return
     }
-
-    c.JSON(http.StatusOK, gin.H{
-        "code": 1,
-        "msg":  models.QuerySuccessMessage,
-        "data": config,
-    })
+    c.JSON(http.StatusOK, gin.H{"code": 1, "data": config})
 }
 
 func UpdateMessage(c *gin.Context) {

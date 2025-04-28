@@ -18,10 +18,16 @@ func GetFrontendConfig() (map[string]interface{}, error) {
     if err := db.Table("site_configs").First(&config).Error; err != nil {
         return getDefaultConfig(), nil
     }
-    
-    // 转换为前端所需的格式
+
+    // 新增：读取Setting表的AllowRegistration
+    var setting models.Setting
+    allowReg := true
+    if err := db.Table("settings").First(&setting).Error; err == nil {
+        allowReg = setting.AllowRegistration
+    }
+
     configMap := map[string]interface{}{
-        "allowRegistration": true,
+        "allowRegistration": allowReg,
         "frontendSettings": map[string]interface{}{
             "siteTitle":          config.SiteTitle,
             "subtitleText":       config.SubtitleText,
@@ -39,7 +45,6 @@ func GetFrontendConfig() (map[string]interface{}, error) {
             "walineServerURL":   config.WalineServerURL,
         },
     }
-    
     return configMap, nil
 }
 

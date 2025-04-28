@@ -20,6 +20,8 @@ Ech0 是一款专为轻量级分享而设计的开源自托管平台，支持快
 
 ## 整体改版优化
 
+发布镜像为双版本合一，同时支持linux/amd64,linux/arm64，拉取时会系统会自动选择
+
 ### 编辑器部分：
 
 1. 自适应高度和拖拽调整功能
@@ -55,6 +57,14 @@ Ech0 是一款专为轻量级分享而设计的开源自托管平台，支持快
 <details>
 <summary><h2>✅ 更新状况【点击查看】</h2></summary>
 
+
+- 增加用户注册选项开关，可在后台页面网站配置中设置
+
+  ![1745801297411](https://s2.loli.net/2025/04/28/WpXsncYZLKR7U1C.png)
+
+- 优化首页初始化加载逻辑和速度
+
+- 因私密发布存在逻辑冲突，暂时去除私密内容发布按钮
 
 - 优化图片灯箱效果，去除重复的灯箱代码，优化点击上一页/下一页时的加载逻辑和速度
 
@@ -176,11 +186,13 @@ docker run -d \
   --name Ech0-Noise \
   --platform linux/amd64 \
   -p 1314:1314 \
-  -v /opt/data/noise.db:/app/data/noise.db \
+  -v /opt/data:/app/data \
   noise233/echo-noise
 ```
 
-`/opt/data/noise.db`是你本地的原有数据库文件，如果没有，可以去掉这个挂载命令，它也会自动创建
+其中请确保/opt/data文件夹中包含你原有的数据库文件noise.db，如果没有，可以去掉这个挂载命令，它也会自动创建
+
+你也可以使用-v /opt/data/noise.db:/app/data/noise.db 来只挂载原有数据库，
 
 默认用户名：admin
 
